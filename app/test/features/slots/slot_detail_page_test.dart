@@ -254,9 +254,9 @@ void main() {
     await pumpFrames(tester);
     expect(find.textContaining('ParameterError'), findsWidgets);
 
-    await tester.tap(find.text('Try again'));
-    await tester.pump();
-    expect(find.text('The device rejected that value.'), findsNothing);
+    // ParameterError has no recovery (ErrorRecovery.none): the card shows
+    // the message and its details but no action button to dismiss it.
+    expect(find.text('Try again'), findsNothing);
   });
 
   testWidgetsApp('every control is disabled while a change is in flight', (

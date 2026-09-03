@@ -67,19 +67,21 @@ class ProblemView extends StatelessWidget {
             summary: Text(l10n.commonDetails),
             detail: Text(p.detail),
           ),
-          const SizedBox(height: SpectraSpacing.md),
-          SpectraButton(
-            label: switch (p.recovery) {
-              ErrorRecovery.openSettings => l10n.commonOpenSettings,
-              ErrorRecovery.update => l10n.commonUpdateFirmware,
-              ErrorRecovery.retry ||
-              ErrorRecovery.platformInstructions ||
-              ErrorRecovery.reconnect ||
-              ErrorRecovery.none => l10n.commonRetry,
-            },
-            variant: variant ?? SpectraButtonVariant.primary,
-            onPressed: onAction,
-          ),
+          if (p.recovery != ErrorRecovery.none) ...<Widget>[
+            const SizedBox(height: SpectraSpacing.md),
+            SpectraButton(
+              label: switch (p.recovery) {
+                ErrorRecovery.openSettings => l10n.commonOpenSettings,
+                ErrorRecovery.update => l10n.commonUpdateFirmware,
+                ErrorRecovery.retry ||
+                ErrorRecovery.platformInstructions ||
+                ErrorRecovery.reconnect ||
+                ErrorRecovery.none => l10n.commonRetry,
+              },
+              variant: variant ?? SpectraButtonVariant.primary,
+              onPressed: onAction,
+            ),
+          ],
         ],
       ),
     );

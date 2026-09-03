@@ -59,8 +59,16 @@ void main() {
   });
 
   testWidgetsApp('every other recovery reads as Try again', (tester) async {
-    await pumpProblem(tester, const ParameterError());
+    await pumpProblem(tester, const MalformedResponse('bad payload'));
     expect(find.text('Try again'), findsOneWidget);
+  });
+
+  testWidgetsApp('an error with no recovery renders no action button', (
+    tester,
+  ) async {
+    await pumpProblem(tester, const ParameterError());
+    expect(find.byType(SpectraButton), findsNothing);
+    expect(find.text('Try again'), findsNothing);
   });
 
   testWidgetsApp('the raw line is one tap away', (tester) async {
@@ -72,7 +80,7 @@ void main() {
   });
 
   testWidgetsApp('the caller chooses the button weight', (tester) async {
-    await pumpProblem(tester, const ParameterError());
+    await pumpProblem(tester, const MalformedResponse('bad payload'));
     expect(
       tester.widget<SpectraButton>(find.byType(SpectraButton)).variant,
       SpectraButtonVariant.primary,
@@ -81,7 +89,7 @@ void main() {
 
     await pumpProblem(
       tester,
-      const ParameterError(),
+      const MalformedResponse('bad payload'),
       variant: SpectraButtonVariant.secondary,
     );
     expect(
