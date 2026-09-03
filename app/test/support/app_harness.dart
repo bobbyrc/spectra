@@ -117,6 +117,24 @@ Future<void> pumpTestAppWithBootloader(WidgetTester tester) =>
       const StaticScanner(<DiscoveredDevice>[FakeScanner.emulatedBootloader]),
     );
 
+/// Taps through to a Tools sub-page. The shell is wide enough in tests that
+/// the destination is a rail item.
+Future<void> _openTool(WidgetTester tester, String title) async {
+  await tester.tap(find.text('Tools').last);
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  await tester.tap(find.text(title));
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+Future<void> openFrameLog(WidgetTester tester) =>
+    _openTool(tester, 'Frame log');
+Future<void> openUpdate(WidgetTester tester) =>
+    _openTool(tester, 'Firmware update');
+
 /// Unmounts the widget tree and pumps a few explicit-duration frames.
 ///
 /// `ConnectPage` (reachable whenever a test builds the app root: it is the

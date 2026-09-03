@@ -472,6 +472,42 @@ abstract class AppLocalizations {
   /// **'Firmware update'**
   String get updateTitle;
 
+  /// Shown when the frame log has no entries.
+  ///
+  /// In en, this message translates to:
+  /// **'No frames yet. Connect a device and the log fills up.'**
+  String get frameLogEmpty;
+
+  /// Copies the whole frame log to the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get frameLogCopy;
+
+  /// Confirms the frame log reached the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Frame log copied.'**
+  String get frameLogCopied;
+
+  /// Names the bootloader a recovery was started for.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovering the device at {transportId}.'**
+  String updateRecoverTarget(String transportId);
+
+  /// Spec 5.6 recovery instructions.
+  ///
+  /// In en, this message translates to:
+  /// **'If the device is not listed, hold button B while plugging in the USB cable to enter the bootloader from any state.'**
+  String get updateRecoverInstructions;
+
+  /// Shown while dfuOverBleEnabled is false.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth firmware update is pending hardware validation and is switched off in this build.'**
+  String get updateBleNotice;
+
   /// Heading of the device dashboard.
   ///
   /// In en, this message translates to:

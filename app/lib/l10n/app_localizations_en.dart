@@ -225,6 +225,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateTitle => 'Firmware update';
 
   @override
+  String get frameLogEmpty =>
+      'No frames yet. Connect a device and the log fills up.';
+
+  @override
+  String get frameLogCopy => 'Copy';
+
+  @override
+  String get frameLogCopied => 'Frame log copied.';
+
+  @override
+  String updateRecoverTarget(String transportId) {
+    return 'Recovering the device at $transportId.';
+  }
+
+  @override
+  String get updateRecoverInstructions =>
+      'If the device is not listed, hold button B while plugging in the USB cable to enter the bootloader from any state.';
+
+  @override
+  String get updateBleNotice =>
+      'Bluetooth firmware update is pending hardware validation and is switched off in this build.';
+
+  @override
   String get dashboardTitle => 'Device';
 
   @override
