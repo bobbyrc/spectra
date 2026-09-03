@@ -6,26 +6,47 @@ Windows, macOS, Linux, iOS, Android. Goal: the one-stop shop for the device,
 serving both first-time hobbyists and security researchers through
 progressive disclosure (simple default path, expert detail one tap away).
 
-## Current status (2026-09-02)
+## Current status (2026-09-03)
+
+Phase 0 (foundation) is complete: pub workspace, lint and CI tooling, and both
+package spikes are done and merged to `bobbyrc/chinook`.
+
+- Spike A: keep `libserialport_plus` 1.0.4; build hooks verified on
+  macOS/Windows/Linux; `open()` and the serial entitlement's necessity are
+  deferred to hardware handoff H1.
+- Spike B: build `spectra_ui` on `material_ui` 1.1.1; no `ThemeData` bridge
+  file needed; spec section 6 amended to match.
+
+Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
+"Decisions made overnight" below.
 
 Design spec approved (including an adversarial-review revision):
 `docs/superpowers/specs/2026-09-02-spectra-design.md`. Rationale in
-`docs/research/DECISIONS.md`. Implementation planning is done for the first
-two phases. No application code exists yet.
+`docs/research/DECISIONS.md`.
 
 Plans, in `docs/superpowers/plans/`:
 
 - `2026-09-02-spectra-v1-roadmap.md`: the ten phases, gates and the three
   hardware handoffs. Start here.
-- `2026-09-02-phase-0-foundation.md`: toolchain, workspace, lint, CI, spikes.
+- `2026-09-02-phase-0-foundation.md`: toolchain, workspace, lint, CI, spikes
+  (complete).
 - `2026-09-02-phase-1-chameleon-sdk.md`: the pure-Dart SDK, task by task.
-- Phases 2 to 10: write each plan with the writing-plans skill from the spec
+  Next step.
+- `2026-09-03-phase-2-design-system.md`: the design system on `spectra_ui`.
+  Next step; can run in parallel with Phase 1.
+- Phases 3 to 10: write each plan with the writing-plans skill from the spec
   sections the roadmap lists, when that phase starts.
 
 Execute plans with superpowers:subagent-driven-development. Hardware steps
 need the user's device and never block progress: build against the fake,
 keep `docs/hardware-checklist.md` current, and gate BLE and iOS DFU behind
 the `dfuOverBleEnabled` flag until the user reports the checks passed.
+
+## Decisions made overnight (2026-09-03)
+
+- Draft PR #1 opened from `bobbyrc/chinook` to `main` so `pull_request` CI
+  runs on every push; close or convert when reviewing.
+- Spec section 6 amended by Spike B: no `ThemeData` bridge file.
 
 ## Decisions already made (do not re-ask)
 

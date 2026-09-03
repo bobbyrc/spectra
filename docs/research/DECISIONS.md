@@ -28,5 +28,42 @@ Status: design approved in brainstorm; spec at docs/superpowers/specs/2026-09-02
 - BLE universal_ble; serial libserialport_plus (desktop) + usb_serial (Android); DFU nordic_dfu (mobile/macOS) + pure-Dart Secure DFU over universal_ble (Win/Linux).
 - Riverpod 3 + riverpod_generator; go_router; Drift; freezed 4 + json_serializable; material_ui + dynamic_color + google_fonts + flutter_animate; window_manager + macos_window_utils; alchemist + mocktail + integration_test.
 
+## Phase 0 decisions (2026-09-03)
+
+- **dep_lint allowlist is a deliberate superset of the spec 2 table.** The
+  `chameleon` package additionally allows `freezed_annotation` and `crypto`
+  (Phase 1's DFU implementation needs both, for models and the hash check);
+  `spectra_ui` additionally allows `intl` (ships alongside
+  `flutter_localizations`, which `material_ui` pulls in transitively); the
+  `spectra_ui_gallery` example additionally allows `go_router` (it is the
+  spike host validating go_router coexistence with `material_ui`, spec
+  section 6). Cost if any of these turns out to be wrong: one extra entry in
+  `tool/dep_lint.dart`'s allowlist to remove.
+- **Spike A verdict: keep `libserialport_plus` 1.0.4.** Its code-assets build
+  hook produces the native serial library on macOS, Windows and Linux with no
+  toolchain changes, and `SerialPortInfo` exposes USB VID/PID directly, which
+  is what device identification needs. `open()` behavior and whether the
+  `com.apple.security.device.serial` entitlement is actually required (versus
+  just recommended by the package) are deferred to hardware handoff H1, since
+  they need real hardware. Full writeup: `docs/research/spikes.md`.
+- **Spike B verdict: build `spectra_ui` on `material_ui` 1.1.1.** It is
+  flutter.dev's own extraction of in-SDK Material with matching class names,
+  is a drop-in replacement import, and both `go_router` (which now depends on
+  `material_ui` directly) and `alchemist` goldens work against it without a
+  bridge. The spec 5.6-era plan for a `ThemeData` bridge file is dropped —
+  see the import convention below. Full writeup: `docs/research/spikes.md`.
+- **Import convention for the design system.** `spectra_ui`, its gallery, and
+  app features import `package:material_ui/material_ui.dart` and never
+  `package:flutter/material.dart` — the two declare distinct, same-named
+  types (`ThemeData`, `Theme`, `MaterialApp`, ...) and importing both
+  unprefixed into one file is an `ambiguous_import` analyzer error. This is
+  enforced by lint in `app/lib/features` per the original spec; `spectra_ui`
+  and the gallery follow it by convention pending the same enforcement in a
+  later phase.
+- **Draft PR strategy for CI.** A draft PR (#1, `bobbyrc/chinook` -> `main`)
+  stays open through the phases so `pull_request`-triggered CI runs on every
+  push to the branch, without merging early or blocking on review. Close or
+  convert to ready when the branch is actually ready to merge.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).
