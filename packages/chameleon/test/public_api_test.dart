@@ -45,6 +45,21 @@ void main() {
         FakeScanner.emulatedUltra,
       );
       expect(const HfTagNotFound(), isA<DeviceError>());
+
+      // Mf1DumpWriteResult and ReaderFacade.mf1WriteDump, both public API.
+      device.firmware.present(
+        FakeMf1Card.classic1k(
+          uid: Uint8List.fromList(<int>[0x11, 0x22, 0x33, 0x44]),
+        ),
+      );
+      final Mf1DumpWriteResult writeResult = await session.reader.mf1WriteDump(
+        type: TagType.mifare1k,
+        blocks: Uint8List(64 * 16),
+        candidateKeys: <Uint8List>[FakeMf1Card.defaultKey],
+      );
+      expect(writeResult.blockCount, 64);
+      expect(writeResult.isComplete, isTrue);
+
       await session.close();
     },
   );

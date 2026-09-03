@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import '../../commands/hf_reader.dart';
 import '../../commands/lf_reader.dart';
 import '../../dump/mf1_dump_read_result.dart';
+import '../../dump/mf1_dump_write_result.dart';
 import '../../dump/mifare_geometry.dart';
 import '../../model/enums.dart';
 import '../../model/models.dart';
@@ -12,6 +13,7 @@ import '../cancel_token.dart';
 import '../device_session.dart';
 
 export '../../dump/mf1_dump_read_result.dart';
+export '../../dump/mf1_dump_write_result.dart';
 
 /// Reading real cards (spec 8.1).
 ///
@@ -129,6 +131,59 @@ final class ReaderFacade {
     );
   }
 
+  /// Writes [blocks] onto the MIFARE Classic in the field: the mirror of
+  /// [mf1ReadDump], and it holds the same guarantees — keys found once from
+  /// [candidateKeys], one lease and one [DeviceSession.busy] for the whole
+  /// run, [onProgress] called with the sectors finished and the sectors
+  /// total after each sector, and [cancel] honoured between sectors and by
+  /// each command in flight.
+  ///
+  /// Block 0 is never written: it is the manufacturer block, and only a
+  /// "magic" card accepts a write there. Sector trailers are skipped unless
+  /// [writeTrailers] is set, because writing a trailer with access bits the
+  /// card cannot satisfy locks that sector for good. Skipped blocks are
+  /// false in both masks of the result, which is why
+  /// [Mf1DumpWriteResult.isComplete] measures written against *attempted*.
+  ///
+  /// A block the card refuses is left false rather than throwing, so one bad
+  /// block costs one block and not the whole write.
+  ///
+  /// `hardware-validate` (checklist H3): which key a data block accepts for
+  /// a write depends on its access bits, so the key A then key B order used
+  /// here is only proven on a real card. Against `FakeDevice` both keys are
+  /// the transport key and the order never shows.
+  Future<Mf1DumpWriteResult> mf1WriteDump({
+    required TagType type,
+    required Uint8List blocks,
+    required List<Uint8List> candidateKeys,
+    bool writeTrailers = false,
+    void Function(int done, int total)? onProgress,
+    CancelToken? cancel,
+  }) {
+    final int sectors = MifareGeometry.sectorCount(type);
+    final int totalBlocks = MifareGeometry.blockCount(type);
+    if (blocks.length != totalBlocks * 16) {
+      throw ArgumentError.value(
+        blocks.length,
+        'blocks',
+        'must be ${totalBlocks * 16} bytes for $type',
+      );
+    }
+    return _s.withReaderMode(
+      () => _s.busy(
+        () => _writeDump(
+          sectors,
+          totalBlocks,
+          blocks,
+          candidateKeys,
+          writeTrailers,
+          onProgress,
+          cancel,
+        ),
+      ),
+    );
+  }
+
   Future<Uint8List?> scanEm410x() => _lfScan(const Em410xScan());
   Future<Uint8List?> scanHidProx() => _lfScan(const HidProxScan());
   Future<Uint8List?> scanViking() => _lfScan(const VikingScan());
@@ -167,6 +222,70 @@ final class ReaderFacade {
       onProgress?.call(sector + 1, sectors);
     }
     return Mf1DumpReadResult(blocks: blocks, readMask: mask, keys: keys);
+  }
+
+  Future<Mf1DumpWriteResult> _writeDump(
+    int sectors,
+    int totalBlocks,
+    Uint8List blocks,
+    List<Uint8List> candidateKeys,
+    bool writeTrailers,
+    void Function(int done, int total)? onProgress,
+    CancelToken? cancel,
+  ) async {
+    final written = List<bool>.filled(totalBlocks, false);
+    final attempted = List<bool>.filled(totalBlocks, false);
+    final keys = await _keysForDump(sectors, candidateKeys, cancel);
+    for (var sector = 0; sector < sectors; sector++) {
+      _throwIfCancelled(cancel);
+      final first = MifareGeometry.firstBlockOf(sector);
+      final end = first + MifareGeometry.blocksInSector(sector);
+      final trailer = MifareGeometry.trailerOf(sector);
+      for (var block = first; block < end; block++) {
+        if (block == 0) continue;
+        if (block == trailer && !writeTrailers) continue;
+        attempted[block] = true;
+        written[block] = await _writeOneBlock(
+          block,
+          keys[sector],
+          Uint8List.sublistView(blocks, block * 16, block * 16 + 16),
+          cancel,
+        );
+      }
+      onProgress?.call(sector + 1, sectors);
+    }
+    return Mf1DumpWriteResult(
+      writeMask: written,
+      attemptMask: attempted,
+      keys: keys,
+    );
+  }
+
+  /// Key A first, then key B. A data block whose access bits refuse key A
+  /// can still be written with key B, and a refusal of one key says nothing
+  /// about the other, so both are tried before the block is given up on.
+  Future<bool> _writeOneBlock(
+    int block,
+    SectorKeys k,
+    Uint8List data,
+    CancelToken? cancel,
+  ) async {
+    for (final (KeyType, Uint8List) candidate in <(KeyType, Uint8List)>[
+      if (k.keyA case final Uint8List a) (KeyType.a, a),
+      if (k.keyB case final Uint8List b) (KeyType.b, b),
+    ]) {
+      try {
+        await _s.send(
+          Mf1WriteOneBlock(candidate.$1, block, candidate.$2, data),
+          cancel: cancel,
+        );
+        return true;
+      } on DeviceError {
+        // Wrong key for this block, or a card that would not take it:
+        // try the other key, then give this one block up.
+      }
+    }
+    return false;
   }
 
   /// One working key per sector. Uses MF1_CHECK_KEYS_OF_SECTORS, which tries

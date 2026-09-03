@@ -30,6 +30,7 @@ export 'src/dfu/secure_dfu.dart' show SecureDfu;
 export 'src/dump/dump_format.dart';
 export 'src/dump/em410x.dart';
 export 'src/dump/mf1_dump_read_result.dart';
+export 'src/dump/mf1_dump_write_result.dart';
 export 'src/dump/mifare_classic.dart';
 export 'src/dump/mifare_geometry.dart';
 export 'src/dump/ultralight.dart';
