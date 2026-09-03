@@ -21,6 +21,7 @@ export 'src/components/status_chip.dart';
 export 'src/components/step_indicator.dart';
 export 'src/components/text_field.dart';
 export 'src/theme/spectra_app.dart';
+export 'src/theme/spectra_fonts.dart';
 export 'src/theme/spectra_theme.dart';
 export 'src/theme/theme_data.dart';
 export 'src/tokens/color_scheme.dart';
