@@ -85,12 +85,21 @@ sealed class DeviceError extends ChameleonException {
 
   factory DeviceError.fromStatus(int code) => switch (code) {
     Status.hfTagNo => const HfTagNotFound(),
-    Status.hfErrStat => HfTagError(HfTagErrorKind.generic),
-    Status.hfErrCrc => HfTagError(HfTagErrorKind.crc),
-    Status.hfCollision => HfTagError(HfTagErrorKind.collision),
-    Status.hfErrBcc => HfTagError(HfTagErrorKind.bcc),
-    Status.hfErrParity => HfTagError(HfTagErrorKind.parity),
-    Status.hfErrAts => HfTagError(HfTagErrorKind.ats),
+    Status.hfErrStat => const HfTagError(
+      HfTagErrorKind.generic,
+      Status.hfErrStat,
+    ),
+    Status.hfErrCrc => const HfTagError(HfTagErrorKind.crc, Status.hfErrCrc),
+    Status.hfCollision => const HfTagError(
+      HfTagErrorKind.collision,
+      Status.hfCollision,
+    ),
+    Status.hfErrBcc => const HfTagError(HfTagErrorKind.bcc, Status.hfErrBcc),
+    Status.hfErrParity => const HfTagError(
+      HfTagErrorKind.parity,
+      Status.hfErrParity,
+    ),
+    Status.hfErrAts => const HfTagError(HfTagErrorKind.ats, Status.hfErrAts),
     Status.mfErrAuth => const AuthenticationFailed(),
     Status.lfTagNoFound => const LfTagNotFound(),
     Status.lfTagLoginRequired => const LfLoginRequired(),
@@ -113,7 +122,7 @@ final class HfTagNotFound extends DeviceError {
 }
 
 final class HfTagError extends DeviceError {
-  HfTagError(this.kind) : super(kind.code, 'HF tag error');
+  const HfTagError(this.kind, int code) : super(code, 'HF tag error');
   final HfTagErrorKind kind;
 }
 
