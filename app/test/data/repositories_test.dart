@@ -114,6 +114,32 @@ void main() {
       });
     }
 
+    test(
+      'memory: watchAll emits the current rows and then every change',
+      () async {
+        // The single-subscription controller's `onListen` runs inside
+        // `listen()`, so a `remember()` issued before the first snapshot is
+        // delivered is still seen. An `async*` version would have dropped it.
+        final repo = InMemoryKnownDevicesRepository();
+        await repo.remember(
+          identity: identity,
+          displayName: 'Ultra',
+          kind: TransportKind.usb,
+          transportId: 'a',
+        );
+        final collected = repo.watchAll().take(2).toList();
+        await repo.remember(
+          identity: const DeviceIdentity('chip-2'),
+          displayName: 'Second',
+          kind: TransportKind.usb,
+          transportId: 'b',
+        );
+        final emissions = await collected;
+        expect(emissions.first, hasLength(1));
+        expect(emissions.last, hasLength(2));
+      },
+    );
+
     test('drift: watchAll emits on every change', () async {
       final repo = DriftKnownDevicesRepository(db);
       expect(repo.watchAll(), emitsInOrder(<Object>[isEmpty, hasLength(1)]));

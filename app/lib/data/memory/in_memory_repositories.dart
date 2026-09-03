@@ -6,6 +6,30 @@ import '../models/known_device.dart';
 import '../models/saved_card.dart';
 import '../repositories.dart';
 
+/// A stream of [snapshot] followed by every value [changes] carries.
+///
+/// Not `async* { yield snapshot(); yield* changes; }`: that subscribes to
+/// [changes] only after the first yield has been *delivered*, which is
+/// asynchronous, so a write made between `watchAll()` and the subscriber
+/// actually attaching lands on a broadcast controller with no listener and
+/// is dropped — the caller then never sees it, because the snapshot it did
+/// get was taken before the write. A single-subscription controller's
+/// `onListen` runs synchronously inside `listen()`, so the snapshot and the
+/// live subscription are both in place before the caller regains control,
+/// which is the behaviour Drift's own `watchAll` has.
+Stream<T> _snapshotThenChanges<T>(T Function() snapshot, Stream<T> changes) {
+  late StreamController<T> controller;
+  StreamSubscription<T>? subscription;
+  controller = StreamController<T>(
+    onListen: () {
+      controller.add(snapshot());
+      subscription = changes.listen(controller.add, onDone: controller.close);
+    },
+    onCancel: () => subscription?.cancel(),
+  );
+  return controller.stream;
+}
+
 /// Repository implementations with no database behind them, for unit tests
 /// that are about something else (spec 8.6).
 final class InMemoryKnownDevicesRepository implements KnownDevicesRepository {
@@ -56,10 +80,8 @@ final class InMemoryKnownDevicesRepository implements KnownDevicesRepository {
   }
 
   @override
-  Stream<List<KnownDevice>> watchAll() async* {
-    yield _sorted();
-    yield* _changes.stream;
-  }
+  Stream<List<KnownDevice>> watchAll() =>
+      _snapshotThenChanges(() => _sorted(), _changes.stream);
 
   List<KnownDevice> _sorted() =>
       _rows.values.toList()..sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
@@ -111,29 +133,8 @@ final class InMemorySavedCardsRepository implements SavedCardsRepository {
   }
 
   @override
-  Stream<List<SavedCard>> watchAll() {
-    // Not `async* { yield _sorted(); yield* _changes.stream; }`: that
-    // subscribes to `_changes` only after the first yield is delivered,
-    // which is asynchronous, so a `save()` between `watchAll()` and the
-    // subscriber actually attaching lands on `_changes` (a broadcast
-    // controller) with no listener and is dropped. A single-subscription
-    // controller's `onListen` runs synchronously inside `listen()`, so the
-    // snapshot and the live subscription are both in place before this
-    // method's caller regains control.
-    late StreamController<List<SavedCard>> controller;
-    StreamSubscription<List<SavedCard>>? subscription;
-    controller = StreamController<List<SavedCard>>(
-      onListen: () {
-        controller.add(_sorted());
-        subscription = _changes.stream.listen(
-          controller.add,
-          onDone: controller.close,
-        );
-      },
-      onCancel: () => subscription?.cancel(),
-    );
-    return controller.stream;
-  }
+  Stream<List<SavedCard>> watchAll() =>
+      _snapshotThenChanges(() => _sorted(), _changes.stream);
 
   List<SavedCard> _sorted() =>
       _rows.values.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
