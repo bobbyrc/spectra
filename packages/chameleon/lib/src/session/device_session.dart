@@ -15,6 +15,7 @@ import 'dispatcher.dart';
 import 'facades/device.dart';
 import 'facades/emulator.dart';
 import 'facades/firmware.dart';
+import 'facades/reader.dart';
 import 'facades/settings.dart';
 import 'facades/slots.dart';
 import 'reader_lease.dart';
@@ -74,6 +75,7 @@ final class DeviceSession {
   late final SlotsFacade slots = SlotsFacade(this);
   late final SettingsFacade settings = SettingsFacade(this);
   late final EmulatorFacade emulator = EmulatorFacade(this);
+  late final ReaderFacade reader = ReaderFacade(this);
   late final FirmwareFacade firmware = FirmwareFacade(this);
 
   final StreamController<ChameleonException> _backgroundErrors =

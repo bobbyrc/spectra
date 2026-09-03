@@ -129,13 +129,18 @@ final class Mf1CheckKeysOfSectors extends Command<Mf1KeyCheckResult> {
     required this.keyTypes,
     required List<Uint8List> keys,
   }) : keys = List.unmodifiable(keys) {
-    if (keys.length > 83) {
-      throw ArgumentError.value(keys.length, 'keys', 'at most 83 keys');
+    if (keys.length > maxKeys) {
+      throw ArgumentError.value(keys.length, 'keys', 'at most $maxKeys keys');
     }
     for (final k in keys) {
       _requireLength(k, 6, 'key');
     }
   }
+
+  /// The most candidate keys one request can carry: the mask plus 83 keys
+  /// is the largest payload the firmware accepts.
+  static const int maxKeys = 83;
+
   final Set<int> sectors;
   final Set<KeyType> keyTypes;
   final List<Uint8List> keys;
