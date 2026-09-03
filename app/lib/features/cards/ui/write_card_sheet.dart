@@ -198,6 +198,11 @@ class _WriteCardBodyState extends ConsumerState<_WriteCardBody> {
           Text(tagTypeLabel(widget.type, l10n)),
           const SizedBox(height: SpectraSpacing.md),
           Text(l10n.cardsWriteNotice),
+          if (writeMethodFor(widget.type) ==
+              CardWriteMethod.em410xT55xx) ...<Widget>[
+            const SizedBox(height: SpectraSpacing.md),
+            Text(l10n.cardsWriteT55xxPassword),
+          ],
           const SizedBox(height: SpectraSpacing.md),
           // Sector trailers are a MIFARE Classic notion, and `CardWriter`
           // only passes `writeTrailers` down the Classic branch: on an

@@ -986,6 +986,63 @@ void main() {
       expect(await pending, isNull);
     });
 
+    testWidgetsApp('an EM410x write notes the fixed T55xx password', (
+      tester,
+    ) async {
+      await openWriterWithLfCard(
+        tester,
+        Uint8List.fromList(<int>[0x11, 0x22, 0x33, 0x44, 0x55]),
+      );
+      final BuildContext context = tester.element(find.byType(SpectraAppShell));
+
+      final Future<bool?> pending = showWriteToCardSheet(
+        context,
+        type: TagType.em410x,
+        bytes: Uint8List.fromList(<int>[1, 2, 3, 4, 5]),
+        name: 'Gate fob',
+      );
+      await pumpFrames(tester);
+      expect(
+        _inSheet(
+          find.text(
+            "Writing sets the card's password to 20206666; other tools "
+            'will need it.',
+          ),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(_inSheet(find.byIcon(Icons.close)));
+      await pumpFrames(tester);
+      expect(await pending, isNull);
+    });
+
+    testWidgetsApp('a Classic write says nothing about a T55xx password', (
+      tester,
+    ) async {
+      await openWriterWithMf1Card(tester);
+      final BuildContext context = tester.element(find.byType(SpectraAppShell));
+
+      final Future<bool?> pending = showWriteToCardSheet(
+        context,
+        type: TagType.mifare1k,
+        bytes: classic1kFilled(),
+        name: 'Office badge',
+      );
+      await pumpFrames(tester);
+      expect(
+        _inSheet(
+          find.text(
+            "Writing sets the card's password to 20206666; other tools "
+            'will need it.',
+          ),
+        ),
+        findsNothing,
+      );
+      await tester.tap(_inSheet(find.byIcon(Icons.close)));
+      await pumpFrames(tester);
+      expect(await pending, isNull);
+    });
+
     testWidgetsApp(
       'the unread-sector warning goes back to confirm with the toggle intact',
       (tester) async {
