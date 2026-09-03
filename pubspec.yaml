@@ -66,5 +66,10 @@ melos:
       description: Run the workspace root's own tests (tool/ dep lint tests).
     check:codegen:
       run: bash tool/check_codegen.sh
+    check:release:
+      run: dart run tool/check_release.dart --tag "${RELEASE_TAG:-v1.0.0-rc.1}"
+      description: >-
+        Release preflight: the tag must agree with app/pubspec.yaml and
+        CHANGELOG.md. A LICENSE TODO warns but never fails.
     check:all:
       run: melos run format && melos run analyze && melos run lint:deps && melos run test:root && melos run check:codegen && melos run test:dart && melos run test:flutter
