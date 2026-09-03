@@ -245,6 +245,8 @@
   "@slotChangeType": {"description": "Opens the tag type picker for one sense."},
   "slotChooseType": "Choose a tag type",
   "@slotChooseType": {"description": "Title of the tag type sheet."},
+  "slotPickerTitle": "Choose a slot",
+  "@slotPickerTitle": {"description": "Title of the slot picker sheet other features open."},
   "slotClear": "Clear",
   "@slotClear": {"description": "Empties one sense of a slot."},
   "slotClearTitle": "Clear this slot?",

@@ -802,6 +802,12 @@ abstract class AppLocalizations {
   /// **'Choose a tag type'**
   String get slotChooseType;
 
+  /// Title of the slot picker sheet other features open.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a slot'**
+  String get slotPickerTitle;
+
   /// Empties one sense of a slot.
   ///
   /// In en, this message translates to:

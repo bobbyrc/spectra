@@ -399,6 +399,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get slotChooseType => 'Choose a tag type';
 
   @override
+  String get slotPickerTitle => 'Choose a slot';
+
+  @override
   String get slotClear => 'Clear';
 
   @override
