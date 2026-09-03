@@ -1,0 +1,6 @@
+tags:
+  hardware:
+    description: Needs a real Chameleon Ultra; see docs/hardware-checklist.md.
+    skip: "run with --tags hardware and a device attached"
+  hardware-validate:
+    description: Behaviour unproven on hardware; see docs/hardware-checklist.md.

@@ -13,6 +13,8 @@ dependencies:
     sdk: flutter
   chameleon: ^0.1.0
   libserialport_plus: ^1.0.4
+  universal_ble: ^2.2.0
+  usb_serial: ^0.5.2
 
 dev_dependencies:
   flutter_test:
