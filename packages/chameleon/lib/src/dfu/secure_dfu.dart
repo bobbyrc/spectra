@@ -106,6 +106,9 @@ final class SecureDfu {
       }
       report(DfuStage.done, total);
     } finally {
+      // Safe to await: `ResponseQueue.cancel()` returns an already-completed
+      // future and does not await the subscription's own cancel, which a
+      // fake clock never drives.
       await responses.cancel();
     }
   }

@@ -230,9 +230,9 @@ final class DfuOrchestrator {
       await closed.future;
     } finally {
       timer.cancel();
-      // Not awaited: `transport.state` is a broadcast stream, and a broadcast
-      // subscription's `cancel()` future never completes under a fake clock,
-      // which would hang every widget test that reaches here.
+      // Not awaited: a `StreamSubscription.cancel()` future is not driven by
+      // a fake clock, whatever the stream behind it, so awaiting one would
+      // hang every widget test that reaches here.
       unawaited(sub.cancel());
     }
   }
@@ -363,8 +363,7 @@ final class DfuOrchestrator {
       timer.cancel();
       release?.call();
       for (final sub in subs) {
-        // Not awaited, for the reason `_awaitReboot` gives: a scanner may
-        // hand out a broadcast stream.
+        // Not awaited, for the reason `_awaitReboot` gives.
         unawaited(sub.cancel());
       }
     }

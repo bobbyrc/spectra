@@ -66,10 +66,9 @@ void main() {
 
   test('a whole run finishes under a virtual clock', () {
     // Regression: the reboot watcher and the scan passes used to await their
-    // subscriptions' `cancel()`. `Transport.state` is a broadcast stream and
-    // a broadcast subscription's cancel future never completes when time is
-    // virtual — the only kind of time a Flutter widget test has — so a run
-    // that passes every test above (real time) hung there forever.
+    // subscriptions' `cancel()`, whose future a fake clock never drives.
+    // Virtual time is the only kind a Flutter widget test has, so a run that
+    // passes every test above (real time) hung there forever.
     fakeAsync((async) {
       final device = FakeDevice();
       final s = sessionFor(device);

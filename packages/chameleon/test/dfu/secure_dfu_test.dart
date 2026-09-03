@@ -27,10 +27,10 @@ void main() {
 
   test('a transfer finishes under a virtual clock', () {
     // Regression: `ResponseQueue.cancel()` used to await the subscription's
-    // own `cancel()`. `DfuChannel.responses` is a broadcast stream, and a
-    // broadcast subscription's cancel future never completes when time is
-    // virtual — which is the only kind of time a Flutter widget test has, so
-    // `run()` hung forever after its last progress report there while every
+    // own `cancel()`, whose future a fake clock never drives (the stream kind
+    // makes no difference — a single-subscription controller hangs the same
+    // way). Virtual time is the only kind a Flutter widget test has, so
+    // `run()` hung forever there after its last progress report while every
     // test in this file (real time) passed.
     fakeAsync((async) {
       final ch = FakeDfuChannel(FakeBootloader(maxObjectSize: 4096));
