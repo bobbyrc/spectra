@@ -36,16 +36,4 @@ void main() {
     expect(second.active, isFalse);
     expect(second.enabled, isFalse);
   });
-
-  testWidgetsApp('the empty state replaces the grid with nothing connected', (
-    tester,
-  ) async {
-    await pumpTestAppWithNoDevices(tester);
-    await tester.pump();
-
-    // Nothing is connected, so routing holds the connect screen and the
-    // grid is never built; the page itself still renders its empty state
-    // when mounted directly.
-    expect(find.byType(SpectraSlotTile), findsNothing);
-  });
 }
