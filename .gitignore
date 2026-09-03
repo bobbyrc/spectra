@@ -3,11 +3,9 @@ build/
 *.iml
 .idea/
 .vscode/
-pubspec.lock
-!/pubspec.lock
 coverage/
 .flutter-plugins-dependencies
 **/ios/Pods/
 **/macos/Pods/
-**/*.lock
+pubspec.lock
 !/pubspec.lock
