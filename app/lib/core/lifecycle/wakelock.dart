@@ -4,6 +4,7 @@ import 'package:chameleon/chameleon.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../dfu/dfu_runtime.dart';
 import '../session/active_device.dart';
 import '../session/session_streams.dart';
 
@@ -96,10 +97,14 @@ WakelockGateway wakelockGateway(Ref ref) => const WakelockPlusGateway();
 WakelockController wakelock(Ref ref) {
   final controller = WakelockController(
     gateway: ref.read(wakelockGatewayProvider),
-    shouldHold: () => sessionNeedsWakelock(
-      ref.read(activeSessionProvider)?.session,
-      ref.read(connectionStatusProvider),
-    ),
+    // Spec 7.4 and 5.6: a session that is updating, a reader lease or a busy
+    // session — plus a recovery flash, which has no session to ask.
+    shouldHold: () =>
+        sessionNeedsWakelock(
+          ref.read(activeSessionProvider)?.session,
+          ref.read(connectionStatusProvider),
+        ) ||
+        ref.read(dfuActivityProvider),
   );
   controller.start();
   ref.onDispose(controller.stop);

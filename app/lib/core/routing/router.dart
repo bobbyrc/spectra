@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../features/connect/connect.dart';
+import '../dfu/dfu_runtime.dart';
 import '../session/session_streams.dart';
 import 'app_sections.dart';
 import 'redirect.dart';
@@ -16,6 +17,9 @@ part 'router.g.dart';
 final class RouterRefresh extends ChangeNotifier {
   RouterRefresh(Ref ref) {
     ref.listen(connectionStatusProvider, (_, _) => notifyListeners());
+    // A flash starting or finishing changes what is reachable, exactly as a
+    // connection-state change does.
+    ref.listen(dfuActivityProvider, (_, _) => notifyListeners());
   }
 }
 
@@ -29,6 +33,7 @@ GoRouter router(Ref ref) {
     redirect: (context, state) => redirectFor(
       state: ref.read(connectionStatusProvider),
       location: state.uri.path,
+      updating: ref.read(dfuActivityProvider),
     ),
     routes: <RouteBase>[
       GoRoute(

@@ -94,4 +94,41 @@ void main() {
       isFalse,
     );
   });
+
+  test('sessionNeedsWakelock alone knows nothing about a flash: the recovery '
+      'path has no DeviceSession at all, so a running flash has to be a '
+      'separate input to the composed predicate below', () {
+    expect(
+      sessionNeedsWakelock(
+        null,
+        const SessionDisconnected(DisconnectCause.requested),
+      ),
+      isFalse,
+    );
+  });
+
+  test('the composed predicate (spec 5.6) holds while a flash runs, even '
+      'with no session at all', () async {
+    var flashing = false;
+    final controller = WakelockController(
+      gateway: RecordingGateway(),
+      shouldHold: () =>
+          sessionNeedsWakelock(
+            null,
+            const SessionDisconnected(DisconnectCause.requested),
+          ) ||
+          flashing,
+    );
+
+    await controller.poll();
+    expect(controller.held, isFalse, reason: 'not flashing yet');
+
+    flashing = true;
+    await controller.poll();
+    expect(controller.held, isTrue);
+
+    flashing = false;
+    await controller.poll();
+    expect(controller.held, isFalse, reason: 'released once the flash ends');
+  });
 }
