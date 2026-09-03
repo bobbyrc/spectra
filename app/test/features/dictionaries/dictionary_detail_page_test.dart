@@ -1,15 +1,61 @@
+import 'package:chameleon/chameleon.dart' show SessionNotReady;
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectra/app.dart';
+import 'package:spectra/data/data.dart';
+import 'package:spectra/data/memory/in_memory_repositories.dart';
 import 'package:spectra/features/dictionaries/state/dictionaries_provider.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../support/app_harness.dart';
 
+/// Delegates to another [DictionariesRepository], but [delete] throws once
+/// while [failNextDelete] is true — the `card_detail_page_test.dart`
+/// `_FlakySavedCardsRepository` shape, for exercising `_delete`'s
+/// navigate-then-remove ordering without a repository that always fails.
+final class _FlakyDictionariesRepository implements DictionariesRepository {
+  _FlakyDictionariesRepository(this._delegate);
+  final DictionariesRepository _delegate;
+  bool failNextDelete = false;
+
+  @override
+  Future<List<KeyDictionary>> all() => _delegate.all();
+
+  @override
+  Future<void> save(KeyDictionary dictionary) => _delegate.save(dictionary);
+
+  @override
+  Future<void> delete(String id) async {
+    if (failNextDelete) {
+      failNextDelete = false;
+      throw const SessionNotReady('boom');
+    }
+    return _delegate.delete(id);
+  }
+
+  @override
+  Stream<List<KeyDictionary>> watchAll() => _delegate.watchAll();
+}
+
 /// Creates a list called Hotel and opens it. Returns nothing: every test
 /// below asserts on what is on screen.
-Future<void> _openHotel(WidgetTester tester) async {
+Future<void> _openHotel(
+  WidgetTester tester, {
+  List<Override> extraOverrides = const <Override>[],
+}) async {
   useDesktopSurface(tester);
-  await pumpTestApp(tester);
+  if (extraOverrides.isEmpty) {
+    await pumpTestApp(tester);
+  } else {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[...appOverrides(), ...extraOverrides],
+        child: const SpectraRoot(),
+      ),
+    );
+  }
   await connectToEmulator(tester);
   await openDictionaries(tester);
 
@@ -114,6 +160,38 @@ void main() {
 
     expect(find.text('No key lists of your own yet.'), findsOneWidget);
   });
+
+  testWidgetsApp(
+    'navigates back to the list screen even when the delete itself fails',
+    (tester) async {
+      final _FlakyDictionariesRepository repo = _FlakyDictionariesRepository(
+        InMemoryDictionariesRepository(),
+      );
+      await _openHotel(
+        tester,
+        extraOverrides: <Override>[
+          dictionariesRepositoryProvider.overrideWithValue(repo),
+        ],
+      );
+      repo.failNextDelete = true;
+
+      await tester.tap(find.text('Delete list'));
+      await pumpFrames(tester);
+      await tester.tap(find.text('Delete list').last);
+      await pumpFrames(
+        tester,
+        count: 20,
+        step: const Duration(milliseconds: 50),
+      );
+
+      // Back on the list screen — the "New list" affordance only exists
+      // there — even though the delete failed and Hotel is still in the
+      // repository (`navigate then remove`, matching
+      // `card_detail_page_test.dart`'s delete precedent).
+      expect(find.text('New list'), findsOneWidget);
+      expect(find.text('Hotel'), findsOneWidget);
+    },
+  );
 
   testWidgetsApp('the built-in list is read-only and can be duplicated', (
     tester,

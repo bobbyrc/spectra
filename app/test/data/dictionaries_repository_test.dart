@@ -101,6 +101,19 @@ void main() {
         expect(emitted.last.map((KeyDictionary d) => d.id), hasLength(2));
       });
 
+      test('all() and watchAll() both return a growable list', () async {
+        final DictionariesRepository repo = entry.value();
+        await repo.save(_dict('a'));
+
+        // `DriftDictionariesRepository.watchAll()` used to build its list
+        // with `growable: false` while `all()` did not — a caller that
+        // sorted or otherwise mutated a `watchAll()` result in place would
+        // throw only for that method, only on that implementation. Both
+        // methods on both implementations must agree.
+        (await repo.all()).add(_dict('b'));
+        (await repo.watchAll().first).add(_dict('c'));
+      });
+
       test(
         'an empty key list round-trips as empty, not as one blank key',
         () async {

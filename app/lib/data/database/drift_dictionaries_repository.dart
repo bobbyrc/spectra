@@ -29,7 +29,7 @@ final class DriftDictionariesRepository implements DictionariesRepository {
         KeyDictionaryRow(
           id: dictionary.id,
           name: dictionary.name,
-          keys: encodeKeyLines(dictionary.keys),
+          keys: _encodeKeyLines(dictionary.keys),
           updatedAt: dictionary.updatedAt,
         ),
       );
@@ -38,10 +38,13 @@ final class DriftDictionariesRepository implements DictionariesRepository {
   Future<void> delete(String id) =>
       (_db.delete(_db.keyDictionaries)..where((t) => t.id.equals(id))).go();
 
+  // Growable, matching `all()` above and `InMemoryDictionariesRepository`'s
+  // own `watchAll()`: `DictionariesRepository` documents no fixed-length
+  // contract, and a `growable: false` list here would throw the moment a
+  // caller tried to sort or otherwise mutate what it got back.
   @override
-  Stream<List<KeyDictionary>> watchAll() => _newestFirst().watch().map(
-    (rows) => rows.map(_toModel).toList(growable: false),
-  );
+  Stream<List<KeyDictionary>> watchAll() =>
+      _newestFirst().watch().map((rows) => rows.map(_toModel).toList());
 
   SimpleSelectStatement<$KeyDictionariesTable, KeyDictionaryRow>
   _newestFirst() =>
@@ -54,17 +57,29 @@ final class DriftDictionariesRepository implements DictionariesRepository {
   KeyDictionary _toModel(KeyDictionaryRow row) => KeyDictionary(
     id: row.id,
     name: row.name,
-    keys: decodeKeyLines(row.keys),
+    keys: _decodeKeyLines(row.keys),
     updatedAt: row.updatedAt.toUtc(),
   );
 }
 
-/// One key per line, upper-case hex. Public so the in-memory repository and
-/// the tests share exactly one encoding.
-String encodeKeyLines(List<Uint8List> keys) =>
+/// One key per line, upper-case hex.
+///
+/// Private: `InMemoryDictionariesRepository` stores `KeyDictionary.keys`
+/// directly and never calls this — only this table's own blob column needs
+/// a text encoding — and nothing outside this file reads it either.
+String _encodeKeyLines(List<Uint8List> keys) =>
     keys.map<String>(toHex).join('\n');
 
-List<Uint8List> decodeKeyLines(String blob) => <Uint8List>[
+/// The inverse of [_encodeKeyLines]. Every dictionary in this app is a
+/// MIFARE Classic key list (spec 7.3 scope for v1), so a line is kept only
+/// when it parses as a 6-byte key via [parseMifareKey] — a line that is not
+/// a key at all (a hand-edited database, a future format) is silently
+/// dropped rather than failing the whole read, per this file's own top
+/// doc comment. That same 6-byte check means a *shorter* key some future
+/// dictionary kind might hold (an LF password, say) would be dropped here
+/// too, not just outright-invalid text; there is no such kind yet, but a
+/// change that adds one must widen this, not just `parseMifareKey`.
+List<Uint8List> _decodeKeyLines(String blob) => <Uint8List>[
   for (final String line in blob.split('\n'))
     if (parseMifareKey(line) case final Uint8List key) key,
 ];

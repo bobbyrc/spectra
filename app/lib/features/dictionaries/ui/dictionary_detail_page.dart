@@ -230,8 +230,15 @@ class DictionaryDetailPage extends ConsumerWidget {
       ],
     );
     if (confirmed != true) return;
-    await library.remove(dictionary.id);
+    // Navigate away first, then remove — the `card_detail_page.dart`
+    // `_confirmDelete` precedent, and for the same reason: `remove` sets
+    // this dictionary's row gone, which this page would otherwise render
+    // as "not found" for a frame before the route change lands. This means
+    // navigation happens unconditionally, even when `remove` goes on to
+    // fail: a failed delete has nowhere left to show a `ProblemView` once
+    // the list screen is already on screen, same as cards.
     router.go(AppRoutes.dictionaries);
+    await library.remove(dictionary.id);
   }
 }
 
