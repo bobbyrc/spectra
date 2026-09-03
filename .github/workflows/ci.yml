@@ -51,16 +51,6 @@ jobs:
           - os: ubuntu-latest
             target: android
             cmd: flutter build apk --debug
-          # TEMPORARY (Spike A): probe libserialport_plus build hooks on
-          # Windows and Linux. Removed once the spike verdict is recorded.
-          - os: ubuntu-latest
-            target: linux
-            cmd: flutter build linux --debug
-            workdir: packages/chameleon_flutter/example
-          - os: windows-latest
-            target: windows
-            cmd: flutter build windows --debug
-            workdir: packages/chameleon_flutter/example
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -78,14 +68,4 @@ jobs:
           java-version: '17'
       - run: flutter pub get
       - run: ${{ matrix.cmd }}
-        working-directory: ${{ matrix.workdir || 'app' }}
-      # TEMPORARY (Spike A): prove the code-assets build hook actually
-      # produced a libserialport native asset, not just a green build.
-      - if: matrix.workdir != ''
-        shell: bash
-        working-directory: ${{ matrix.workdir }}
-        run: |
-          echo "native assets produced:"
-          found=$(find build -iname '*serialport*' -print)
-          echo "$found"
-          test -n "$found"
+        working-directory: app
