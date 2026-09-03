@@ -38,6 +38,23 @@ jobs:
       - run: dart run melos run test:dart
       - run: dart run melos run test:flutter
 
+  integration:
+    needs: check
+    if: github.event_name == 'push'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # The Phase 4 gate on a real engine, in emulator mode: no hardware.
+      - run: flutter test integration_test -d macos
+        working-directory: app
+
   build:
     needs: check
     timeout-minutes: 45

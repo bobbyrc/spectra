@@ -40,6 +40,29 @@ void main() {
     expect(find.text('Device'), findsWidgets);
   });
 
+  testWidgetsApp(
+    'a live session dropping redirects the shell back to /connect',
+    (tester) async {
+      // Proves `RouterRefresh`/`redirectFor` (spec 7.2) actually fire on a
+      // real, unexpected disconnect, not just on the connect/disconnect
+      // buttons the other tests already exercise.
+      late FakeDevice device;
+      await pumpTestApp(tester, transport: (_) => device = FakeDevice());
+      await tester.pump();
+      await connectToEmulator(tester);
+
+      expect(find.byType(SpectraAppShell), findsOneWidget);
+
+      await device.simulateLinkLoss();
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(find.byType(SpectraAppShell), findsNothing);
+      expect(find.text('Connect a device'), findsOneWidget);
+    },
+  );
+
   testWidgetsApp('the shell switches tabs without leaving the shell', (
     tester,
   ) async {

@@ -124,6 +124,34 @@ void main() {
     await notifier.disconnectAll();
   });
 
+  test(
+    'connect passes sessionOptionsProvider through to DeviceSession',
+    () async {
+      final container = ProviderContainer(
+        overrides: [
+          knownDevicesRepositoryProvider.overrideWithValue(
+            InMemoryKnownDevicesRepository(),
+          ),
+          transportFactoryProvider.overrideWithValue(
+            (DiscoveredDevice d) => FakeDevice(),
+          ),
+          sessionOptionsProvider.overrideWithValue(
+            const SessionOptions(batteryDelay: Duration.zero),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(sessionsProvider.notifier);
+
+      final identity = await notifier.connect(emulated);
+      final session = container.read(deviceSessionProvider(identity))!.session;
+
+      expect(session.batteryDelay, Duration.zero);
+
+      await notifier.disconnectAll();
+    },
+  );
+
   test('disconnect closes the session and drops it', () async {
     final h = harness({emulated.transportId: FakeDevice()});
     final notifier = h.container.read(sessionsProvider.notifier);

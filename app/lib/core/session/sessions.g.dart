@@ -64,6 +64,47 @@ final class TransportFactoryProvider
 
 String _$transportFactoryHash() => r'963cff740bf24a1f5ee0783907db6934403fbb91';
 
+@ProviderFor(sessionOptions)
+final sessionOptionsProvider = SessionOptionsProvider._();
+
+final class SessionOptionsProvider
+    extends $FunctionalProvider<SessionOptions, SessionOptions, SessionOptions>
+    with $Provider<SessionOptions> {
+  SessionOptionsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sessionOptionsProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sessionOptionsHash();
+
+  @$internal
+  @override
+  $ProviderElement<SessionOptions> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  SessionOptions create(Ref ref) {
+    return sessionOptions(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SessionOptions value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SessionOptions>(value),
+    );
+  }
+}
+
+String _$sessionOptionsHash() => r'061957716f678dc834fed6e679f97b64be96c055';
+
 @ProviderFor(Sessions)
 final sessionsProvider = SessionsProvider._();
 
@@ -96,7 +137,7 @@ final class SessionsProvider
   }
 }
 
-String _$sessionsHash() => r'03e9b02cd40ea43b826a7e88561783165dc97090';
+String _$sessionsHash() => r'846caeb6584e193fab07fa16b60498fd1671eb18';
 
 abstract class _$Sessions extends $Notifier<SessionsState> {
   SessionsState build();

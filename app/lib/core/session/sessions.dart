@@ -49,6 +49,18 @@ final class SessionsState {
 Transport Function(DiscoveredDevice) transportFactory(Ref ref) =>
     ChameleonTransports.transportFor;
 
+/// [DeviceSession] tunables [Sessions] passes through when it opens a
+/// session. Defaults match [DeviceSession]'s own production defaults; the
+/// seam exists so a test can zero [batteryDelay] instead of pumping out a
+/// real 5-second timer to satisfy flutter_test's pending-timer invariant.
+final class SessionOptions {
+  const SessionOptions({this.batteryDelay = const Duration(seconds: 5)});
+  final Duration batteryDelay;
+}
+
+@Riverpod(keepAlive: true)
+SessionOptions sessionOptions(Ref ref) => const SessionOptions();
+
 @Riverpod(keepAlive: true)
 class Sessions extends _$Sessions {
   final Map<DeviceIdentity, StreamSubscription<ConnectionState>> _watchers =
@@ -136,7 +148,10 @@ class Sessions extends _$Sessions {
   }
 
   Future<DeviceIdentity> _connectNew(DiscoveredDevice device) async {
-    final session = DeviceSession(ref.read(transportFactoryProvider)(device));
+    final session = DeviceSession(
+      ref.read(transportFactoryProvider)(device),
+      batteryDelay: ref.read(sessionOptionsProvider).batteryDelay,
+    );
     try {
       await session.open();
     } on Object {

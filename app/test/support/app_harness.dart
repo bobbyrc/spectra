@@ -22,6 +22,12 @@ List<Override> appOverrides({Transport Function(DiscoveredDevice)? transport}) {
     scannersProvider.overrideWithValue(<DeviceScanner>[FakeScanner()]),
     if (transport != null)
       transportFactoryProvider.overrideWithValue(transport),
+    // Zeroes DeviceSession's real 5s battery-read delay so
+    // connectToEmulator's pump loop does not have to wait it out for
+    // flutter_test's pending-timer invariant (its own doc comment).
+    sessionOptionsProvider.overrideWithValue(
+      const SessionOptions(batteryDelay: Duration.zero),
+    ),
   ];
 }
 
@@ -39,22 +45,22 @@ Future<void> pumpTestApp(
   Transport Function(DiscoveredDevice)? transport,
 }) => tester.pumpWidget(testApp(transport: transport));
 
+/// How long [connectToEmulator]'s pump loop runs. `appOverrides` zeroes
+/// `DeviceSession.batteryDelay`, so the only remaining bound is the fake's
+/// own round trips for the handshake and the rest of the background load
+/// (git version, chip id, address, mode, slots, settings, battery) — each a
+/// microtask-scheduled reply, not a real timer wait. This margin is well
+/// past that in practice; widen it here if the flow test ever flakes.
+const _connectPumpBound = 20;
+
 /// Taps the emulated device on the connect screen and waits for the shell.
 /// The fake answers immediately, so a bounded pump loop is enough and
 /// `pumpAndSettle` is avoided (the shell has running animations).
-///
-/// `DeviceSession`'s handshake keeps loading in the background after the
-/// session is ready — including a battery read timed out to
-/// `DeviceSession.batteryDelay` (5s by default; spec 8.6 does not plumb an
-/// override through `transportFactoryProvider`). The loop pumps past that
-/// so the underlying timer fires during the test instead of tripping
-/// flutter_test's "pending timer" invariant after the widget tree is torn
-/// down.
 Future<void> connectToEmulator(WidgetTester tester) async {
   await tester.pump();
   await tester.tap(find.text(FakeScanner.emulatedUltra.name));
-  for (var i = 0; i < 60; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
+  for (var i = 0; i < _connectPumpBound; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
   }
 }
 
