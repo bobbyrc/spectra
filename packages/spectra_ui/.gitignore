@@ -29,3 +29,11 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 /build/
 /coverage/
+
+# Alchemist writes diff images here when a golden does not match.
+failures/
+# Only CI goldens are committed; platform goldens are local-only.
+# Alchemist writes goldens beside the test file, so match at any depth.
+**/goldens/macos/
+**/goldens/linux/
+**/goldens/windows/

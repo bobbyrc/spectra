@@ -36,6 +36,9 @@ melos:
       packageFilters:
         flutter: true
         dirExists: test
+    goldens:update:
+      run: melos exec --scope=spectra_ui -- flutter test --update-goldens
+      description: Regenerate spectra_ui's committed CI goldens.
     lint:deps:
       run: dart run tool/dep_lint.dart
     test:root:

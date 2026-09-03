@@ -1,0 +1,5 @@
+# alchemist tags every golden test `golden`. Declaring the tag here silences
+# the "unknown tag" warning. It carries no `skip`, so goldens run by default
+# in `flutter test` and therefore in the CI `check` job.
+tags:
+  golden:
