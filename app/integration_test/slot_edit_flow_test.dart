@@ -1,15 +1,10 @@
 import 'package:chameleon/chameleon.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
-import 'package:spectra/app.dart';
-import 'package:spectra/core/discovery/scanners.dart';
-import 'package:spectra/core/session/sessions.dart';
-import 'package:spectra/data/database/database_providers.dart';
-import 'package:spectra/data/database/spectra_database.dart';
 import 'package:spectra_ui/spectra_ui.dart';
+
+import 'support.dart';
 
 /// The Phase 5 gate on a real engine: edit and save a slot in emulator
 /// mode. No hardware is touched, and none is needed.
@@ -17,29 +12,10 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('edit and save a slot on the emulator', (tester) async {
-    final db = SpectraDatabase.memory();
-    addTearDown(db.close);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: <Override>[
-          databaseProvider.overrideWithValue(db),
-          scannersProvider.overrideWithValue(<DeviceScanner>[FakeScanner()]),
-          transportFactoryProvider.overrideWithValue((_) => FakeDevice()),
-          sessionOptionsProvider.overrideWithValue(
-            const SessionOptions(batteryDelay: Duration.zero),
-          ),
-        ],
-        child: const SpectraRoot(),
-      ),
-    );
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await tester.pump();
 
-    Future<void> settle([int frames = 20]) async {
-      for (var i = 0; i < frames; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-    }
+    Future<void> settle([int frames = 20]) => pumpFrames(tester, count: frames);
 
     await tester.tap(find.text(FakeScanner.emulatedUltra.name));
     await settle(30);

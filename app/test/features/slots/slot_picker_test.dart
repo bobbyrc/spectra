@@ -11,9 +11,7 @@ void main() {
   testWidgetsApp('the picker resolves to the chosen wire index', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -25,9 +23,7 @@ void main() {
       chosen = i;
       return i;
     });
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
 
     expect(find.text('Choose a slot'), findsOneWidget);
     final Finder sheetTiles = find.descendant(
@@ -37,17 +33,13 @@ void main() {
     expect(sheetTiles, findsNWidgets(8));
 
     await tester.tap(sheetTiles.at(4));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     await pending;
     expect(chosen, 4, reason: 'the fifth tile in the sheet is wire index 4');
   });
 
   testWidgetsApp('dismissing the picker resolves to null', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -55,22 +47,16 @@ void main() {
 
     final BuildContext context = tester.element(find.byType(SlotsPage));
     final Future<int?> pending = showSlotPicker(context);
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     await tester.tap(find.byIcon(Icons.close));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     expect(await pending, isNull);
   });
 
   testWidgetsApp('isSelectable greys out the slots a caller cannot use', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -82,9 +68,7 @@ void main() {
       // Only the seeded slot 0 has an HF type.
       isSelectable: (SlotView v) => v.slot.hfType != TagType.undefined,
     );
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
 
     final Finder sheetTiles = find.descendant(
       of: find.byType(SpectraBottomSheet),
@@ -97,9 +81,7 @@ void main() {
     expect(sheetTileWidgets.elementAt(1).onTap, isNull);
 
     await tester.tap(find.byIcon(Icons.close));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     await pending;
   });
 
@@ -112,16 +94,12 @@ void main() {
 
       final BuildContext context = tester.element(find.byType(ConnectPage));
       final Future<int?> pending = showSlotPicker(context);
-      for (var i = 0; i < 10; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      await pumpFrames(tester);
 
       expect(find.text('Connect a device to see its slots.'), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.close));
-      for (var i = 0; i < 10; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      await pumpFrames(tester);
       await pending;
     },
   );
@@ -129,9 +107,7 @@ void main() {
   testWidgetsApp('an unselectable slot keeps the device\'s active marker', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -143,9 +119,7 @@ void main() {
       context,
       isSelectable: (SlotView v) => v.index != 0,
     );
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
 
     final Finder sheetTiles = find.descendant(
       of: find.byType(SpectraBottomSheet),
@@ -164,9 +138,7 @@ void main() {
     );
 
     await tester.tap(find.byIcon(Icons.close));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     await pending;
   });
 }

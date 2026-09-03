@@ -89,14 +89,21 @@ class _SlotSenseSectionState extends ConsumerState<SlotSenseSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           SpectraSectionHeader(title: senseLabel(widget.sense, l10n)),
+          // The type gets its own labelled row: as a bare subtitle under
+          // "Enabled" it read as a caption on the switch rather than as
+          // what this side of the slot actually is.
+          SpectraListTile(
+            title: l10n.slotTagType,
+            subtitle: tagTypeLabel(_type, l10n),
+          ),
           SpectraListTile(
             title: l10n.slotEnabled,
-            subtitle: tagTypeLabel(_type, l10n),
             trailing: Switch(
               value: _enabled,
               onChanged: widget.busy
                   ? null
-                  : (bool next) => editor.setEnabled(widget.sense, next),
+                  : (bool next) =>
+                        unawaited(editor.setEnabled(widget.sense, next)),
             ),
           ),
           const SizedBox(height: SpectraSpacing.md),

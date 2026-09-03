@@ -22,6 +22,10 @@ class SlotDetailPage extends ConsumerWidget {
   /// an index at all.
   final int index;
 
+  /// Height reserved for [SpectraProgressIndicator]: one line of body text,
+  /// the gap under it and the bar itself.
+  static const double _progressSlotHeight = 44;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = AppLocalizations.of(context);
@@ -48,10 +52,23 @@ class SlotDetailPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(SpectraSpacing.lg),
         children: <Widget>[
-          if (busy) ...<Widget>[
-            SpectraProgressIndicator(label: l10n.slotSaving),
-            const SizedBox(height: SpectraSpacing.md),
-          ],
+          // The indicator's row is always here, busy or not: a control
+          // that shifts down the moment it is tapped (and back up when the
+          // write lands) is a control that moves out from under the
+          // pointer. `OverflowBox` keeps the reserved height honest at any
+          // text scale — at a big one the label paints past its slot
+          // rather than overflowing it.
+          SizedBox(
+            height: _progressSlotHeight,
+            child: busy
+                ? OverflowBox(
+                    alignment: Alignment.topLeft,
+                    maxHeight: double.infinity,
+                    child: SpectraProgressIndicator(label: l10n.slotSaving),
+                  )
+                : null,
+          ),
+          const SizedBox(height: SpectraSpacing.md),
           if (editing.error case final Object problem) ...<Widget>[
             ProblemView(
               error: problem,

@@ -10,9 +10,7 @@ import '../../support/app_harness.dart';
 
 void main() {
   testWidgetsApp('tapping a slot opens its detail screen', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -24,9 +22,7 @@ void main() {
   });
 
   testWidgetsApp('the back button returns to the grid', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -34,16 +30,12 @@ void main() {
     await openSlot(tester, 1);
 
     await tester.tap(find.byType(BackButton));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     expect(find.byType(SpectraSlotTile), findsNWidgets(8));
   });
 
   testWidgetsApp('slot 1 says it is already the active slot', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -57,9 +49,7 @@ void main() {
   testWidgetsApp('making slot 4 active moves the marker on the grid', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -67,15 +57,11 @@ void main() {
     await openSlot(tester, 4);
 
     await tester.tap(find.text('Make active'));
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
     expect(find.text('Make active'), findsNothing);
 
     await tester.tap(find.byType(BackButton));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     final SpectraSlotTile fourth = tester.widget<SpectraSlotTile>(
       find.byType(SpectraSlotTile).at(3),
     );
@@ -85,9 +71,7 @@ void main() {
   testWidgetsApp('turning the LF sense off writes through to the device', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -99,34 +83,26 @@ void main() {
     expect(tester.widget<Switch>(find.byType(Switch).at(1)).value, isTrue);
 
     await tester.tap(find.byType(Switch).at(1));
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
     expect(tester.widget<Switch>(find.byType(Switch).at(1)).value, isFalse);
   });
 
   testWidgetsApp('an out-of-range slot index shows the not-found copy', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
 
     GoRouter.of(tester.element(find.text('Slots').last)).go(AppRoutes.slot(99));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
 
     expect(find.text('That slot does not exist.'), findsOneWidget);
   });
 
   testWidgetsApp('the name field is seeded from the device', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -139,9 +115,7 @@ void main() {
   testWidgetsApp('renaming a slot writes through and shows on the grid', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -151,23 +125,17 @@ void main() {
     await tester.enterText(find.byType(SpectraTextField).first, 'Office');
     await tester.pump();
     await tester.tap(find.text('Save name').first);
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
 
     await tester.tap(find.byType(BackButton));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     expect(find.text('Office'), findsOneWidget);
   });
 
   testWidgetsApp('a name over 32 bytes is refused before it is sent', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     final FakeDevice device = FakeDevice();
     await tester.pumpWidget(testApp(transport: (_) => device));
@@ -200,9 +168,7 @@ void main() {
   testWidgetsApp('picking a type from the sheet writes it to the slot', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -211,9 +177,7 @@ void main() {
 
     // The HF section's "Change type" is the first one on the screen.
     await tester.tap(find.text('Change type').first);
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
 
     expect(find.text('Choose a tag type'), findsOneWidget);
     expect(find.text('NTAG215'), findsOneWidget);
@@ -221,15 +185,11 @@ void main() {
     expect(find.text('EM410x'), findsNothing);
 
     await tester.tap(find.text('NTAG215'));
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
 
     expect(find.text('NTAG215'), findsWidgets);
     await tester.tap(find.byType(BackButton));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     final SpectraSlotTile third = tester.widget<SpectraSlotTile>(
       find.byType(SpectraSlotTile).at(2),
     );
@@ -239,9 +199,7 @@ void main() {
   testWidgetsApp('clearing a sense asks first, then empties it', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -249,31 +207,23 @@ void main() {
     await openSlot(tester, 1);
 
     await tester.tap(find.text('Clear').first);
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     expect(find.text('Clear this slot?'), findsOneWidget);
 
     // Cancelling changes nothing.
     await tester.tap(find.text('Cancel'));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     expect(find.text('MIFARE Classic 1K'), findsWidgets);
 
     await tester.tap(find.text('Clear').first);
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     await tester.tap(
       find.descendant(
         of: find.byType(SpectraDialog),
         matching: find.text('Clear'),
       ),
     );
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
 
     expect(find.text('MIFARE Classic 1K'), findsNothing);
     expect(find.text('Empty'), findsWidgets);
@@ -282,9 +232,7 @@ void main() {
   testWidgetsApp('the editor renders a notifier error through the catalog', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
 
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
@@ -303,9 +251,7 @@ void main() {
 
     expect(find.text('The device rejected that value.'), findsOneWidget);
     await tester.tap(find.text('Details'));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    await pumpFrames(tester);
     expect(find.textContaining('ParameterError'), findsWidgets);
 
     await tester.tap(find.text('Try again'));
@@ -343,6 +289,7 @@ void main() {
 
     expect(buttons('Make active'), isNotEmpty);
     expect(buttons('Clear').first.onPressed, isNotNull);
+    final Offset restingSwitch = tester.getTopLeft(find.byType(Switch).first);
 
     // Slow the device down so the rename is observably in flight.
     device.latency = const Duration(milliseconds: 200);
@@ -352,6 +299,11 @@ void main() {
     await pumpFrames(tester, count: 2, step: const Duration(milliseconds: 20));
 
     expect(find.byType(SpectraProgressIndicator), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byType(Switch).first),
+      restingSwitch,
+      reason: 'the indicator has its own reserved row: nothing moves',
+    );
     for (final Switch s in switches()) {
       expect(s.onChanged, isNull, reason: 'both senses');
     }
@@ -383,5 +335,25 @@ void main() {
     await tester.enterText(find.byType(SpectraTextField).first, 'Back door');
     await tester.pump();
     expect(buttons('Save name').first.onPressed, isNotNull);
+  });
+
+  testWidgetsApp('each sense names its tag type in a labelled row', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+    await openSlot(tester, 1);
+
+    expect(find.text('Tag type'), findsNWidgets(2), reason: 'HF and LF');
+    expect(
+      find.descendant(
+        of: find.widgetWithText(SpectraListTile, 'Tag type').first,
+        matching: find.text('MIFARE Classic 1K'),
+      ),
+      findsOneWidget,
+    );
   });
 }

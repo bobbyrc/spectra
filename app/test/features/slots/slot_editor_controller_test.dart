@@ -30,11 +30,8 @@ SlotEditor _editor(WidgetTester tester, int index) {
 /// advances that clock. So every call here is started, then pumped, then
 /// awaited (already-resolved by then) — the same shape `connectToEmulator`
 /// uses for a button tap.
-Future<void> _pump(WidgetTester tester, [int frames = 10]) async {
-  for (var i = 0; i < frames; i++) {
-    await tester.pump(const Duration(milliseconds: 20));
-  }
-}
+Future<void> _pump(WidgetTester tester, [int frames = 10]) =>
+    pumpFrames(tester, count: frames, step: const Duration(milliseconds: 20));
 
 void main() {
   testWidgetsApp('rename writes through to the slot cache', (tester) async {
@@ -214,9 +211,7 @@ void main() {
     );
 
     device.latency = Duration.zero;
-    for (var i = 0; i < 40; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 40, step: const Duration(milliseconds: 50));
     await pending;
     expect(
       sessionNeedsWakelock(session, session.connectionState.value),
@@ -253,9 +248,11 @@ void main() {
       await tester.pump();
 
       device.latency = Duration.zero;
-      for (var i = 0; i < 40; i++) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
+      await pumpFrames(
+        tester,
+        count: 40,
+        step: const Duration(milliseconds: 50),
+      );
       // No UnmountedRefException: the notifier notices it is gone and
       // simply stops writing state.
       await pending;
