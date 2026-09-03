@@ -60,7 +60,7 @@ void main() {
     final adapter = FakeBleAdapter();
     final scanner = BleScanner(
       adapter: adapter,
-      staleAfter: const Duration(milliseconds: 60),
+      staleAfter: const Duration(milliseconds: 200),
     );
     final emissions = <List<DiscoveredDevice>>[];
     final sub = scanner.scan().listen(emissions.add);
@@ -76,7 +76,7 @@ void main() {
 
     // Still advertising: it must not be dropped while it is in range.
     for (var i = 0; i < 4; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await Future<void>.delayed(const Duration(milliseconds: 40));
       adapter.emitAdvertisement(
         const BleScanEntry(
           deviceId: 'A',
@@ -88,7 +88,7 @@ void main() {
     expect(emissions.last, hasLength(1));
 
     // Out of range: gone within staleAfter plus one tick.
-    await Future<void>.delayed(const Duration(milliseconds: 150));
+    await Future<void>.delayed(const Duration(milliseconds: 450));
     expect(emissions.last, isEmpty);
     await sub.cancel();
     await adapter.dispose();
