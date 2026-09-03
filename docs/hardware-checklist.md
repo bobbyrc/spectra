@@ -109,6 +109,18 @@ Written in Phase 8.
       init packet. `DfuImage.hashMatches` accepts that order only, and every
       run now refuses a package that fails it — check against a real Chameleon
       release zip before shipping DFU.
+- [ ] pending: the serial DFU write-object frame layout is what the real
+      bootloader accepts. `SlipSerialDfuChannel` sends one SLIP frame of
+      `[0x08, ...raw data]` with no length prefix, taken from nrfutil's
+      `__stream_data`; confirm a write object is accepted and CRC-matches
+      rather than being rejected as a malformed request.
+- [ ] pending: the default serial `maxDataWrite` of 64 transfers a full image
+      without a `NRF_DFU_RES_CODE_INVALID_PARAMETER` or length error. Then
+      check whether asking the bootloader with the GetSerialMTU opcode `0x07`
+      would let it grow: the Chameleon's USB CDC bootloader reports
+      `SLIP_MTU = 2051`, which by nrfutil's `(mtu - 1) // 2 - 1` is 1024 —
+      sixteen times the current chunk. `SecureDfu` has no GetSerialMTU
+      request yet.
 - [ ] pending: executing an already-executed object is a no-op on the real
       bootloader. The resume path in `SecureDfu` sends an unconditional
       Execute at the boundary it picks up from; `FakeBootloader` models it as

@@ -8,11 +8,21 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// A byte pipe standing in for an open serial link.
 final class _LoopbackTransport implements Transport {
+  _LoopbackTransport({this.maxWriteLength = 4105});
+
   final List<Uint8List> written = <Uint8List>[];
   final _incoming = StreamController<Uint8List>.broadcast();
   bool closed = false;
 
+  /// When set, [write] waits on this before recording the bytes, so a test
+  /// can hold one write open and check that the next one queues behind it.
+  Completer<void>? writeGate;
+
   void deliver(List<int> bytes) => _incoming.add(Uint8List.fromList(bytes));
+
+  void fail(Object error) => _incoming.addError(error);
+
+  Future<void> endIncoming() => _incoming.close();
 
   @override
   TransportKind get kind => TransportKind.usb;
@@ -23,18 +33,26 @@ final class _LoopbackTransport implements Transport {
   @override
   TransportState get currentState => const TransportOpen();
   @override
-  int get maxWriteLength => 4105;
+  final int maxWriteLength;
   @override
   Future<void> open() async {}
   @override
   Future<void> close() async {
+    if (closed) return;
     closed = true;
-    await _incoming.close();
+    if (!_incoming.isClosed) await _incoming.close();
   }
 
   @override
-  Future<void> write(Uint8List bytes) async =>
-      written.add(Uint8List.fromList(bytes));
+  Future<void> write(Uint8List bytes) async {
+    if (closed) throw const Disconnected('the loopback transport is closed');
+    final gate = writeGate;
+    if (gate != null) await gate.future;
+    if (bytes.length > maxWriteLength) {
+      throw ArgumentError.value(bytes.length, 'bytes.length', 'too long');
+    }
+    written.add(Uint8List.fromList(bytes));
+  }
 }
 
 void main() {
@@ -45,19 +63,39 @@ void main() {
     expect(t.written.single, Slip.encode(const [0x06, 0x01]));
   });
 
-  test(
-    'data writes carry the 0x08 opcode and a little-endian length',
-    () async {
-      final t = _LoopbackTransport();
-      final channel = SlipSerialDfuChannel(t);
-      await channel.writeData(Uint8List.fromList(List<int>.filled(300, 0xAB)));
-      // 300 = 0x012C -> 0x2C, 0x01.
-      expect(
-        t.written.single,
-        Slip.encode(<int>[0x08, 0x2C, 0x01, ...List<int>.filled(300, 0xAB)]),
-      );
-    },
-  );
+  test('data writes are the 0x08 opcode followed by the raw bytes', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t, maxDataWrite: 300);
+    await channel.writeData(Uint8List.fromList(List<int>.filled(300, 0xAB)));
+    // nrfutil's __stream_data prepends only the opcode: no length prefix,
+    // the bootloader takes the length from the SLIP frame.
+    expect(
+      t.written.single,
+      Slip.encode(<int>[0x08, ...List<int>.filled(300, 0xAB)]),
+    );
+  });
+
+  test('writeData rejects a payload longer than maxDataWrite', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t, maxDataWrite: 8);
+    expect(
+      () => channel.writeData(Uint8List(9)),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(t.written, isEmpty);
+  });
+
+  test('writeData rejects a frame the transport cannot carry', () async {
+    // Every byte escapes to two, so 40 bytes of payload plus the opcode
+    // becomes an 83-byte frame: past this transport's 32-byte limit.
+    final t = _LoopbackTransport(maxWriteLength: 32);
+    final channel = SlipSerialDfuChannel(t, maxDataWrite: 64);
+    expect(
+      () => channel.writeData(Uint8List.fromList(List<int>.filled(40, 0xC0))),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(t.written, isEmpty);
+  });
 
   test('a payload containing END survives the framing', () async {
     final t = _LoopbackTransport();
@@ -111,5 +149,89 @@ void main() {
       channel.writeControl(Uint8List.fromList(const [1])),
       throwsA(isA<Disconnected>()),
     );
+  });
+
+  test('a transport error ends responses with one Disconnected', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t);
+    final events = <Object>[];
+    var done = false;
+    channel.responses.listen(
+      events.add,
+      onError: events.add,
+      onDone: () => done = true,
+    );
+
+    t.fail(const Disconnected('the cable came out'));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(events, hasLength(1));
+    expect(events.single, isA<Disconnected>());
+    expect(done, isTrue);
+    await expectLater(
+      channel.writeControl(Uint8List.fromList(const [1])),
+      throwsA(isA<Disconnected>()),
+    );
+  });
+
+  test('a non-transport error surfaces as Disconnected', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t);
+    final events = <Object>[];
+    channel.responses.listen(events.add, onError: events.add);
+
+    t.fail(StateError('the driver blew up'));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(events.single, isA<Disconnected>());
+  });
+
+  test('an error on an owned transport still closes it on close()', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t, ownsTransport: true);
+    channel.responses.listen(null, onError: (Object _) {});
+
+    t.fail(const Disconnected('the cable came out'));
+    await Future<void>.delayed(Duration.zero);
+    expect(t.closed, isFalse, reason: 'the drop path must not close it early');
+
+    await channel.close();
+    expect(t.closed, isTrue, reason: 'the serial port handle would leak');
+  });
+
+  test('the incoming stream ending closes responses', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t);
+    var done = false;
+    channel.responses.listen(null, onDone: () => done = true);
+
+    await t.endIncoming();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(done, isTrue);
+    await expectLater(
+      channel.writeData(Uint8List.fromList(const [1])),
+      throwsA(isA<Disconnected>()),
+    );
+  });
+
+  test('concurrent writes are serialised in call order', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t);
+    final gate = Completer<void>();
+    t.writeGate = gate;
+
+    final first = channel.writeControl(Uint8List.fromList(const [0x01]));
+    final second = channel.writeData(Uint8List.fromList(const [0x02]));
+    await Future<void>.delayed(Duration.zero);
+    expect(t.written, isEmpty, reason: 'both writes wait on the gate');
+
+    gate.complete();
+    await Future.wait(<Future<void>>[first, second]);
+
+    expect(t.written, <List<int>>[
+      Slip.encode(const [0x01]),
+      Slip.encode(const [0x08, 0x02]),
+    ]);
   });
 }

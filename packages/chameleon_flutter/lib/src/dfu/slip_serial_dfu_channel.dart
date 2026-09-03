@@ -8,14 +8,39 @@ import 'slip.dart';
 /// Nordic Secure DFU over a serial link (spec 5.3): desktop USB and Android
 /// USB. Every message in both directions is one SLIP frame.
 ///
-/// Control messages go on the wire as-is. Data goes out under the serial
-/// transport's write opcode 0x08 followed by a little-endian uint16 length,
-/// which is how nrfutil's serial DFU transport
-/// (`nordicsemi.dfu.dfu_transport_serial`) frames a data packet.
+/// The wire layout is assumed from nrfutil's source
+/// (`nordicsemi/dfu/dfu_transport_serial.py`, `DFUAdapter.send_message` and
+/// `DfuTransportSerial.__stream_data`) and cross-checked against the
+/// bootloader side the Chameleon ships
+/// (`components/libraries/bootloader/serial_dfu/nrf_dfu_serial.c`,
+/// `nrf_dfu_serial_on_packet_received`):
 ///
-/// hardware-validate: the serial DFU framing here is confirmed against
-/// nrfutil's source and exercised only against the fake bootloader in
-/// tests. Real bootloader behaviour is hardware handoff H2; see
+/// * A control request is its opcode followed by its parameters, SLIP-framed
+///   with nothing added — `send_message` encodes exactly the bytes it is
+///   given.
+/// * A data write is the WriteObject opcode `0x08` followed by the raw data,
+///   with **no** length prefix: `__stream_data` builds
+///   `struct.pack('B', OP_CODE['WriteObject']) + to_transmit`, and the
+///   bootloader takes `payload_len = length - NRF_SERIAL_OPCODE_SIZE` from
+///   the length of the decoded frame.
+///
+/// [maxDataWrite] defaults to 64, which is nrfutil's chunk arithmetic
+/// `(mtu - 1) // 2 - 1` applied to the nRF5 SDK's UART serial transport MTU
+/// (`UART_SLIP_MTU = 2 * (64 + 1) + 1 = 131`), the smaller of the two serial
+/// transports; the halving is what makes a worst-case all-escapes payload
+/// still fit the bootloader's SLIP buffer. nrfutil does not carry a static
+/// default: `DfuTransportSerial.open` asks the device with the
+/// `GetSerialMTU` opcode `0x07` and computes from the answer. The Chameleon's
+/// USB CDC bootloader reports `SLIP_MTU = 2 * (1024 + 1) + 1 = 2051`, which
+/// would yield 1024 — roughly a sixteen-fold speed-up.
+///
+/// Follow-up: `SecureDfu` has no GetSerialMTU request yet, so the MTU cannot
+/// be negotiated and this default stays conservative. Adding it is the way
+/// to grow [maxDataWrite] on USB.
+///
+/// hardware-validate: the serial DFU framing here is assumed from nrfutil's
+/// source and exercised only against the fake bootloader in tests. Real
+/// bootloader behaviour is hardware handoff H2; see
 /// docs/hardware-checklist.md.
 final class SlipSerialDfuChannel implements DfuChannel {
   SlipSerialDfuChannel(
@@ -31,7 +56,12 @@ final class SlipSerialDfuChannel implements DfuChannel {
       },
       onError: (Object e, StackTrace s) {
         if (!_responses.isClosed) {
-          _responses.addError(const Disconnected('the serial link dropped'));
+          _responses.addError(
+            e is TransportError
+                ? e
+                : const Disconnected('the serial link dropped'),
+            s,
+          );
         }
         unawaited(_finish());
       },
@@ -39,7 +69,7 @@ final class SlipSerialDfuChannel implements DfuChannel {
     );
   }
 
-  /// The serial DFU write opcode: `[0x08, len_lo, len_hi, ...payload]`.
+  /// The serial DFU WriteObject opcode. The frame is `[0x08, ...payload]`.
   static const int _writeObjectOpcode = 0x08;
 
   final Transport _transport;
@@ -50,6 +80,7 @@ final class SlipSerialDfuChannel implements DfuChannel {
   StreamSubscription<Uint8List>? _sub;
   Future<void> _writeTail = Future<void>.value();
   bool _closed = false;
+  bool _transportClosed = false;
 
   @override
   final int maxDataWrite;
@@ -57,25 +88,52 @@ final class SlipSerialDfuChannel implements DfuChannel {
   /// Decoded SLIP frames from the transport, in order. A broadcast stream:
   /// subscribe before writing, since nothing is buffered for a late
   /// listener. Closes when the transport's [Transport.incoming] ends or the
-  /// channel closes; a transport error surfaces as one [Disconnected] event
-  /// here first.
+  /// channel closes; a transport error surfaces as one error event here
+  /// first, then the stream closes.
   @override
   Stream<Uint8List> get responses => _responses.stream;
 
   @override
-  Future<void> writeControl(Uint8List bytes) => _enqueue(() => _send(bytes));
+  Future<void> writeControl(Uint8List bytes) {
+    final frame = _frame(bytes);
+    return _enqueue(() => _send(frame));
+  }
 
+  /// Writes [bytes] as a single WriteObject frame. [SecureDfu] already
+  /// chunks firmware data to [maxDataWrite]; this never re-chunks.
+  ///
+  /// Throws [ArgumentError] if [bytes] is longer than [maxDataWrite], or if
+  /// the SLIP-encoded frame would exceed the transport's
+  /// [Transport.maxWriteLength] (escaping can double a payload's size).
   @override
-  Future<void> writeData(Uint8List bytes) => _enqueue(
-    () => _send(
-      Uint8List.fromList(<int>[
-        _writeObjectOpcode,
-        bytes.length & 0xFF,
-        (bytes.length >> 8) & 0xFF,
-        ...bytes,
-      ]),
-    ),
-  );
+  Future<void> writeData(Uint8List bytes) {
+    if (bytes.length > maxDataWrite) {
+      throw ArgumentError.value(
+        bytes.length,
+        'bytes.length',
+        'exceeds maxDataWrite ($maxDataWrite)',
+      );
+    }
+    final frame = _frame(
+      Uint8List.fromList(<int>[_writeObjectOpcode, ...bytes]),
+    );
+    return _enqueue(() => _send(frame));
+  }
+
+  /// SLIP-encodes [payload] and checks it against the transport's write
+  /// limit before any of it reaches the wire.
+  Uint8List _frame(Uint8List payload) {
+    final frame = Slip.encode(payload);
+    if (frame.length > _transport.maxWriteLength) {
+      throw ArgumentError.value(
+        frame.length,
+        'frame.length',
+        'the SLIP-encoded frame exceeds the transport write limit '
+            '(${_transport.maxWriteLength})',
+      );
+    }
+    return frame;
+  }
 
   /// Serialises writes: each call waits for the previous one, success or
   /// failure, so two callers never interleave their bytes on the wire.
@@ -86,13 +144,17 @@ final class SlipSerialDfuChannel implements DfuChannel {
     return result;
   }
 
-  Future<void> _send(Uint8List payload) async {
+  Future<void> _send(Uint8List frame) async {
     if (_closed) {
       throw const Disconnected('the DFU channel is closed');
     }
-    await _transport.write(Slip.encode(payload));
+    await _transport.write(frame);
   }
 
+  /// Tears down the channel's own state. Never touches the transport: the
+  /// drop paths (an [Transport.incoming] error or its end) run through here
+  /// too, and closing an owned transport is [close]'s job so the handle is
+  /// released exactly once, whichever path got here first.
   Future<void> _finish() async {
     if (_closed) return;
     _closed = true;
@@ -103,8 +165,10 @@ final class SlipSerialDfuChannel implements DfuChannel {
 
   @override
   Future<void> close() async {
-    final alreadyClosed = _closed;
     await _finish();
-    if (_ownsTransport && !alreadyClosed) await _transport.close();
+    if (_ownsTransport && !_transportClosed) {
+      _transportClosed = true;
+      await _transport.close();
+    }
   }
 }

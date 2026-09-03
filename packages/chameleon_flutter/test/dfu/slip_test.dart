@@ -60,11 +60,43 @@ void main() {
     expect(decoder.add(const [3, 0xC0]).single, [3]);
   });
 
-  test('an invalid escape byte resets the frame', () {
+  test('an invalid escape byte poisons the frame until the next END', () {
     final decoder = SlipDecoder();
-    // 1, ESC, 0x01 (not a valid escape target): the bytes before the bad
-    // escape are dropped, not kept, so only the byte after it survives to
-    // the next END.
-    expect(decoder.add(const [1, 0xDB, 0x01, 2, 0xC0]).single, [2]);
+    // 1, ESC, 0x01 (not a valid escape target). nrfutil's decoder enters
+    // SLIP_STATE_CLEARING_INVALID_PACKET and stays there until an END, so
+    // nothing at all is emitted for this frame.
+    expect(decoder.add(const [1, 0xDB, 0x01, 2, 0xC0]), isEmpty);
+    // The END cleared the bad-frame state: the next frame decodes normally.
+    expect(decoder.add(const [3, 4, 0xC0]).single, [3, 4]);
+  });
+
+  test('a bad frame split across chunks stays suppressed', () {
+    final decoder = SlipDecoder();
+    expect(decoder.add(const [1, 0xDB, 0x01]), isEmpty);
+    expect(decoder.add(const [2, 3]), isEmpty);
+    expect(decoder.add(const [0xC0, 9, 0xC0]).single, [9]);
+  });
+
+  test('an over-long frame is dropped and resynchronises on the next END', () {
+    final decoder = SlipDecoder();
+    expect(
+      decoder.add(List<int>.filled(SlipDecoder.maxFrameLength + 1, 7)),
+      isEmpty,
+    );
+    // Even the bytes that arrived before the cap are gone.
+    expect(decoder.add(const [8, 0xC0]), isEmpty);
+    expect(decoder.add(const [9, 0xC0]).single, [9]);
+  });
+
+  test('a frame exactly at the cap still decodes', () {
+    final decoder = SlipDecoder();
+    final payload = List<int>.filled(SlipDecoder.maxFrameLength, 7);
+    expect(decoder.add(<int>[...payload, 0xC0]).single, payload);
+  });
+
+  test('reset clears the bad-frame state too', () {
+    final decoder = SlipDecoder()..add(const [1, 0xDB, 0x01]);
+    decoder.reset();
+    expect(decoder.add(const [3, 0xC0]).single, [3]);
   });
 }
