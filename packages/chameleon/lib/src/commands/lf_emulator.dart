@@ -58,48 +58,64 @@ final class HidProxGetEmuId extends _GetId {
   int get id => 5003;
 }
 
+/// hardware-validate: id length taken from the reference app, unverified on
+/// hardware.
 final class VikingSetEmuId extends _SetId {
   VikingSetEmuId(super.idBytes);
   @override
   int get id => 5004;
 }
 
+/// hardware-validate: id length taken from the reference app, unverified on
+/// hardware.
 final class VikingGetEmuId extends _GetId {
   const VikingGetEmuId();
   @override
   int get id => 5005;
 }
 
+/// hardware-validate: id length taken from the reference app, unverified on
+/// hardware.
 final class PacSetEmuId extends _SetId {
   PacSetEmuId(super.idBytes);
   @override
   int get id => 5006;
 }
 
+/// hardware-validate: id length taken from the reference app, unverified on
+/// hardware.
 final class PacGetEmuId extends _GetId {
   const PacGetEmuId();
   @override
   int get id => 5007;
 }
 
+/// hardware-validate: id length taken from the reference app, unverified on
+/// hardware.
 final class JablotronSetEmuId extends _SetId {
   JablotronSetEmuId(super.idBytes);
   @override
   int get id => 5010;
 }
 
+/// hardware-validate: id length taken from the reference app, unverified on
+/// hardware.
 final class JablotronGetEmuId extends _GetId {
   const JablotronGetEmuId();
   @override
   int get id => 5011;
 }
 
+/// hardware-validate: id length taken from the reference app, unverified on
+/// hardware.
 final class IdteckSetEmuId extends _SetId {
   IdteckSetEmuId(super.idBytes);
   @override
   int get id => 5012;
 }
 
+/// hardware-validate: id length taken from the reference app, unverified on
+/// hardware.
 final class IdteckGetEmuId extends _GetId {
   const IdteckGetEmuId();
   @override

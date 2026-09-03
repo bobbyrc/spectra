@@ -127,6 +127,8 @@ final class Mf1ReadEmuBlockData extends Command<Uint8List> {
   bool get idempotent => true;
   @override
   Uint8List encode() {
+    // count < 1 is a defensive client-side guard, not wire-documented; the
+    // upper bound of 32 comes from docs/research/chameleon-protocol.md.
     if (count < 1 || count > 32) {
       throw ArgumentError.value(count, 'count', 'must be 1..32');
     }
