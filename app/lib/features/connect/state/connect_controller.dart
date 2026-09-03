@@ -1,10 +1,9 @@
 import 'package:chameleon/chameleon.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../core/discovery/discovery_provider.dart';
 import '../../../core/session/active_device.dart';
+import '../../../core/session/reconnect.dart';
 import '../../../core/session/sessions.dart';
-import '../../../data/data.dart';
 
 part 'connect_controller.g.dart';
 
@@ -29,18 +28,24 @@ class ConnectController extends _$ConnectController {
     });
   }
 
-  /// "Reconnect to last device" (spec 4.2): the newest known identity, if it
-  /// is visible right now. Silent when it is not — a device that is asleep
-  /// or unplugged is not an error worth a dialog.
+  /// "Reconnect to last device" (spec 4.2), on the same
+  /// [reconnectLastDevice] the silent post-resume attempt uses (R26) — the
+  /// button used to read discovery once and return silently when the row
+  /// was not there yet, which for a device that has not been scanned in
+  /// this second is a button that does nothing.
+  ///
+  /// The controller stays loading for the whole wait, and an outcome with
+  /// nothing to connect to becomes a [NoKnownDeviceVisible] the screen
+  /// renders through the error catalog — the button reports, where the
+  /// resume path stays silent.
   Future<void> reconnectLast() async {
-    final known = await ref.read(knownDevicesRepositoryProvider).lastSeen();
-    if (known == null) return;
-    final visible =
-        ref.read(discoveryProvider).value?.devices ??
-        const <DiscoveredDevice>[];
-    final device = visible.where(known.matches).firstOrNull;
-    if (device == null) return;
-    await connect(device);
+    state = const AsyncLoading<void>();
+    state = await AsyncValue.guard<void>(() async {
+      final outcome = await reconnectLastDevice(ref);
+      if (outcome != ReconnectOutcome.connected) {
+        throw const NoKnownDeviceVisible();
+      }
+    });
   }
 
   /// "Try again" (spec 5.1): clears a failed attempt back to the idle

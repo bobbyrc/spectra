@@ -121,6 +121,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get errorNoKnownDeviceVisible =>
+      'No known device is visible. Wake the device or plug it in, then try again.';
+
+  @override
   String get errorUnexpected => 'Something unexpected went wrong.';
 
   @override

@@ -5,69 +5,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../data/data.dart';
-import '../discovery/discovery_provider.dart';
 import '../platform/host_platform_provider.dart';
-import '../session/active_device.dart';
+import '../session/reconnect.dart';
 import '../session/session_streams.dart';
 import '../session/sessions.dart';
 import 'lifecycle_controller.dart';
 import 'wakelock.dart';
 
 part 'lifecycle_host.g.dart';
-
-/// How long a silent reconnect (spec 7.4) waits for [discoveryProvider] to
-/// report the known device again before giving up. Bounded so a resume
-/// that finds nothing never hangs waiting on a scan that may never see the
-/// device again (asleep, unplugged, out of range).
-const Duration reconnectDiscoveryTimeout = Duration(seconds: 10);
-
-/// Waits for [discoveryProvider] to report a device that [matches], holding
-/// a live [Ref.listen] subscription so the autoDispose provider stays alive
-/// for the wait — a plain `ref.read(discoveryProvider.future)` resolves on
-/// discovery's very first emission (often the placeholder empty list) and
-/// does not keep the provider running while this waits for a later one.
-/// Resolves with `null` on [timeout], or if [ref] is disposed first,
-/// rather than throwing: a silent reconnect gives up quietly, it does not
-/// surface a scan failure. Exposed (not private) so this wait is testable
-/// against a scripted `discoveryProvider` override with no need to also
-/// stand up a real `Sessions`/`DeviceSession`.
-Future<DiscoveredDevice?> awaitDiscoveredDevice(
-  Ref ref,
-  bool Function(DiscoveredDevice) matches, {
-  Duration timeout = reconnectDiscoveryTimeout,
-}) {
-  final completer = Completer<DiscoveredDevice?>();
-  Timer? timer;
-  late final ProviderSubscription<AsyncValue<DiscoveryState>> sub;
-
-  void finish(DiscoveredDevice? device) {
-    if (completer.isCompleted) return;
-    timer?.cancel();
-    sub.close();
-    completer.complete(device);
-  }
-
-  sub = ref.listen<AsyncValue<DiscoveryState>>(discoveryProvider, (_, next) {
-    final device = next.value?.devices.where(matches).firstOrNull;
-    if (device != null) finish(device);
-  });
-  ref.onDispose(() => finish(null));
-
-  final already = ref
-      .read(discoveryProvider)
-      .value
-      ?.devices
-      .where(matches)
-      .firstOrNull;
-  if (already != null) {
-    finish(already);
-  } else {
-    timer = Timer(timeout, () => finish(null));
-  }
-
-  return completer.future;
-}
 
 /// Whether backgrounding the app right now should close the session after
 /// the grace period (spec 7.4, R24).
@@ -88,31 +33,11 @@ LifecycleController lifecycleController(Ref ref) {
     closeSessions: () => ref.read(sessionsProvider.notifier).disconnectAll(),
     hasSession: () => ref.read(sessionsProvider).sessions.isNotEmpty,
     canGraceClose: () => canGraceCloseNow(ref),
-    reconnectLast: () async {
-      final known = await ref.read(knownDevicesRepositoryProvider).lastSeen();
-      if (known == null) return;
-
-      final device = await awaitDiscoveredDevice(ref, known.matches);
-      if (device == null) {
-        // Discovery never showed the device inside the window: there is no
-        // row on the connect screen for a device nobody has seen, so there
-        // is nothing to preselect either (spec 7.4) — just give up.
-        return;
-      }
-
-      try {
-        final identity = await ref
-            .read(sessionsProvider.notifier)
-            .connect(device);
-        ref.read(activeDeviceProvider.notifier).select(identity);
-      } on Object {
-        // The device was visible but the reconnect itself failed: still
-        // preselect it on the connect screen, the same as a link that
-        // dropped on its own (ruling 22).
-        ref.read(sessionsProvider.notifier).markLastDisconnected(device);
-        rethrow;
-      }
-    },
+    // One silent attempt on resume (spec 7.4). The outcome is not worth
+    // reporting — the connect screen is already what the user is looking
+    // at — so "nothing known" and "not visible" are dropped here and a
+    // failed connect's error is swallowed by `LifecycleController`.
+    reconnectLast: () => reconnectLastDevice(ref),
   );
   ref.onDispose(controller.dispose);
   return controller;

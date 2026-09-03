@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/core/discovery/discovery_provider.dart';
 import 'package:spectra/core/discovery/scanners.dart';
 import 'package:spectra/core/session/active_device.dart';
+import 'package:spectra/core/session/reconnect.dart';
 import 'package:spectra/core/session/session_streams.dart';
 import 'package:spectra/core/session/sessions.dart';
 import 'package:spectra/data/data.dart';
@@ -15,20 +16,40 @@ const emulated = FakeScanner.emulatedUltra;
 /// Holds a listener on [connectControllerProvider] so the autoDispose
 /// notifier survives between the calls each test makes — otherwise it is
 /// torn down the instant a `read` returns with no active watcher.
-ProviderContainer harness(Transport Function(DiscoveredDevice) factory) {
+ProviderContainer harness(
+  Transport Function(DiscoveredDevice) factory, {
+  List<DeviceScanner> scanners = const <DeviceScanner>[],
+}) {
   final container = ProviderContainer(
     overrides: [
       knownDevicesRepositoryProvider.overrideWithValue(
         InMemoryKnownDevicesRepository(),
       ),
-      scannersProvider.overrideWithValue(<DeviceScanner>[FakeScanner()]),
+      scannersProvider.overrideWithValue(
+        scanners.isEmpty ? <DeviceScanner>[FakeScanner()] : scanners,
+      ),
       transportFactoryProvider.overrideWithValue(factory),
+      // Real time, but short: the "not visible" path waits this out.
+      reconnectDiscoveryTimeoutProvider.overrideWithValue(
+        const Duration(milliseconds: 20),
+      ),
     ],
   );
   addTearDown(container.dispose);
   final sub = container.listen(connectControllerProvider, (_, _) {});
   addTearDown(sub.close);
   return container;
+}
+
+/// A scanner that reports an empty list for ever: the device is remembered
+/// but nothing can see it.
+final class _NoDevicesScanner implements DeviceScanner {
+  const _NoDevicesScanner();
+  @override
+  TransportKind get kind => TransportKind.usb;
+  @override
+  Stream<List<DiscoveredDevice>> scan() =>
+      Stream<List<DiscoveredDevice>>.value(const <DiscoveredDevice>[]);
 }
 
 void main() {
@@ -82,12 +103,46 @@ void main() {
     await container.read(sessionsProvider.notifier).disconnectAll();
   });
 
-  test('reconnectLast with nothing remembered is a no-op', () async {
+  test('reconnectLast with nothing remembered reports it', () async {
     final container = harness((_) => FakeDevice());
+
     await container.read(connectControllerProvider.notifier).reconnectLast();
+
     expect(container.read(activeDeviceProvider), isNull);
-    expect(container.read(connectControllerProvider).hasError, isFalse);
+    // R26: a button that silently does nothing is a broken button.
+    expect(
+      container.read(connectControllerProvider).error,
+      isA<NoKnownDeviceVisible>(),
+    );
   });
+
+  test(
+    'reconnectLast reports a remembered device that is not visible',
+    () async {
+      // Remembered, but nothing is scanning it any more, so the wait times
+      // out (20ms, per the harness override) instead of connecting.
+      final container = harness(
+        (_) => FakeDevice(),
+        scanners: const <DeviceScanner>[_NoDevicesScanner()],
+      );
+      await container
+          .read(knownDevicesRepositoryProvider)
+          .remember(
+            identity: const DeviceIdentity('fake-chip'),
+            displayName: emulated.name,
+            kind: emulated.kind,
+            transportId: emulated.transportId,
+          );
+
+      await container.read(connectControllerProvider.notifier).reconnectLast();
+
+      expect(
+        container.read(connectControllerProvider).error,
+        isA<NoKnownDeviceVisible>(),
+      );
+      expect(container.read(activeDeviceProvider), isNull);
+    },
+  );
 
   test('reset clears an error so the screen can try again', () async {
     final container = harness(

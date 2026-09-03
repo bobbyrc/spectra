@@ -292,6 +292,12 @@ abstract class AppLocalizations {
   /// **'The device reported an unknown status ({code}).'**
   String errorUnknownStatus(String code);
 
+  /// Shown when "Reconnect to last device" finds nothing to reconnect to.
+  ///
+  /// In en, this message translates to:
+  /// **'No known device is visible. Wake the device or plug it in, then try again.'**
+  String get errorNoKnownDeviceVisible;
+
   /// Fallback for an error that is not from the SDK.
   ///
   /// In en, this message translates to:

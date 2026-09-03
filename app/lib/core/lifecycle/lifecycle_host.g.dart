@@ -55,4 +55,4 @@ final class LifecycleControllerProvider
 }
 
 String _$lifecycleControllerHash() =>
-    r'd94c47665ed5d1efa6315f5d96d64ade03b8c13a';
+    r'c7cf52407b0f58ddaa5a55fc63f876e4a3c4e501';

@@ -69,6 +69,8 @@
     "description": "A status code the SDK does not recognise.",
     "placeholders": {"code": {"type": "String"}}
   },
+  "errorNoKnownDeviceVisible": "No known device is visible. Wake the device or plug it in, then try again.",
+  "@errorNoKnownDeviceVisible": {"description": "Shown when \"Reconnect to last device\" finds nothing to reconnect to."},
   "errorUnexpected": "Something unexpected went wrong.",
   "@errorUnexpected": {"description": "Fallback for an error that is not from the SDK."},
   "guidanceAndroidBluetoothPermission": "Open Android settings and allow Spectra to find and connect to nearby devices.",

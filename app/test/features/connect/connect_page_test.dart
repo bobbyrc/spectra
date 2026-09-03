@@ -271,6 +271,20 @@ void main() {
     },
   );
 
+  testWidgetsApp(
+    'Reconnect to last device says so when there is nothing to reconnect to',
+    (tester) async {
+      await pumpTestAppWithNoDevices(tester);
+      await tester.pump();
+      await tester.pump();
+
+      await tester.tap(find.text('Reconnect to last device'));
+      await awaitConnectAttempt(tester);
+
+      expect(find.textContaining('No known device is visible'), findsOneWidget);
+    },
+  );
+
   testWidgetsApp('ConnectProblemView shows the given instructions directly', (
     tester,
   ) async {

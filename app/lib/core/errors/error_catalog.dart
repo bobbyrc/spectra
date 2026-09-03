@@ -2,6 +2,7 @@ import 'package:chameleon/chameleon.dart';
 import 'package:chameleon_flutter/chameleon_flutter.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../session/reconnect.dart';
 import 'error_presentation.dart';
 
 /// Spec 9: the one place an error becomes words. Keyed by the sealed error
@@ -12,6 +13,16 @@ final class ErrorCatalog {
   final AppLocalizations _l10n;
 
   ErrorPresentation describe(Object error) {
+    // The app's own typed failure: no transport ever reported it, so it
+    // never becomes a `ChameleonException`, but it is still an error the
+    // screen shows in exactly the same card.
+    if (error is NoKnownDeviceVisible) {
+      return ErrorPresentation(
+        message: _l10n.errorNoKnownDeviceVisible,
+        recovery: ErrorRecovery.retry,
+        detail: error.toString(),
+      );
+    }
     if (error is! ChameleonException) {
       return ErrorPresentation(
         message: _l10n.errorUnexpected,

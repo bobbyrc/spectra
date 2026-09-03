@@ -51,7 +51,7 @@ final class ConnectControllerProvider
   ConnectController create() => ConnectController();
 }
 
-String _$connectControllerHash() => r'216caa34ef8ce9e0bf44c1a835bcc39dd12ef36b';
+String _$connectControllerHash() => r'20ae95abe5c499a20a13b45f00b38355049162e1';
 
 /// The connect action, with its progress and its failure. Failures stay in
 /// the state rather than being thrown, so the screen renders them through

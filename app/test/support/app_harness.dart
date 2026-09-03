@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meta/meta.dart';
 import 'package:spectra/app.dart';
 import 'package:spectra/core/discovery/scanners.dart';
+import 'package:spectra/core/session/reconnect.dart';
 import 'package:spectra/core/session/sessions.dart';
 import 'package:spectra/data/database/database_providers.dart';
 import 'package:spectra/data/database/spectra_database.dart';
@@ -27,6 +28,11 @@ List<Override> appOverrides({Transport Function(DiscoveredDevice)? transport}) {
     // flutter_test's pending-timer invariant (its own doc comment).
     sessionOptionsProvider.overrideWithValue(
       const SessionOptions(batteryDelay: Duration.zero),
+    ),
+    // "Reconnect to last device" waits 10s for discovery in production;
+    // a widget test pumps that wait out, so keep it short.
+    reconnectDiscoveryTimeoutProvider.overrideWithValue(
+      const Duration(milliseconds: 20),
     ),
   ];
 }
