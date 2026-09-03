@@ -405,6 +405,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get navSettings;
+
+  /// Heading of the full-screen connect route.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a device'**
+  String get connectTitle;
+
+  /// Placeholder body of the Slots tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Slot management arrives in Phase 5.'**
+  String get comingSoonSlots;
+
+  /// Placeholder body of the Cards tab.
+  ///
+  /// In en, this message translates to:
+  /// **'The card library arrives in Phase 6.'**
+  String get comingSoonCards;
+
+  /// Placeholder body of the Settings tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings arrive in Phase 9.'**
+  String get comingSoonSettings;
+
+  /// Placeholder body of the update screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware update arrives in Phase 8.'**
+  String get comingSoonUpdate;
+
+  /// Heading of the Tools tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools'**
+  String get toolsTitle;
+
+  /// Tools entry opening the frame log.
+  ///
+  /// In en, this message translates to:
+  /// **'Frame log'**
+  String get toolsFrameLog;
+
+  /// Explains what the frame log is.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything sent to and received from the device.'**
+  String get toolsFrameLogSubtitle;
+
+  /// Tools entry opening the firmware update screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware update'**
+  String get toolsUpdate;
+
+  /// Heading of the frame log screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Frame log'**
+  String get frameLogTitle;
+
+  /// Heading of the firmware update screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware update'**
+  String get updateTitle;
+
+  /// Heading of the device dashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get dashboardTitle;
 }
 
 class _AppLocalizationsDelegate

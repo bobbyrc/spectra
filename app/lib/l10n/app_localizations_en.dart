@@ -189,4 +189,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get navSettings => 'Settings';
+
+  @override
+  String get connectTitle => 'Connect a device';
+
+  @override
+  String get comingSoonSlots => 'Slot management arrives in Phase 5.';
+
+  @override
+  String get comingSoonCards => 'The card library arrives in Phase 6.';
+
+  @override
+  String get comingSoonSettings => 'Settings arrive in Phase 9.';
+
+  @override
+  String get comingSoonUpdate => 'Firmware update arrives in Phase 8.';
+
+  @override
+  String get toolsTitle => 'Tools';
+
+  @override
+  String get toolsFrameLog => 'Frame log';
+
+  @override
+  String get toolsFrameLogSubtitle =>
+      'Everything sent to and received from the device.';
+
+  @override
+  String get toolsUpdate => 'Firmware update';
+
+  @override
+  String get frameLogTitle => 'Frame log';
+
+  @override
+  String get updateTitle => 'Firmware update';
+
+  @override
+  String get dashboardTitle => 'Device';
 }
