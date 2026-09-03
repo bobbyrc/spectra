@@ -90,8 +90,9 @@ final class FakeDevice implements Transport {
 
   @override
   Future<void> write(Uint8List bytes) async {
-    if (_current is! TransportOpen)
+    if (_current is! TransportOpen) {
       throw const Disconnected('fake device not open');
+    }
     for (final frame in _decoder.feed(bytes)) {
       _received.add(frame);
       final response = firmware.handle(frame);
