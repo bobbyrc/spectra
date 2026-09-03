@@ -47,6 +47,33 @@ void main() {
     expect(find.byType(NavigationBar), findsNothing);
   });
 
+  testWidgets('at 599 logical pixels it shows a bottom bar', (tester) async {
+    // spectraHarness wraps the shell in 16px padding on every side, so the
+    // shell's own LayoutBuilder constraint is 32 logical pixels narrower
+    // than the view's physical size.
+    tester.view.physicalSize = const Size(631, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      spectraHarness(child: _shell(selectedIndex: 0, onTap: (_) {})),
+    );
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(NavigationRail), findsNothing);
+  });
+
+  testWidgets('at exactly 600 logical pixels it shows a rail', (tester) async {
+    tester.view.physicalSize = const Size(632, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      spectraHarness(child: _shell(selectedIndex: 0, onTap: (_) {})),
+    );
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+  });
+
   testWidgets('selecting a destination reports its index in both layouts', (
     tester,
   ) async {

@@ -15,7 +15,10 @@ class SpectraAppShell extends StatelessWidget {
     this.title,
     this.actions = const <Widget>[],
     super.key,
-  });
+  }) : assert(
+         selectedIndex >= 0 && selectedIndex < destinations.length,
+         'selectedIndex must index into destinations',
+       );
 
   final List<SpectraDestination> destinations;
   final int selectedIndex;
