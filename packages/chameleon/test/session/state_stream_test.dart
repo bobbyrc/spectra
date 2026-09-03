@@ -27,10 +27,13 @@ void main() {
     await s.close();
   });
 
-  test('set after close keeps the value but emits nothing', () async {
+  test('set and setIfChanged are no-ops after close', () async {
+    // A late write must not change what a reader sees after shutdown: the
+    // last value a listener was told about is the last value there is.
     final s = StateStream<int>(1);
     await s.close();
     s.set(2);
-    expect(s.value, 2);
+    s.setIfChanged(3);
+    expect(s.value, 1);
   });
 }

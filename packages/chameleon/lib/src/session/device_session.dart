@@ -53,6 +53,12 @@ final class DeviceSession {
 
   static const int supportedMajor = 2;
 
+  /// Timeout for the two handshake probes (1035 and 1000), which are sent to
+  /// a device that may not answer them at all. A silent pre-2.0 device must
+  /// reach [SessionLimited] in seconds, not in two full command timeouts
+  /// with a retry each.
+  static const Duration probeTimeout = Duration(seconds: 1);
+
   /// The firmware has eight emulation slots, fixed by the protocol.
   static const int slotCount = 8;
 
@@ -205,26 +211,47 @@ final class DeviceSession {
         state is SessionReady ||
         state is SessionUpdating ||
         (allowLimited && state is SessionLimited);
-    if (!ok) throw SessionNotReady('session is ${state.runtimeType}');
+    if (!ok) {
+      // A limited session is refused for a reason the app can act on: the
+      // firmware is too old, too new, or the legacy build. SessionNotReady
+      // stays for the states that are only a matter of timing.
+      if (state is SessionLimited) {
+        throw UnsupportedFirmware(
+          state.reason,
+          'firmware ${state.version?.label ?? 'unknown'} is not supported '
+          '(${state.reason.name})',
+        );
+      }
+      throw SessionNotReady('session is ${state.runtimeType}');
+    }
     return _sendRaw(command, cancel: cancel);
   }
 
   /// [send] without the state check, for the handshake. One retry on timeout,
   /// and only for idempotent reads: re-sending a write after a timeout could
   /// apply it twice.
-  Future<R> _sendRaw<R>(Command<R> command, {CancelToken? cancel}) async {
+  Future<R> _sendRaw<R>(
+    Command<R> command, {
+    CancelToken? cancel,
+    Duration? timeout,
+    bool retry = true,
+  }) async {
     try {
-      return await _dispatch(command, cancel: cancel);
+      return await _dispatch(command, cancel: cancel, timeout: timeout);
     } on CommandTimeout {
-      if (!command.idempotent) rethrow;
-      return _dispatch(command, cancel: cancel);
+      if (!retry || !command.idempotent) rethrow;
+      return _dispatch(command, cancel: cancel, timeout: timeout);
     }
   }
 
-  Future<R> _dispatch<R>(Command<R> command, {CancelToken? cancel}) async {
+  Future<R> _dispatch<R>(
+    Command<R> command, {
+    CancelToken? cancel,
+    Duration? timeout,
+  }) async {
     final frame = await _dispatcher.send(
       command.toFrame(),
-      timeout: command.timeout,
+      timeout: timeout ?? command.timeout,
       expectsResponse: command.expectsResponse,
       cancel: cancel,
     );

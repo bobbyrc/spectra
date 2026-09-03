@@ -79,8 +79,8 @@ void main() {
         dispatcher.send(const GetActiveSlot().toFrame(), timeout: short),
         throwsA(isA<CommandTimeout>()),
       );
-      // The drain window (40 ms after the timeout) outlasts the 60 ms delay,
-      // so the stale frame is consumed silently.
+      // The drain window (500 ms after the timeout) outlasts the 60 ms
+      // delay, so the stale frame is consumed silently.
       final watch = Stopwatch()..start();
       await dispatcher.send(const GetDeviceModel().toFrame(), timeout: patient);
       watch.stop();
@@ -103,6 +103,25 @@ void main() {
     expect(device.received.length, 1);
     await second;
     expect(device.received.length, 2);
+  });
+
+  test('the drain window bounds the stall a dropped response causes', () async {
+    // The window is deliberately not the command timeout: one dropped
+    // response must not hold every later command for a full timeout.
+    final byDefault = CommandDispatcher(device);
+    expect(byDefault.drainWindow, const Duration(milliseconds: 500));
+    await byDefault.dispose();
+    final d = CommandDispatcher(device, drainWindow: short);
+    device.dropNextResponse();
+    await expectLater(
+      d.send(const GetAppVersion().toFrame(), timeout: short),
+      throwsA(isA<CommandTimeout>()),
+    );
+    final watch = Stopwatch()..start();
+    await d.send(const GetActiveSlot().toFrame(), timeout: patient);
+    watch.stop();
+    expect(watch.elapsedMilliseconds, lessThan(120));
+    await d.dispose();
   });
 
   test('cancelling a queued command rejects it without sending', () async {
@@ -229,7 +248,7 @@ void main() {
     'a write that never completes still times out, then dispatch resumes',
     () async {
       final t = _StubTransport();
-      final d = CommandDispatcher(t);
+      final d = CommandDispatcher(t, drainWindow: short);
       await expectLater(
         d.send(const GetAppVersion().toFrame(), timeout: short),
         throwsA(isA<CommandTimeout>()),

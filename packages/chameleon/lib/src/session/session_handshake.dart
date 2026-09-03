@@ -3,7 +3,9 @@ part of 'device_session.dart';
 /// The connect handshake and the tolerant background load (spec 4.3).
 ///
 /// Only three commands gate readiness: capabilities (1035), app version
-/// (1000) and model (1033). Everything else is loaded afterwards and is
+/// (1000) and model (1033). The first two are sent as probes — one second,
+/// no retry ([DeviceSession.probeTimeout]) — because a device that answers
+/// neither is exactly the device that must reach [SessionLimited] quickly. Everything else is loaded afterwards and is
 /// allowed to fail: a failure yields partial state plus a typed error on
 /// [DeviceSession.backgroundErrors], never a refused session.
 extension SessionHandshake on DeviceSession {
@@ -53,7 +55,11 @@ extension SessionHandshake on DeviceSession {
   /// session lands disconnected rather than limited.
   Future<Capabilities?> _capabilitiesOrNull() async {
     try {
-      return await _sendRaw(const GetDeviceCapabilities());
+      return await _sendRaw(
+        const GetDeviceCapabilities(),
+        timeout: DeviceSession.probeTimeout,
+        retry: false,
+      );
     } on TransportError {
       rethrow;
     } on ChameleonException {
@@ -63,7 +69,11 @@ extension SessionHandshake on DeviceSession {
 
   Future<FirmwareVersion?> _versionOrNull() async {
     try {
-      return await _sendRaw(const GetAppVersion());
+      return await _sendRaw(
+        const GetAppVersion(),
+        timeout: DeviceSession.probeTimeout,
+        retry: false,
+      );
     } on TransportError {
       rethrow;
     } on ChameleonException {

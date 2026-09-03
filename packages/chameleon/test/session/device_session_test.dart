@@ -145,9 +145,17 @@ void main() {
         device: device,
       );
       await s.open();
+      // The refusal carries why the firmware is unusable, so the app can
+      // say "update me" rather than "not ready".
       await expectLater(
         s.send(const GetActiveSlot()),
-        throwsA(isA<SessionNotReady>()),
+        throwsA(
+          isA<UnsupportedFirmware>().having(
+            (e) => e.reason,
+            'reason',
+            UnsupportedReason.preTwoPointZero,
+          ),
+        ),
       );
       await s.send(const EnterBootloader(), allowLimited: true);
       expect(device.firmware.bootloaderRequested, isTrue);
@@ -368,6 +376,48 @@ void main() {
         ),
       ),
     );
+    await s.close();
+  });
+
+  test('a silent pre-2.0 device reaches limited in seconds', () async {
+    // Both handshake probes (1035, 1000) go unanswered: one second each,
+    // no retry, so an old device is diagnosed instead of hanging the UI.
+    final device = FakeDevice()
+      ..dropNextResponse()
+      ..dropNextResponse();
+    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    final watch = Stopwatch()..start();
+    await s.open();
+    watch.stop();
+    expect(
+      s.connectionState.value,
+      isA<SessionLimited>().having(
+        (l) => l.reason,
+        'reason',
+        UnsupportedReason.preTwoPointZero,
+      ),
+    );
+    // Two one-second probes plus the 500 ms drain between them. Before the
+    // probe timeouts this was two three-second timeouts with a retry each.
+    expect(watch.elapsedMilliseconds, lessThan(3000));
+    await s.close();
+  });
+
+  test('one dropped response does not stall the next command', () async {
+    // The command's own three-second timeout dominates; what the bounded
+    // drain window buys is the rest — the retry and the seven commands after
+    // it are held for 500 ms, not for another full timeout (which used to
+    // make this run past six seconds).
+    final device = FakeDevice();
+    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    await s.open();
+    await settle();
+    device.dropNextResponse();
+    final watch = Stopwatch()..start();
+    final slots = await s.slots.refresh();
+    watch.stop();
+    expect(slots, hasLength(DeviceSession.slotCount));
+    expect(watch.elapsedMilliseconds, lessThan(4000));
     await s.close();
   });
 }

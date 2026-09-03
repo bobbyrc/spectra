@@ -26,6 +26,12 @@ final class _Pending {
 
   /// Assigned when the request actually goes on the wire, not when it is
   /// queued: only the newest dispatch may claim a response.
+  ///
+  /// With one command in flight at a time this is an invariant assertion
+  /// rather than a matching mechanism — the in-flight command's generation
+  /// is always the newest — and it is kept for exactly that reason: it turns
+  /// a future regression in the queueing into a dropped frame rather than a
+  /// response handed to the wrong caller.
   int generation = 0;
 
   void fail(Object error, [StackTrace? stackTrace]) {
@@ -75,6 +81,7 @@ final class CommandDispatcher {
   CommandDispatcher(
     this._transport, {
     FrameLog? log,
+    this.drainWindow = const Duration(milliseconds: 500),
     void Function(DecodeDiagnostic)? onDiagnostic,
   }) : // A named parameter cannot be private, so `this._log` is not an option.
        // ignore: prefer_initializing_formals
@@ -86,6 +93,18 @@ final class CommandDispatcher {
   }
 
   final Transport _transport;
+
+  /// How long dispatch is blocked waiting for the stray response to a command
+  /// that was abandoned (timed out or cancelled).
+  ///
+  /// Deliberately much shorter than a command timeout: a device that dropped
+  /// one response would otherwise stall every later command for a full
+  /// timeout. A response arriving after the window has closed is no longer
+  /// recognised as stale — it reaches [unexpectedFrames], or, if a command
+  /// with the same id is in flight by then, is matched to it. The window is a
+  /// bound on how long staleness is tracked, not a guarantee.
+  final Duration drainWindow;
+
   final FrameLog? _log;
   final FrameDecoder _decoder;
   late final StreamSubscription<Uint8List> _incomingSub;
@@ -205,11 +224,11 @@ final class CommandDispatcher {
   }
 
   /// Abandons [p]'s generation and blocks dispatch until its response arrives
-  /// or one more timeout elapses.
+  /// or [drainWindow] elapses.
   void _startDrain(_Pending p) {
     final d = _Drain(p.request.command);
     _draining = d;
-    d.timer = Timer(p.timeout, () => _endDrain(d));
+    d.timer = Timer(drainWindow, () => _endDrain(d));
   }
 
   void _endDrain(_Drain d) {

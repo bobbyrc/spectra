@@ -4,6 +4,8 @@ import 'dart:async';
 ///
 /// The current value survives [close]: a caller that reads [value] after the
 /// session shut down still sees the last state, it just stops being notified.
+/// [set] and [setIfChanged] are no-ops once closed, so the last value a
+/// listener saw is also the last value a late reader sees.
 final class StateStream<T> {
   StateStream(this._value);
 
@@ -30,8 +32,9 @@ final class StateStream<T> {
   }
 
   void set(T v) {
+    if (_changes.isClosed) return;
     _value = v;
-    if (!_changes.isClosed) _changes.add(v);
+    _changes.add(v);
   }
 
   /// [set], but silent when the value has not changed. The idle poll uses
