@@ -2,11 +2,13 @@
 library;
 
 export 'l10n/spectra_ui_localizations.dart';
+export 'src/components/app_shell.dart';
 export 'src/components/bottom_sheet.dart';
 export 'src/components/button.dart';
 export 'src/components/button_variant.dart';
 export 'src/components/card.dart';
 export 'src/components/connection_status.dart';
+export 'src/components/destination.dart';
 export 'src/components/dialog.dart';
 export 'src/components/disclosure.dart';
 export 'src/components/hex_highlight.dart';
