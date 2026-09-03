@@ -48,9 +48,29 @@ user's report; the serial control-line default is `SerialControlLineMode
 `flutter test --tags hardware --run-skipped test/contract` from
 `packages/chameleon_flutter`.
 
-Next: Phase 4 (app shell) — the plan
-`docs/superpowers/plans/2026-09-03-phase-4-app-shell.md` exists with
-pre-flight rulings recorded.
+Phase 4 (`app/`) is complete (2026-09-03): the app shell. `app/lib/core/`
+has `session` (the session registry keyed by `DeviceIdentity`, registered
+after the handshake), `discovery` (built on `chameleon_flutter`'s
+`mergedScan`), `routing` (redirect on `connectionState`), `lifecycle`
+(background grace period, one silent reconnect, wakelock), `errors` (the
+error catalog and frame log) and `flags` (`dfuOverBleEnabled`, off by
+default). `app/lib/data` is Drift at schema version 1 plus in-memory
+repositories, both behind `data/data.dart` — features never import
+`data/database/`. `app/lib/features/` has `connect`, `dashboard` and `tools`
+built out; `slots`, `cards` and `settings` are placeholders for Phases 5, 6
+and 9, and the update screen (`tools`) is a placeholder that already carries
+the recovery target and the `dfuOverBleEnabled` notice. The test harness is
+`app/test/support/app_harness.dart`: `testWidgetsApp` builds the app under
+test with provider overrides, and `connectToEmulator` drives a widget
+tester through discovery and connect to the emulated device. The gate is
+`app/test/flows/connect_flow_test.dart` (every CI job) with a
+`integration_test/` twin that runs the same flow on a real engine on
+`macos-latest`, push-only. Emulator mode defaults to on: the connect screen
+lists the emulated Chameleon Ultra alongside any real devices, so
+`cd app && flutter run -d macos` (or any desktop target) reaches a working
+dashboard with no hardware attached.
+
+Next: Phase 5 (slots) — from spec 7.7 step 2 and 8.3.
 
 Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
 "Decisions made overnight" below.
@@ -72,8 +92,9 @@ Plans, in `docs/superpowers/plans/`:
 - `2026-09-03-phase-3-transports.md`: USB serial and BLE transports,
   scanners and the platform seams (complete).
 - `2026-09-03-phase-4-app-shell.md`: app shell and connect, from spec
-  7.1-7.5, 8.3, 8.4 and 9. Next step.
-- Phases 5 to 10: write each plan with the writing-plans skill from the spec
+  7.1-7.5, 8.3, 8.4 and 9 (complete).
+- Phase 5 (slots) is written next from spec 7.7 step 2 and 8.3.
+- Phases 6 to 10: write each plan with the writing-plans skill from the spec
   sections the roadmap lists, when that phase starts.
 
 Execute plans with superpowers:subagent-driven-development. Hardware steps
@@ -81,7 +102,42 @@ need the user's device and never block progress: build against the fake,
 keep `docs/hardware-checklist.md` current, and gate BLE and iOS DFU behind
 the `dfuOverBleEnabled` flag until the user reports the checks passed.
 
-## Decisions made overnight (2026-09-03)
+## Decisions made overnight (2026-09-03, Phase 4)
+
+- Repository providers live in `app/lib/data/repository_providers.dart`,
+  exported from `data/data.dart`. Features never import `data/database/`
+  directly (spec 8.3); the Drift-typed implementations stay under
+  `data/database/` and the storage swap seam is real, not fiction.
+- Discovery is built on `chameleon_flutter`'s `mergedScan` (immediate first
+  event, union of scanners, an errored scanner's rows dropped). A scanner
+  error stays sticky in `DiscoveryState` until the connect screen's "Try
+  again" invalidates `discoveryProvider` — a scanner that errors is closed
+  by `mergedScan` and cannot recover on its own, so self-clearing would hide
+  a dead scanner.
+- A failed silent reconnect (in `core/lifecycle`) arms the connect screen's
+  preselection via `Sessions.markLastDisconnected`, so the device that just
+  dropped is preselected on the connect screen exactly as it would be after
+  a manual disconnect.
+- The macOS `integration` job in `.github/workflows/ci.yml` runs on push
+  only (`if: github.event_name == 'push'`) and is not `continue-on-error`.
+  The widget-test twin (`app/test/flows/connect_flow_test.dart`) is the
+  enforced gate on every job; the macOS runner bills at 10x and duplicates
+  the `build` matrix compile.
+- `SessionOptions`/`sessionOptionsProvider` exists so tests can zero
+  `batteryDelay` instead of depending on `DeviceSession`'s real 5-second
+  battery timer; `app/test/support/app_harness.dart`'s `connectToEmulator`
+  uses it so widget tests do not need a multi-second pump.
+- The SDK's `DeviceSession`/`CommandDispatcher` no longer `await`
+  `StreamSubscription.cancel()` — that future never completes under a
+  `fakeAsync`/virtual clock, and doing so hung teardown paths. Note for the
+  next phase that touches these: `chameleon_flutter` still has `await
+  …cancel()` sites (`merged_scan`, `state_stream`, the DFU channels) that
+  will need the same fix before widget tests reach them.
+- `FakeDevice.open()` is single-use (a Phase 3 decision); Phase 4 always
+  constructs a new `DeviceSession` per connect attempt rather than reusing
+  one across attempts.
+
+## Decisions made overnight (2026-09-03, Phase 3)
 
 - Draft PR #1 opened from `bobbyrc/chinook` to `main` so `pull_request` CI
   runs on every push; close or convert when reviewing.

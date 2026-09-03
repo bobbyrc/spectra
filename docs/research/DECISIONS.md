@@ -361,5 +361,137 @@ dump formats and DFU. Rulings taken while executing
   fake's lifecycle, not in either transport, that a `FakeDevice`-only run
   would have missed.
 
+## Phase 4 decisions (2026-09-03)
+
+- **Nine files carry more than one public type each, deviating from spec
+  8.5's "one public type per file":** `app/lib/core/lifecycle/wakelock.dart`
+  (3 types + 1 function + 1 provider), `app/lib/core/session/sessions.dart`
+  (2 + 2), `app/lib/core/discovery/discovery_provider.dart` (2),
+  `app/lib/features/connect/state/connect_row.dart` (2),
+  `app/lib/core/flags/feature_flags.dart` (2),
+  `app/lib/core/routing/app_sections.dart` (2),
+  `app/lib/core/errors/error_presentation.dart` (2),
+  `app/lib/data/memory/in_memory_repositories.dart` (2), and
+  `app/lib/data/repositories.dart` (4). Ruling: accepted, no split. Spec
+  8.5's rule already carries an exception for the command catalog; each of
+  these nine pairs a value type with the pure rule or provider that operates
+  on it, so splitting adds up to eighteen files with no gain in clarity. The
+  rule for future phases: a public type and its pure companion (the
+  function/provider that exists only to construct or derive it) may share a
+  file; anything else — two independent public types — still splits.
+- **`tool/check_codegen.sh` does not cover `app/drift_schemas/*.json` or
+  `app/test/generated_migrations/`.** Staleness there is instead caught by
+  `app/test/data/schema_test.dart`'s `SchemaVerifier`, which fails if the
+  exported schema JSON does not match the live table definitions. Two
+  staleness checks for the same artifact would be redundant; the schema
+  test is the stronger one because it actually runs the migration, not just
+  diffs a file.
+- **Sessions are keyed by identity, but registered after the handshake.**
+  Spec 7.1 wants a family keyed by `DeviceIdentity`; the identity is the
+  chip id and only exists once the handshake has run. `Sessions.connect`
+  therefore opens first and registers second, and a session that never
+  became ready — pre-2.0 firmware, a device in its bootloader — gets
+  `fallbackIdentity(device)`, derived from the transport and prefixed
+  `transport:` so it can never be confused with a chip id. One map, no
+  nullable key, no second code path for limited sessions. A new
+  `DeviceSession` is constructed per connect attempt; sessions are
+  single-use and spent after a terminal close, matching `FakeDevice.open()`
+  throwing `Disconnected` after `close()` (Phase 3).
+- **The connection state is a notifier; everything else derived is a stream
+  provider.** Routing needs a synchronous value (spec 7.2), and
+  `StateStream.values` only delivers its current value asynchronously. The
+  notifier is named `ConnectionStatus` because riverpod_generator would
+  otherwise generate a `_$ConnectionState` base colliding with the SDK
+  type.
+- **Drift schema version 1 contains all four tables**, including
+  `saved_cards` and `key_dictionaries`, which nothing reads until Phases 6
+  and 9. The alternative was a migration per phase for tables whose shape
+  is already known. The v1 schema is exported to `app/drift_schemas/` and
+  verified by `test/data/schema_test.dart` with `drift_dev`'s
+  `SchemaVerifier`.
+- **Tests use real Drift in memory, not a mock.** `SpectraDatabase.memory()`
+  runs the real queries with no file system, so the repositories are proved
+  rather than stubbed. Sqlite3 native is needed on CI — `libsqlite3-dev` is
+  installed in the `check` job.
+- **Repository providers live in `app/lib/data/repository_providers.dart`,
+  exported from `data/data.dart`.** Spec 8.3 ("Features import `core`,
+  `data` interfaces") and the plan's boundary statement both require
+  features to depend on the storage interface, not the Drift
+  implementation. `tool/dep_lint.dart`'s `drift-in-data-only` rule only
+  fires on `drift`/`drift_*` imports outside `lib/data/`, so this is not
+  lint-enforced — it is a review rule against `data/database/` leaking into
+  `features/`.
+- **`app/lib/features/dashboard`, `connect` and `tools` are complete;
+  `slots`, `cards` and `settings` are placeholders** carrying the recovery
+  target and the `dfuOverBleEnabled` notice (`tools`'s update screen) for
+  Phases 5, 6 and 9 to fill in.
+- **The gate flow exists twice.** The widget test in `app/test/flows/`
+  (`connect_flow_test.dart`) runs on every CI job on Ubuntu; the
+  `integration_test/` copy runs on a `macos-latest` job, `if:
+  github.event_name == 'push'`, not `continue-on-error`, because a desktop
+  integration test needs a display session the Ubuntu container has not
+  got and the macOS runner bills at 10x. The widget test is the enforced
+  gate; the integration test proves the real engine.
+- **Emulator mode defaults to on.** Spec 7.5 says the connect screen lists
+  real devices plus the emulated one, and it is also how screenshots and
+  manual QA happen. `emulatorModeProvider` exists so a settings toggle can
+  hide it later.
+- **The wakelock polls.** The SDK exposes `readerLeaseCount` and `isBusy`
+  as getters with no change notification. A one-second poll behind a
+  `WakelockGateway` interface was cheaper than adding a stream to the SDK
+  that nothing else would use.
+- **`dfuOverBleEnabled` is stored in the `app_preferences` table**, read
+  through `PreferencesRepository`, and defaults to false with an all-off
+  synchronous view while preferences load. Phase 8 reads
+  `featureFlagsProvider`.
+- **A failed silent reconnect arms `Sessions.markLastDisconnected`.** The
+  lifecycle handler's one silent-reconnect attempt (spec 7.4) preselects
+  the device on the connect screen on failure exactly as an explicit
+  disconnect does — otherwise the user returns to an unpreselected list
+  after a reconnect that silently failed in the background.
+- **The `hostPlatformProvider` seam** exists so tests can force a host
+  platform (mobile vs. desktop) without depending on `Platform.isX`, which
+  is unavailable/unreliable under `flutter test`'s VM. `ManualPortField`
+  (desktop-only) and similar platform-conditional UI read this provider,
+  not `Platform` directly.
+- **The `testWidgetsApp` harness contract: settle in a `finally`.**
+  `app/test/support/app_harness.dart` pumps a bounded number of frames
+  rather than `pumpAndSettle` (the shell and progress indicators animate
+  continuously, so `pumpAndSettle` never returns), and every test that
+  leaves a live Drift stream or session mounted must call the harness's
+  settle helper inside a `finally` block — `flutter_test`'s pending-timer
+  check runs before `addTearDown` callbacks fire, so a teardown-only settle
+  is too late and the test fails on a spurious pending-timer assertion.
+- **riverpod 3.4.2 API facts that cost a round each the first time:**
+  `Override` is exported from `package:flutter_riverpod/misc.dart`, not the
+  main library; `AsyncValue` has no `valueOrNull` (removed in riverpod 3;
+  read `.value` or pattern-match); a notifier's `onDispose` callback cannot
+  read `state` (riverpod 3 forbids it — mirror anything `onDispose` needs
+  into a plain field first); and `container.read(provider.future)` on an
+  autoDispose stream/async provider can hang forever if nothing is holding
+  a live listener on that provider — call `container.listen(provider, ...)`
+  (or have the harness do it) before awaiting `.future`.
+- **The SDK's `DeviceSession`/`CommandDispatcher` no longer `await
+  StreamSubscription.cancel()`.** That future never completes under a
+  `fakeAsync`/virtual clock, which hung several teardown paths during
+  Phase 4's widget tests. `chameleon_flutter` (Phase 3) still has `await
+  …cancel()` sites in `merged_scan`, `state_stream` and the DFU channels;
+  they have not bitten yet because no Phase 4 widget test drives them hard
+  enough, but they are a fix-wave candidate before a later phase's widget
+  tests reach them.
+- **Package versions pinned in Phase 4:** `flutter_riverpod` 3.4.2,
+  `riverpod_annotation` 4.0.6, `riverpod_generator` 4.0.8, `go_router`
+  18.0.1, `drift` 2.34.4, `drift_flutter` 0.3.1, `drift_dev` 2.34.6,
+  `wakelock_plus` 1.8.0, `freezed` 4.0.1, `json_serializable` 6.14.1,
+  `build_runner` 2.16.1.
+- **The three Drift data models (`KnownDevice`, `SavedCard`,
+  `KeyDictionary`) are plain final classes, not `freezed`.** The plan's
+  Interfaces block only lists `freezed` as a dev dependency for later
+  tasks; three small value types with no union variants did not need
+  freezed's generated equality/copyWith machinery. `@DataClassName`
+  (`KnownDeviceRow`, `SavedCardRow`, `KeyDictionaryRow`) is declared on the
+  Drift tables themselves so the generated row types never collide with
+  these model names.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).

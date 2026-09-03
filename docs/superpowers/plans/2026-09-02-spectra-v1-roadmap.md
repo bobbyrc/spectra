@@ -39,7 +39,7 @@ The user owns one Chameleon Ultra and a Mac. The executor cannot run hardware st
 | 1 SDK | `2026-09-02-phase-1-chameleon-sdk.md` (written) | 3, 4, 8.1, 8.2, 9 (error types), 10 | `packages/chameleon`: codec, commands, errors, models, transport interface, FakeDevice across the firmware matrix, dispatcher, session state machine, cache, lease, facades, dump formats, DfuPackage, SecureDfu, DfuOrchestrator | `dart test` green with coverage report; every spec 4.3 behavior has a named test |
 | 2 Design system | `2026-09-03-phase-2-design-system.md` (done) | 6, 7.6 | `packages/spectra_ui`: tokens, SpectraTheme, material_ui bridge, every 6.2 component with light and dark goldens, gallery example, ARB wiring | goldens pass on CI; gallery runs on macOS in emulator-free mode |
 | 3 Transports | `2026-09-03-phase-3-transports.md` (written) | 5 | `packages/chameleon_flutter`: BLE transport, serial transport, scanners, BleDfuChannel, SlipSerialDfuChannel, permission and pairing states, platform setup files, contract suite | contract suite green against FakeDevice; H1 section written to docs/hardware-checklist.md |
-| 4 App shell and connect | write from spec 7.1-7.5, 8.3, 8.4, 9 | 7, 8, 9 | `app`: core (session family, active device, routing on connectionState, lifecycle, error catalog, frame log), data layer (Drift, known devices), emulator mode, connect screen with identity merge, dashboard, bootloader recovery entry | integration test: connect to emulator, see dashboard, disconnect, reconnect |
+| 4 App shell and connect | `2026-09-03-phase-4-app-shell.md` (written) | 7, 8, 9 | `app`: core (session family, active device, routing on connectionState, lifecycle, error catalog, frame log), data layer (Drift, known devices), emulator mode, connect screen with identity merge, dashboard, bootloader recovery entry | integration test: connect to emulator, see dashboard, disconnect, reconnect |
 | 5 Slots | write from spec 7.7 step 2, 8.3 | 7.7, 8 | Slots feature and its public slot picker API | integration test: edit and save a slot on the emulator |
 | 6 Read, library, editor, import | write from spec 7.7 steps 3-4, 7.3, 3.5 | 3.5, 7.3, 7.7 | Read cards, cards library, dump editor with hex viewer, reference-app JSON import, card picker API | integration test: scan a fake card, save, edit, import fixture |
 | 7 Write and emulate | write from spec 7.7 step 5 | 7.7 | Load to slot, write to card, quick emulate | integration test on emulator |
@@ -55,7 +55,7 @@ Order is fixed as listed. Phase 2 and Phase 1 do not depend on each other and ma
 - [x] Phase 1
 - [x] Phase 2
 - [x] Phase 3
-- [ ] Phase 4
+- [x] Phase 4
 - [ ] Phase 5
 - [ ] Phase 6
 - [ ] Phase 7

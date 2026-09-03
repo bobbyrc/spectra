@@ -229,3 +229,46 @@ dated entry per lesson; keep each one actionable.
   back a value the SDK cached on write only confirms the cache wrote what
   it was told; call `slots.refresh()` (or the equivalent device read) to
   prove the device actually has it.
+- **`container.read(provider.future)` hangs on an autoDispose provider with
+  no listener.** Under riverpod 3, nothing keeps an autoDispose
+  stream/async provider alive just because you awaited its `.future`; the
+  provider disposes before it resolves and the await never returns. Hold a
+  `container.listen(provider, (_, __) {})` (or use a harness that does)
+  before awaiting `.future`.
+- **A `StreamSubscription.cancel()` future never completes under
+  `fakeAsync`.** Awaiting it in a teardown or dispose path hangs the test.
+  Fire-and-forget the cancel (`unawaited(sub.cancel())`) in any code path
+  that can run under a virtual clock; the SDK's `DeviceSession` and
+  `CommandDispatcher` were both fixed this way in Phase 4, and
+  `chameleon_flutter` still has the same pattern in `merged_scan`,
+  `state_stream` and the DFU channels, unfixed, waiting for a widget test
+  that drives them hard enough to hit it.
+- **`flutter_test`'s pending-timer check runs before `addTearDown`
+  callbacks fire.** A test that leaves a live stream or timer mounted must
+  settle it inline (or in a `finally` around the test body), not by
+  registering a teardown — by the time `addTearDown` runs, the pending-timer
+  assertion has already failed the test.
+- **A plan's sketch of facade/provider names and riverpod API shapes drifts
+  from what actually landed**, not just across phases but within one:
+  implementers must read the landed file for the real name/signature
+  before writing against it, and reviewers must check names against that
+  file, not the plan.
+- **Serialise implementers on shared files.** The ARB file, barrel exports
+  (`data.dart`, `sessions.dart`), and the test harness
+  (`app_harness.dart`) each got edited by more than one task in Phase 4;
+  dispatching two tasks that both touch one of these in parallel cost a
+  round of conflict resolution every time. Queue tasks that share a file
+  instead of parallelizing them.
+- **Implementers must run tests in the foreground.** A background test run
+  plus waiting on a monitor stalled one Phase 4 task for over an hour with
+  no useful signal in the meantime — foreground runs surface the failure
+  (or the hang) immediately.
+- **A review brief must not invent requirements beyond the spec/plan.** One
+  Phase 4 review raised a blocker ("known-but-undiscovered rows" handling)
+  that appeared nowhere in the spec, plan or task brief; the fix was to
+  rule it out of scope, not to implement it. State every review requirement
+  as a citation to spec/plan/brief text, not as the reviewer's own
+  inference.
+- **Opus returning 529 (overloaded) is not a reason to wait it out.**
+  Resume the same agent or switch it to another model rather than retrying
+  the same overloaded call in a loop.
