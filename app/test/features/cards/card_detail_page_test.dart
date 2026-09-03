@@ -74,6 +74,19 @@ final class _FlakySavedCardsRepository implements SavedCardsRepository {
   Stream<List<SavedCard>> watchAll() => _delegate.watchAll();
 }
 
+/// Scrolls to the detail screen's "Edit details" button and taps it.
+///
+/// Always by widget type: the sheet it opens is titled "Edit details" too,
+/// so a bare `find.text` matches the button and the title both, and would
+/// tap whichever the tree happens to order first.
+Future<void> openEditDetails(WidgetTester tester) async {
+  final Finder button = find.widgetWithText(SpectraButton, 'Edit details');
+  await tester.ensureVisible(button);
+  await pumpFrames(tester);
+  await tester.tap(button);
+  await pumpFrames(tester);
+}
+
 Future<String> seedAndOpen(
   WidgetTester tester, {
   List<Override> extraOverrides = const <Override>[],
@@ -668,10 +681,7 @@ void main() {
   ) async {
     final String id = await seedAndOpen(tester);
 
-    await tester.ensureVisible(find.text('Edit details'));
-    await pumpFrames(tester);
-    await tester.tap(find.text('Edit details'));
-    await pumpFrames(tester);
+    await openEditDetails(tester);
 
     // The form comes up prefilled with what is stored. Its fields are
     // found through the sheet (ruling 8/10): the screen underneath has
@@ -727,10 +737,7 @@ void main() {
     tester,
   ) async {
     await seedAndOpen(tester);
-    await tester.ensureVisible(find.text('Edit details'));
-    await pumpFrames(tester);
-    await tester.tap(find.text('Edit details'));
-    await pumpFrames(tester);
+    await openEditDetails(tester);
 
     // Seven swatches, seven distinct labels, and the chosen one says so.
     expect(find.bySemanticsLabel('Colour 1, selected'), findsOne);
@@ -801,6 +808,174 @@ void main() {
       0xBE,
       0xEF,
     ]);
+  });
+
+  testWidgetsApp('a saved hex edit survives a later details edit', (
+    tester,
+  ) async {
+    final String id = await seedAndOpen(tester);
+
+    await tester.enterText(find.byKey(const Key('cardEditIndex')), '1');
+    await tester.enterText(
+      find.byKey(const Key('cardEditValue')),
+      '000102030405060708090A0B0C0D0E0F',
+    );
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Save changes'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Save changes'));
+    await pumpFrames(tester, count: 20);
+
+    await openEditDetails(tester);
+    final Finder fields = find.descendant(
+      of: find.byType(SpectraBottomSheet),
+      matching: find.byType(SpectraTextField),
+    );
+    await tester.enterText(fields.at(0), 'Front door');
+    await pumpFrames(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.widgetWithText(SpectraButton, 'Save'),
+      ),
+    );
+    await pumpFrames(tester, count: 20);
+
+    final SavedCardsRepository repo = readProvider(
+      tester,
+      savedCardsRepositoryProvider,
+    );
+    final SavedCard stored = (await repo.byId(id))!;
+    expect(stored.name, 'Front door');
+    // The details edit must not carry the pre-save bytes back over the
+    // saved ones.
+    expect(stored.bytes.sublist(16, 32), <int>[
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+    ]);
+  });
+
+  testWidgetsApp('Try again after a failed discard discards again', (
+    tester,
+  ) async {
+    final _FlakySavedCardsRepository repo = _FlakySavedCardsRepository(
+      InMemorySavedCardsRepository(),
+    );
+    final String id = await seedAndOpen(
+      tester,
+      extraOverrides: <Override>[
+        savedCardsRepositoryProvider.overrideWithValue(repo),
+      ],
+    );
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    final CardEditor editor = readProvider(
+      tester,
+      cardEditorProvider(id).notifier,
+    );
+    editor.replaceChunk(1, Uint8List(16)..[0] = 0xAB);
+    await pumpFrames(tester);
+
+    repo.failNextById = true;
+    await editor.discard();
+    await pumpFrames(tester);
+    expect(find.byType(ProblemView), findsOneWidget);
+
+    // The action belongs to the operation that failed: retrying a discard
+    // discards, it does not write the edits the user was throwing away.
+    await tester.ensureVisible(find.text('Try again'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Try again'));
+    await pumpFrames(tester, count: 20);
+
+    final CardEditState reverted = readProvider(
+      tester,
+      cardEditorProvider(id),
+    ).value!;
+    expect(reverted.dirty, isFalse);
+    expect(reverted.chunk(1), everyElement(0));
+    expect((await repo.byId(id))!.bytes[16], 0);
+  });
+
+  testWidgetsApp('Try again after a failed delete deletes again', (
+    tester,
+  ) async {
+    final _FlakySavedCardsRepository repo = _FlakySavedCardsRepository(
+      InMemorySavedCardsRepository(),
+    );
+    final String id = await seedAndOpen(
+      tester,
+      extraOverrides: <Override>[
+        savedCardsRepositoryProvider.overrideWithValue(repo),
+      ],
+    );
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    final CardEditor editor = readProvider(
+      tester,
+      cardEditorProvider(id).notifier,
+    );
+
+    repo.failNextDelete = true;
+    await editor.deleteCard();
+    await pumpFrames(tester);
+    expect(find.byType(ProblemView), findsOneWidget);
+    expect(await repo.byId(id), isNotNull);
+
+    await tester.ensureVisible(find.text('Try again'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Try again'));
+    await pumpFrames(tester, count: 20);
+
+    expect(await repo.byId(id), isNull);
+  });
+
+  testWidgetsApp('a refresh disables the controls while it runs', (
+    tester,
+  ) async {
+    final String id = await seedAndOpen(tester);
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    final CardEditor editor = readProvider(
+      tester,
+      cardEditorProvider(id).notifier,
+    );
+    editor.replaceChunk(1, Uint8List(16)..[0] = 0xAB);
+
+    // `refreshDetails` claims `_inFlight`, so a save issued while it runs
+    // is dropped — which is only honest if the screen is visibly busy
+    // while that is true.
+    final Future<void> refreshing = editor.refreshDetails();
+    expect(readProvider(tester, cardEditorProvider(id)).value!.busy, isTrue);
+    final Future<void> dropped = editor.save();
+    await pumpFrames(tester, count: 20);
+    await refreshing;
+    await dropped;
+
+    expect(readProvider(tester, cardEditorProvider(id)).value!.busy, isFalse);
+    final SavedCardsRepository repo = readProvider(
+      tester,
+      savedCardsRepositoryProvider,
+    );
+    expect((await repo.byId(id))!.bytes[16], 0);
   });
 
   test('trailerHighlights covers every MIFARE Classic trailer', () {

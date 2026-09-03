@@ -20,12 +20,15 @@ part 'card_editor_controller.g.dart';
 /// controls on [busy], rather than blanking to a spinner and losing the
 /// app-bar title mid-save.
 ///
-/// [error] is set when the last [CardEditor.save] failed. This is
-/// deliberately not an `AsyncError` state (Phase 6 ruling 29 item 1): the
-/// working copy — [bytes], [dirty] — is kept exactly as it was, so the
-/// detail page can show `ProblemView` above the editor with the edits
-/// still on screen, and its "Try again" action re-invokes [CardEditor.save]
-/// rather than losing them through [CardEditor.discard].
+/// [error] is set when the last mutator failed, and [failedOp] says which
+/// one. This is deliberately not an `AsyncError` state (Phase 6 ruling 29
+/// item 1): the working copy — [bytes], [dirty] — is kept exactly as it
+/// was, so the detail page can show `ProblemView` above the editor with the
+/// edits still on screen. Its "Try again" action re-runs [failedOp]: a
+/// failed save is retried by saving, a failed discard by discarding, a
+/// failed delete by deleting. Retrying with the wrong operation is not a
+/// nicety — "Try again" on a failed discard that ran [CardEditor.save]
+/// would write the very bytes the user was throwing away.
 final class CardEditState {
   const CardEditState({
     required this.card,
@@ -33,6 +36,7 @@ final class CardEditState {
     required this.dirty,
     this.busy = false,
     this.error,
+    this.failedOp,
   });
 
   final SavedCard card;
@@ -40,6 +44,9 @@ final class CardEditState {
   final bool dirty;
   final bool busy;
   final Object? error;
+
+  /// Which mutator [error] came from. Null exactly when [error] is null.
+  final CardEditOp? failedOp;
 
   TagType get tagType => tagTypeFromName(card.tagType);
 
@@ -69,6 +76,10 @@ final class CardEditState {
     color: card.color,
   );
 }
+
+/// The mutators [CardEditor] can fail in, so the detail page's "Try again"
+/// re-runs the one that actually failed ([CardEditState.failedOp]).
+enum CardEditOp { save, discard, delete, refresh }
 
 /// The detail screen's state, one notifier per card id, so a failure on one
 /// card does not grey out another (the `SlotEditor` shape).
@@ -154,26 +165,29 @@ class CardEditor extends _$CardEditor {
         busy: true,
       ),
     );
-    final AsyncValue<void> written = await AsyncValue.guard<void>(
-      () => ref
-          .read(savedCardsRepositoryProvider)
-          .save(
-            SavedCard(
-              id: current.card.id,
-              name: current.card.name,
-              tagType: current.card.tagType,
-              bytes: current.bytes,
-              updatedAt: DateTime.now().toUtc(),
-              folder: current.card.folder,
-              color: current.card.color,
-            ),
-          ),
+    // Built once and kept: this row *is* the library's row once the write
+    // lands, so it — not the pre-save `current.card` — is what the new
+    // state carries. Keeping the old one made `CardEditState.card` a
+    // stale copy whose `bytes` were the ones this save just replaced, and
+    // anything that wrote that row back (the details sheet, R34) reverted
+    // the edit that had just been saved.
+    final SavedCard written = SavedCard(
+      id: current.card.id,
+      name: current.card.name,
+      tagType: current.card.tagType,
+      bytes: current.bytes,
+      updatedAt: DateTime.now().toUtc(),
+      folder: current.card.folder,
+      color: current.card.color,
+    );
+    final AsyncValue<void> result = await AsyncValue.guard<void>(
+      () => ref.read(savedCardsRepositoryProvider).save(written),
     );
     if (!ref.mounted) {
       _inFlight = false;
       return;
     }
-    final Object? error = written.error;
+    final Object? error = result.error;
     state = AsyncData<CardEditState?>(
       error != null
           ? CardEditState(
@@ -181,12 +195,9 @@ class CardEditor extends _$CardEditor {
               bytes: current.bytes,
               dirty: current.dirty,
               error: error,
+              failedOp: CardEditOp.save,
             )
-          : CardEditState(
-              card: current.card,
-              bytes: current.bytes,
-              dirty: false,
-            ),
+          : CardEditState(card: written, bytes: current.bytes, dirty: false),
     );
     _inFlight = false;
   }
@@ -241,6 +252,7 @@ class CardEditor extends _$CardEditor {
           bytes: current.bytes,
           dirty: current.dirty,
           error: error,
+          failedOp: CardEditOp.discard,
         ),
       );
       _inFlight = false;
@@ -264,14 +276,30 @@ class CardEditor extends _$CardEditor {
   ///
   /// The edit-details sheet (R34) writes those three fields through
   /// `CardLibrary.updateCard`; this is how the screen behind it catches up
-  /// without a full reload, which would throw away unsaved hex edits. A
-  /// failed or empty re-read leaves the details as they were — the sheet
-  /// has already reported whatever went wrong with the write, and stale
-  /// details on screen are better than blanking the card.
+  /// without a full reload, which would throw away unsaved hex edits. The
+  /// detail page also runs it *before* opening that sheet, so the row the
+  /// sheet merges the new name, folder and colour onto is one it has just
+  /// read — never a stale copy whose bytes would overwrite a saved edit.
+  ///
+  /// A re-read that fails reports itself like the other mutators
+  /// ([CardEditState.failedOp] `refresh`) and leaves the details as they
+  /// were; an empty one (the row is gone) also leaves them, rather than
+  /// blanking a card the user is looking at.
   Future<void> refreshDetails() async {
     final CardEditState? current = state.value;
     if (current == null || _inFlight) return;
     _inFlight = true;
+    // Busy like every other mutator that claims `_inFlight`: this drops a
+    // save issued while it runs, and dropping a write is only honest if
+    // the screen's controls were visibly disabled at the time.
+    state = AsyncData<CardEditState?>(
+      CardEditState(
+        card: current.card,
+        bytes: current.bytes,
+        dirty: current.dirty,
+        busy: true,
+      ),
+    );
     final AsyncValue<SavedCard?> reloaded = await AsyncValue.guard<SavedCard?>(
       () => ref.read(savedCardsRepositoryProvider).byId(id),
     );
@@ -279,17 +307,17 @@ class CardEditor extends _$CardEditor {
       _inFlight = false;
       return;
     }
+    final Object? error = reloaded.error;
     final SavedCard? card = reloaded.value;
-    if (card != null) {
-      state = AsyncData<CardEditState?>(
-        CardEditState(
-          card: card,
-          bytes: current.bytes,
-          dirty: current.dirty,
-          error: current.error,
-        ),
-      );
-    }
+    state = AsyncData<CardEditState?>(
+      CardEditState(
+        card: card ?? current.card,
+        bytes: current.bytes,
+        dirty: current.dirty,
+        error: error ?? current.error,
+        failedOp: error != null ? CardEditOp.refresh : current.failedOp,
+      ),
+    );
     _inFlight = false;
   }
 
@@ -339,6 +367,7 @@ class CardEditor extends _$CardEditor {
                 bytes: current.bytes,
                 dirty: current.dirty,
                 error: error,
+                failedOp: CardEditOp.delete,
               ),
             );
       _inFlight = false;

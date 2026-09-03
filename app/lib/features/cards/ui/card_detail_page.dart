@@ -80,8 +80,16 @@ class CardDetailPage extends ConsumerWidget {
         state: value,
         loading: value.busy,
         onDelete: () => _confirmDelete(context, editor),
-        onEditDetails: () => _editDetails(context, editor, value.card),
-        onRetrySave: () => unawaited(editor.save()),
+        onEditDetails: () => _editDetails(context, ref, editor),
+        // The retry runs the operation that failed, not always `save`
+        // (R-2): retrying a failed discard by saving would write the very
+        // bytes the user was throwing away.
+        onRetry: () => unawaited(switch (value.failedOp) {
+          CardEditOp.discard => editor.discard(),
+          CardEditOp.delete => editor.deleteCard(),
+          CardEditOp.refresh => editor.refreshDetails(),
+          CardEditOp.save || null => editor.save(),
+        }),
       ),
       AsyncError<CardEditState?>(:final Object error) => ProblemView(
         error: error,
@@ -130,17 +138,30 @@ class CardDetailPage extends ConsumerWidget {
     );
   }
 
-  /// Opens the save sheet's form on the stored row (R34). The sheet does
-  /// the write through `CardLibrary.updateCard`; the editor is then told
-  /// what changed so the title, the tile and a later "Save changes" all
-  /// carry the new details — without reloading, which would throw away
-  /// unsaved hex edits.
+  /// Opens the save sheet's form on the stored row (R34).
+  ///
+  /// The row is re-read first, and the sheet merges the new name, folder
+  /// and colour onto exactly that row: the sheet never sees bytes older
+  /// than the library's, so a details edit can never revert a hex edit
+  /// that was saved a moment earlier. It is re-read again afterwards, so
+  /// the title, the tile and a later "Save changes" carry the new details
+  /// — a refresh, not a reload, because a reload would throw away unsaved
+  /// hex edits.
   Future<void> _editDetails(
     BuildContext context,
+    WidgetRef ref,
     CardEditor editor,
-    SavedCard card,
   ) async {
-    final bool? saved = await showEditCardDetailsSheet(context, card: card);
+    await editor.refreshDetails();
+    if (!context.mounted) return;
+    final CardEditState? current = ref.read(cardEditorProvider(id)).value;
+    // A failed re-read already shows its own ProblemView; editing details
+    // on top of a row nobody could read would write back guesswork.
+    if (current == null || current.error != null) return;
+    final bool? saved = await showEditCardDetailsSheet(
+      context,
+      card: current.card,
+    );
     if (saved != true) return;
     await editor.refreshDetails();
   }
@@ -181,7 +202,7 @@ class _Detail extends StatelessWidget {
     required this.loading,
     required this.onDelete,
     required this.onEditDetails,
-    required this.onRetrySave,
+    required this.onRetry,
   });
 
   final String id;
@@ -197,10 +218,9 @@ class _Detail extends StatelessWidget {
   final VoidCallback onEditDetails;
 
   /// [ProblemView]'s action when [CardEditState.error] is set (Phase 6
-  /// ruling 29 item 1): re-invokes `CardEditor.save`, not `discard` — the
-  /// edits are still on screen and "Try again" means try the same write
-  /// again, not throw the edits away.
-  final VoidCallback onRetrySave;
+  /// ruling 29 item 1, R-2): re-runs [CardEditState.failedOp] — the edits
+  /// are still on screen and "Try again" means try *that* operation again.
+  final VoidCallback onRetry;
 
   /// Copies what is on screen — the working copy, unsaved edits included —
   /// not the stored row. The alternative (export the row, and disable the
@@ -279,7 +299,7 @@ class _Detail extends StatelessWidget {
           ProblemView(
             error: state.error!,
             variant: SpectraButtonVariant.secondary,
-            onAction: onRetrySave,
+            onAction: onRetry,
           ),
           const SizedBox(height: SpectraSpacing.lg),
         ],

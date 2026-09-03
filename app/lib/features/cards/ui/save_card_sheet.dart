@@ -61,6 +61,12 @@ Future<bool?> showSaveCardSheet(
 /// write-once until this existed, so a card read under a placeholder name
 /// could never be renamed. The dump is not touched here — the hex editor on
 /// the detail page owns the bytes.
+///
+/// [card] must be a row the caller has just read (`CardDetailPage` refreshes
+/// it immediately before calling this). Only the name, folder and colour
+/// come from the form; everything else — id, tag type and **bytes** — is
+/// copied straight off [card], so a stale [card] would write stale bytes
+/// back over a hex edit that had just been saved.
 Future<bool?> showEditCardDetailsSheet(
   BuildContext context, {
   required SavedCard card,
@@ -74,6 +80,8 @@ Future<bool?> showEditCardDetailsSheet(
       initialName: card.name,
       initialFolder: card.folder,
       initialColor: card.color,
+      // Merged onto the row the caller read, not onto anything this sheet
+      // remembers: the three form fields are all that changes.
       onSubmit: (WidgetRef ref, String name, String? folder, int color) => ref
           .read(cardLibraryProvider.notifier)
           .updateCard(
