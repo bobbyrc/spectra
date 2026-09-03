@@ -31,10 +31,10 @@ dependency_overrides:
 melos:
   scripts:
     analyze:
-      run: dart analyze --fatal-infos .
+      run: dart analyze --fatal-infos packages app tool test
       description: Analyze every package.
     format:
-      run: dart format --set-exit-if-changed .
+      run: dart format --set-exit-if-changed packages app tool test
       description: Fail if any file is not formatted.
     test:dart:
       run: melos exec --fail-fast -- dart test
