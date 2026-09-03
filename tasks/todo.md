@@ -6,8 +6,12 @@
 - [x] Write spec to docs/superpowers/specs/2026-09-02-spectra-design.md, commit
 - [x] Spec self-review (renamed CommandTimeout, defined Tools tab contents)
 - [x] Adversarial review by a context-free Fable 5.1 agent; spec revised (DFU strategy, session state machine, BLE runtime, cache, lease, l10n, lifecycle, import, testing, cuts)
-- [ ] User reviews spec
+- [x] User reviews spec (approved 2026-09-02)
 - [ ] Invoke writing-plans for implementation plan
 
 ## Review
 (filled in when the brainstorm closes)
+
+## Review
+Brainstorm closed 2026-09-02. Spec approved after one adversarial review round.
+Handed off to a new session for planning and implementation.
