@@ -640,5 +640,65 @@ dump formats and DFU. Rulings taken while executing
   cohesive concern — splitting would add files without adding clarity.
   Accepted and recorded here so a reviewer does not raise it as new.
 
+## Phase 7 (write and emulate)
+
+- **Five of the six LF families `EmulatorFacade._lfIdCommands` can set are
+  `unsupported` for load-to-slot, not just em410x.** The facade can write an
+  id for em410x, hidProx, viking, pac, jablotron and idteck alike, but
+  `slotLoadMethodFor` (`app/lib/features/cards/state/write_target.dart`)
+  returns `SlotLoadMethod.unsupported` for all but em410x. This is not a gap
+  in the emulator support — it is that the Read screen has no reader path
+  for the other five: `ReaderFacade` only ever produces an EM410x LF dump,
+  so a saved card can never actually carry a hidProx/viking/pac/jablotron/
+  idteck payload to load in the first place. Widening this is an SDK/reader
+  change (a new scan method per family), not a `write_target.dart` change,
+  and is out of v1 scope (Phase 7 ruling 11).
+- **`unreadSectors` checks key A alone, not the whole trailer.** A block of
+  sixteen zero bytes was the first predicate tried and it is wrong: a real
+  card never returns its keys, so `ReaderFacade.mf1ReadDump`'s own dump
+  always carries key A zeroed while key B and the access bits are the real
+  recovered values. Checking only key A's six bytes catches both that shape
+  and a never-authenticated sector's fully-zeroed trailer, and is shared by
+  `SlotLoader.load` and `CardWriter.write` as one function in
+  `write_target.dart` rather than duplicated (ruling 27).
+- **The T55xx old-key list includes the new key Spectra itself writes.**
+  `em410xWriteToT55xx`'s `newKey` becomes the card's password after a
+  successful write; `defaultT55xxOldKeyHex` lists it alongside the two
+  widely published T5577 defaults so a second write to a card Spectra
+  already touched does not lock itself out (ruling 28).
+- **Cancelling a write is a named terminal state, not a `ProblemView`
+  error.** `ErrorCatalog` has no words for "the user tapped Cancel" short of
+  its unexpected-error fallback, and a write that damages a card deserves
+  better than that. `CardWriteState` carries its own cancelled state and
+  ARB sentence ("stopped; amount unknown") instead, and the written/
+  attempted counts are discarded on cancel rather than reported as if they
+  were final — a write stopped mid-block leaves the true count genuinely
+  unknowable (ruling 3).
+- **`ProblemView` hides its action for `ErrorRecovery.none` in one shared
+  place.** Before this phase it rendered a generic "Try again" button for
+  every error, including ones the catalog marks as having no recovery
+  action — a dead tap. Fixed once in `core/errors/problem_view.dart` rather
+  than per sheet (ruling 29).
+- **Both write sheets block dismissal while busy.** `PopScope(canPop:
+  !state.busy)` on the load-to-slot and write-to-card sheets: a user cannot
+  swipe or tap away from a write in progress, only let it finish or press
+  Cancel. Intended friction — losing track of an in-flight card write is
+  worse than a sheet the user cannot immediately back out of (ruling 30).
+- **A block write the device refuses outright bails the whole dump.**
+  `mf1WriteDump`'s per-block loop rethrows on `NotImplemented` (no
+  MF1_WRITE_ONE_BLOCK at all, as on a Lite) or `InvalidCommand` (the
+  command missing from this device's advertised capabilities) rather than
+  reporting a per-block failure and continuing — every remaining block
+  would fail identically, so this stops spending round trips proving that
+  again 62 more times. A card that simply refuses one block for its own
+  reasons (wrong key, access bits) is unaffected: that is a normal partial
+  write.
+- **`FakeDevice`'s EM410X_WRITE_TO_T55XX handler is a guess, documented as
+  one.** It ignores `oldKeys` outright and answers `LF_TAG_NO_FOUND` for a
+  field holding a non-EM410x card — both are plausible firmware behaviour,
+  neither is verified against a real T55xx blank. Marked
+  `hardware-validate` in the SDK doc comment and carried to checklist H3
+  rather than treated as ground truth (ruling 21).
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).

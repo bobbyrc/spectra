@@ -106,9 +106,27 @@ macOS CI `integration` job) scan, save, edit and import on the emulator.
 Reading a real card is hardware-validate: see `docs/hardware-checklist.md`
 H1 and H3.
 
-Next: Phase 7 (write and emulate) — plan and pre-flight rulings exist at
-`docs/superpowers/plans/2026-09-03-phase-7-write-emulate.md`; Phases 8-10
-plans exist too.
+Phase 7 (write and emulate) is complete (2026-09-03): the SDK gained
+`ReaderFacade.mf1WriteDump` and `ReaderFacade.em410xWriteToT55xx`, with
+`FakeDevice` answering EM410X_WRITE_TO_T55XX. `app/lib/features/cards/`
+gained `state/write_target.dart` (`SlotLoadMethod`/`CardWriteMethod` per tag
+type, and the shared `unreadSectors` predicate both writers gate on),
+`SlotLoader` and `CardWriter`, the load-to-slot and write-to-card sheets
+(both a `PopScope(canPop: !state.busy)` while a write is in flight), and
+quick emulate from the read screen. The shared `ProblemView` now hides its
+action entirely for `ErrorRecovery.none` rather than offering a dead "Try
+again". Entry points are on the card detail page and the read screen;
+"which slot?" goes through the Slots feature's published `showSlotPicker`,
+so the feature dependency runs one way, `cards -> slots`. Gate green:
+`app/test/flows/write_emulate_flow_test.dart` and
+`app/integration_test/load_to_slot_flow_test.dart` (picked up by the
+existing macOS CI `integration` job). Writing a physical card is
+`hardware-validate`; the write sheet carries a standing on-screen notice
+(`cardsWriteNotice`) until H3 reports otherwise.
+
+Next: Phases 8 (firmware update), 9 (dictionaries and settings) and 10
+(release) are executing concurrently — plans and ledgers exist for all
+three under `docs/superpowers/plans/` and `.superpowers/sdd/`.
 
 Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
 "Decisions made overnight" below.
@@ -136,7 +154,7 @@ Plans, in `docs/superpowers/plans/`:
 - `2026-09-03-phase-6-cards.md`: read cards, library, dump editor, import
   (complete).
 - `2026-09-03-phase-7-write-emulate.md`: load to slot, write to card, quick
-  emulate, from spec 7.7 step 5 (written; next up).
+  emulate, from spec 7.7 step 5 (complete).
 - `2026-09-03-phase-8-firmware-update.md`: release feed, package pick,
   orchestrated DFU UI, recovery flow (written).
 - `2026-09-03-phase-9-dictionaries-settings.md`: key lists, device settings,
@@ -148,6 +166,51 @@ Execute plans with superpowers:subagent-driven-development. Hardware steps
 need the user's device and never block progress: build against the fake,
 keep `docs/hardware-checklist.md` current, and gate BLE and iOS DFU behind
 the `dfuOverBleEnabled` flag until the user reports the checks passed.
+
+## Decisions made overnight (2026-09-03, Phase 7)
+
+- `unreadSectors` (`cards/state/write_target.dart`) flags a trailer whose
+  **key A alone** is all zero, not "the whole trailer is sixteen zero
+  bytes": `mf1ReadDump` always zeroes key A in a read dump (a real card
+  never returns its keys), so checking only the full-zero shape would let
+  `writeTrailers: true` sail an ordinary read dump through the gate and
+  overwrite every sector's real key A with zeros on write (ruling 27).
+- `defaultT55xxOldKeyHex` lists `defaultT55xxKeyHex` itself as a candidate
+  old key, alongside the two published defaults: `em410xWriteToT55xx`
+  leaves a blank with `newKey` as its password, so the next write to the
+  same card has to offer that password back or lock Spectra out of a card
+  it just wrote (ruling 28).
+- `ProblemView` hides its action entirely for `ErrorRecovery.none`, once,
+  in the shared widget, rather than per sheet — it previously labelled a
+  none-recovery error "Try again" with nothing behind the tap (ruling 29).
+- Both the load-to-slot and write-to-card sheets wrap their body in
+  `PopScope(canPop: !state.busy)`: a user cannot dismiss a sheet mid-write
+  by accident, only by finishing it or tapping Cancel (ruling 30).
+- Cancelling a write is a terminal state with its own words
+  (`cardsWriteCancelled`, "stopped; amount unknown"), not a `ProblemView`
+  branch — `CardWriter.cancel()` discards the partial written/attempted
+  counts on purpose, since a cancelled write mid-block leaves the true
+  count unknowable (ruling 3).
+- `writeTrailers` is opt-in (default `false`) and, even when on, a dump
+  carrying any `unreadSectors` is refused until the caller confirms by
+  name — the load and write sheets show the flagged sector list as a
+  warning, never write it silently (rulings 23, 25).
+- LF load-to-slot is narrower than the device on purpose:
+  `EmulatorFacade._lfIdCommands` can set an id for six LF families, but
+  `slotLoadMethodFor` only ever returns `em410xId` — the read screen has no
+  reader path for hidProx/viking/pac/jablotron/idteck, so a saved card can
+  never actually carry one (ruling 11; see `DECISIONS.md`).
+- A block write that the device refuses outright — `NotImplemented`, or
+  `InvalidCommand` when MF1_WRITE_ONE_BLOCK is missing from the device's
+  capabilities — bails the whole `mf1WriteDump` immediately instead of
+  retrying block by block: every remaining block would fail identically,
+  and the error still reaches the user through the existing catalog rather
+  than a bespoke one.
+- `FakeDevice`'s EM410X_WRITE_TO_T55XX (3001) handler is a guess at
+  firmware behaviour, not a verified one: it ignores `oldKeys` entirely and
+  answers `LF_TAG_NO_FOUND` for a field holding a non-EM410x card. Flagged
+  `hardware-validate` in the SDK and carried to H3 rather than trusted
+  as-is (ruling 21).
 
 ## Decisions made overnight (2026-09-03, Phase 6)
 

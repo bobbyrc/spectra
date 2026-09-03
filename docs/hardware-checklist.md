@@ -376,6 +376,44 @@ emulator mode **off** in Settings first, so no item can be satisfied by the
       reader shows its UID and the "cannot read its memory yet" line — the
       documented v1 limit (no Ultralight read facade), not a crash.
 
+### Write and emulate (carried over from Phase 7)
+
+- [ ] pending: **write a MIFARE Classic onto a blank, with and without
+      `writeTrailers`.** Use a card you can afford to lose. First write
+      without the trailers toggle and confirm the blank reads back the same
+      data blocks. Then write a *data-only* dump (block 0 and trailers never
+      recovered) with the toggle on and confirm the app refuses until you
+      confirm the flagged sectors by name, and report what the card holds
+      afterwards.
+- [ ] pending: **which key a data block takes for a write.**
+      `ReaderFacade._writeOneBlock` tries key A and then key B. On a card
+      whose access bits make key A read-only for that block, report whether
+      the key B retry succeeds — against `FakeDevice` both keys are the
+      transport key and the order never shows.
+- [ ] pending: **load an NTAG21x into a slot, then read it with another
+      reader.** `SlotLoadMethod.ultralightPages` makes no anti-collision
+      call — the firmware is assumed to derive the emulated UID from pages
+      0-2 of the data itself. Report whether a second reader sees the
+      original UID.
+- [ ] pending: **the T55xx password list.** Write an EM410x id onto a T55xx
+      blank using `defaultT55xxOldKeys` (`app/lib/features/cards/state/
+      default_keys.dart`). Report whether the write succeeds, and whether a
+      previously-unprotected blank now answers to the new password
+      `20206666` — a second write to the same card should not lock Spectra
+      out of it.
+- [ ] pending: **quick emulate from the read screen.** Scan a real card,
+      tap quick emulate, and report whether a second reader (or phone) sees
+      the emulated card immediately, with no separate save-then-load step.
+- [ ] pending: **cancel a write mid-flight.** Start writing a MIFARE
+      Classic onto a blank and tap Cancel partway through. Report whether
+      the card is left in a usable but unknown state, matching the sheet's
+      own words ("stopped; amount unknown") rather than a specific count.
+- [ ] pending: **the fake's EM410X_WRITE_TO_T55XX guess.**
+      `FakeDevice`'s handler for command 3001 ignores `oldKeys` outright and
+      answers `LF_TAG_NO_FOUND` for a field holding a non-EM410x card —
+      both are assumptions about firmware behaviour, not verified facts.
+      Report whether a real device's behaviour matches either assumption.
+
 ### Sign-off list for `v1.0.0`
 
 This is the sign-off list: `v1.0.0` is tagged only when all of these are

@@ -351,3 +351,36 @@ dated entry per lesson; keep each one actionable.
   risks two agents touching the same files. Send a one-line ping to the
   existing agent thread and wait for its actual state before deciding
   anything else.
+
+## Phase 7 (write and emulate)
+
+- **A background `while pgrep -f <pattern>; do sleep …; done` wait loop
+  matches its own shell command line.** `pgrep -f` searches the full
+  command string, which includes the `while pgrep -f <pattern>` invocation
+  itself, so the loop never sees zero matches and never exits. Two of these
+  stalled a worker for 30+ minutes before being killed. Wait on a PID or a
+  sentinel file, never on a `pgrep -f` of the thing you are also running.
+- **Never combine `--build-filter` with `--delete-conflicting-outputs`.**
+  Scoping `build_runner build` to one target with `--build-filter` while
+  also passing `--delete-conflicting-outputs` deletes every other
+  package's committed `.g.dart` outputs, not just the filtered one's stale
+  copies. Run an unfiltered `--delete-conflicting-outputs` build, or drop
+  `--delete-conflicting-outputs` when filtering.
+- **Background test runs that stall cost more than they save.** A `flutter
+  test` invoked with `run_in_background` and no timeout can hang
+  indefinitely with nothing to signal it; foreground runs with an explicit
+  `--timeout` (bounded around 3 minutes for a feature-sized suite) fail
+  loudly and quickly instead. Prefer foreground plus `--timeout` over
+  backgrounding a test run.
+- **A review brief must not invent requirements the plan and spec never
+  stated.** An implementer's review round in this phase argued against
+  behavior on the grounds that it "duplicated" something no cited plan or
+  spec section actually specified — the same failure mode Phase 6's lessons
+  already named, recurring once more. State every review requirement as a
+  citation, not an inference from reading the code.
+- **Ruling 22's timing — start the operation, pump, then await — prevents
+  deadlocks in sheet tests.** `FakeDevice` answers on a real `Timer`; a
+  widget test that `await`s a controller call before pumping the tester
+  never lets that timer fire, and the awaited future never completes. Every
+  sheet test in this phase that drives a `SlotLoader`/`CardWriter` call
+  through the UI follows start → pump → await, not await-then-pump.
