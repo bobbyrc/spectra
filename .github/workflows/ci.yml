@@ -6,6 +6,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # release.yml calls this workflow so a release never packages a tree that
+  # would fail CI, and so the release inherits the macOS integration job.
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}

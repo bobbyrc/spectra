@@ -1,0 +1,266 @@
+name: release
+# Builds every release artifact and attaches it to a GitHub release
+# (spec 10). Trigger it either by pushing a v* tag or by dispatching it with
+# the tag name; the dispatch path is how a release is rehearsed before the
+# tag exists. Every signing step degrades to an unsigned or ad-hoc artifact
+# when its secret is missing, so a fork run produces the same file list.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag to build, e.g. v1.0.0-rc.1
+        required: true
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+# Unlike ci.yml, a release run is never cancelled by a newer one.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: 3.47.2
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      build_name: ${{ steps.version.outputs.build_name }}
+      apple_build_name: ${{ steps.version.outputs.apple_build_name }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      slug: ${{ steps.version.outputs.slug }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # Validates the tag against app/pubspec.yaml and CHANGELOG.md, warns
+      # (never fails) on the LICENSE TODO, and writes the outputs above.
+      - id: version
+        run: dart run tool/check_release.dart --tag "$RELEASE_TAG"
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+  ci:
+    needs: preflight
+    uses: ./.github/workflows/ci.yml
+
+  macos:
+    needs: [preflight, ci]
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build
+        run: >-
+          flutter build macos --release
+          --build-name ${{ needs.preflight.outputs.apple_build_name }}
+          --build-number ${{ needs.preflight.outputs.build_number }}
+        working-directory: app
+      - name: Package
+        run: >-
+          tool/package/macos_dmg.sh
+          app/build/macos/Build/Products/Release/spectra.app
+          dist/${{ needs.preflight.outputs.slug }}-macos.dmg
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*
+
+  windows:
+    needs: [preflight, ci]
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build
+        run: >-
+          flutter build windows --release
+          --build-name ${{ needs.preflight.outputs.build_name }}
+          --build-number ${{ needs.preflight.outputs.build_number }}
+        working-directory: app
+      # Inno Setup is not preinstalled on the windows-latest (Windows Server
+      # 2025) image; windows_installer.ps1's Get-ISCC needs it on PATH or at
+      # its default install location.
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Package
+        shell: pwsh
+        run: >-
+          pwsh tool/package/windows_installer.ps1
+          -BuildDir app\build\windows\x64\runner\Release
+          -Version ${{ needs.preflight.outputs.build_name }}
+          -OutDir dist
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+
+  linux:
+    needs: [preflight, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsqlite3-dev
+      - run: flutter pub get
+      - name: Build
+        run: >-
+          flutter build linux --release
+          --build-name ${{ needs.preflight.outputs.build_name }}
+          --build-number ${{ needs.preflight.outputs.build_number }}
+        working-directory: app
+      - name: Package
+        run: >-
+          tool/package/linux_appimage.sh app/build/linux/x64/release/bundle
+          ${{ needs.preflight.outputs.build_name }} dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*
+
+  android:
+    needs: [preflight, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # The Gradle config signs with the keystore when these are set and
+      # falls back to the debug key when they are not.
+      - name: Build apk and aab
+        run: |
+          flutter build apk --release \
+            --build-name ${{ needs.preflight.outputs.build_name }} \
+            --build-number ${{ needs.preflight.outputs.build_number }}
+          flutter build appbundle --release \
+            --build-name ${{ needs.preflight.outputs.build_name }} \
+            --build-number ${{ needs.preflight.outputs.build_number }}
+        working-directory: app
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # The secret goes through the environment, never into the script text.
+      - name: Name the artifacts
+        run: |
+          mkdir -p dist
+          SUFFIX=android
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            SUFFIX=android-unsigned
+          fi
+          cp app/build/app/outputs/flutter-apk/app-release.apk \
+            "dist/${SLUG}-$SUFFIX.apk"
+          cp app/build/app/outputs/bundle/release/app-release.aab \
+            "dist/${SLUG}-$SUFFIX.aab"
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          SLUG: ${{ needs.preflight.outputs.slug }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*
+
+  ios:
+    needs: [preflight, ci]
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # No team id in the repo, so the ipa is unsigned; docs/RELEASING.md
+      # carries the TestFlight route.
+      - name: Build
+        run: >-
+          flutter build ios --release --no-codesign
+          --build-name ${{ needs.preflight.outputs.apple_build_name }}
+          --build-number ${{ needs.preflight.outputs.build_number }}
+        working-directory: app
+      - name: Package
+        run: >-
+          tool/package/ios_ipa.sh app/build/ios/iphoneos/Runner.app
+          dist/${{ needs.preflight.outputs.slug }}-ios-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: dist/*
+
+  publish:
+    needs: [preflight, macos, windows, linux, android, ios]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - run: ls -R artifacts
+      - name: Extract the changelog entry for the release body
+        run: |
+          {
+            echo "Artifacts for ${{ needs.preflight.outputs.tag }}."
+            echo
+            sed -n '/^## \[/,$p' CHANGELOG.md | sed -n '/^## \[[0-9]/,/^## \[[0-9].*\]/p' | head -n 60
+          } > release-body.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.preflight.outputs.tag }}
+          name: Spectra ${{ needs.preflight.outputs.version }}
+          body_path: release-body.md
+          prerelease: ${{ needs.preflight.outputs.prerelease == 'true' }}
+          draft: true
+          files: artifacts/**/*
