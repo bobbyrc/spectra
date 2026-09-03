@@ -23,6 +23,23 @@ Future<SlotLoader> openLoader(WidgetTester tester) async {
   return readProvider(tester, slotLoaderProvider.notifier);
 }
 
+/// Like [openLoader], but the fake device replies with real latency
+/// (`FakeDevice.latency`, zero by default) so a UI-driven test can tap into
+/// the sheet while a load is still in flight (ruling 22) instead of racing a
+/// load that would otherwise finish inside a single pump.
+Future<SlotLoader> openSlowLoader(
+  WidgetTester tester, {
+  Duration latency = const Duration(milliseconds: 50),
+}) async {
+  useDesktopSurface(tester);
+  await pumpTestApp(tester, transport: (_) => FakeDevice(latency: latency));
+  await connectToEmulator(tester);
+  keepAlive(tester, slotLoaderProvider);
+  keepAlive(tester, slotViewsProvider);
+  await pumpFrames(tester);
+  return readProvider(tester, slotLoaderProvider.notifier);
+}
+
 Finder _inSheet(Finder matching) =>
     find.descendant(of: find.byType(SpectraBottomSheet), matching: matching);
 
@@ -261,6 +278,49 @@ void main() {
     await pumpFrames(tester);
     expect(await second, isNull);
   });
+
+  testWidgetsApp(
+    'cannot be dismissed through the sheet while a load is in flight '
+    '(ruling 30)',
+    (tester) async {
+      await openSlowLoader(tester);
+      final BuildContext context = tester.element(find.byType(SpectraAppShell));
+
+      final Future<bool?> pending = showLoadToSlotSheet(
+        context,
+        slotIndex: 2,
+        type: TagType.mifare1k,
+        bytes: classic1kFilled(),
+        name: 'Office badge',
+      );
+      await pumpFrames(tester);
+      await tester.tap(_inSheet(find.text('Load')));
+      await pumpFrames(
+        tester,
+        count: 3,
+        step: const Duration(milliseconds: 20),
+      );
+
+      // The sheet's own close icon goes through `Navigator.maybePop`, which
+      // `PopScope(canPop: !state.busy)` refuses while busy — a slot caught
+      // between `resetToDefault` and the data write is worse than a slot
+      // the user waited two seconds for.
+      await tester.tap(_inSheet(find.byIcon(Icons.close)));
+      await pumpFrames(tester);
+      expect(find.byType(SpectraBottomSheet), findsOneWidget);
+
+      // The load runs to completion regardless.
+      await pumpFrames(tester, count: 60);
+      expect(_inSheet(find.text('Loaded into slot 3.')), findsOneWidget);
+
+      final List<SlotView> views = readProvider(tester, slotViewsProvider);
+      expect(views[2].slot.hfType, TagType.mifare1k);
+
+      await tester.tap(_inSheet(find.text('Close')));
+      await pumpFrames(tester);
+      expect(await pending, isTrue);
+    },
+  );
 
   testWidgetsApp(
     'warns that the target slot\'s other sense stays live, and leaves it enabled',

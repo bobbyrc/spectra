@@ -100,8 +100,20 @@ class _LoadToSlotBodyState extends ConsumerState<_LoadToSlotBody> {
 
   @override
   Widget build(BuildContext context) {
-    final AppLocalizations l10n = AppLocalizations.of(context);
     final SlotLoadState state = ref.watch(slotLoaderProvider);
+    // Ruling 30: a load is a sequence of writes — set active, reset the
+    // sense, write the data, rename, enable — and a slot dismissed between
+    // two of them is left half-configured. The sheet is therefore not
+    // dismissable while it runs: a swipe-down or `SpectraBottomSheet`'s own
+    // X (both go through `Navigator.maybePop`) is refused. There is no
+    // Cancel here, unlike the write sheet: `EmulatorFacade` takes no
+    // `CancelToken` on these calls and there is no safe point to stop at
+    // between them, so the honest affordance is none at all.
+    return PopScope(canPop: !state.busy, child: _body(context, state));
+  }
+
+  Widget _body(BuildContext context, SlotLoadState state) {
+    final AppLocalizations l10n = AppLocalizations.of(context);
     final SlotLoader loader = ref.read(slotLoaderProvider.notifier);
 
     if (state.error case final Object error) {
