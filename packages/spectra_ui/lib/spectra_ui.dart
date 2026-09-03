@@ -2,8 +2,11 @@
 library;
 
 export 'l10n/spectra_ui_localizations.dart';
+export 'src/components/bottom_sheet.dart';
 export 'src/components/button.dart';
 export 'src/components/button_variant.dart';
+export 'src/components/dialog.dart';
+export 'src/components/text_field.dart';
 export 'src/theme/spectra_app.dart';
 export 'src/theme/spectra_theme.dart';
 export 'src/theme/theme_data.dart';
