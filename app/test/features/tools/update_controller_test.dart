@@ -291,6 +291,45 @@ void main() {
     expect(readProvider(tester, sessionsProvider).sessions, isEmpty);
   });
 
+  testWidgetsApp(
+    'a session that fails to close still resets the activity flag',
+    (tester) async {
+      useDesktopSurface(tester);
+      await tester.pumpWidget(
+        buildDfuTestApp(
+          source: MemoryFirmwarePackageSource(buildDfuZip(size: 4096)),
+          // Not `transportFactoryProvider`'s default: the closed transport
+          // is the connected session's own, exactly what `_closeUpdatingSession`
+          // calls close() on once the flash leaves it in `SessionUpdating`.
+          transport: (_) =>
+              FakeDevice()..closeError = const PortBusy('port gone'),
+        ),
+      );
+      await connectToEmulator(tester);
+
+      final controller = readProvider(
+        tester,
+        updateControllerProvider.notifier,
+      );
+      await controller.loadPackage('ultra-dfu-app.zip');
+      await pumpFrames(tester);
+
+      final run = controller.start();
+      await pumpFrames(tester, count: 60);
+      await run;
+
+      final state = readProvider(tester, updateControllerProvider);
+      // A close failure is surfaced, but only because the run itself
+      // otherwise succeeded — nothing else already claimed `state.error`.
+      expect(state.error, isA<PortBusy>());
+      expect(state.running, isFalse);
+      expect(state.completed, isFalse);
+      // The whole point: a throwing close must not skip these resets and
+      // strand the router on this screen forever (spec 5.6).
+      expect(readProvider(tester, dfuActivityProvider), isFalse);
+    },
+  );
+
   testWidgetsApp('a run refused before ENTER_BOOTLOADER keeps the session', (
     tester,
   ) async {

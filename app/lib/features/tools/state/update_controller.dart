@@ -205,14 +205,26 @@ class UpdateController extends _$UpdateController {
     _cancel = null;
     _inFlight = false;
 
-    await _closeUpdatingSession(active, isRecovery: bootloader != null);
-    if (failure == null && ref.mounted) await _reconnect(found);
-    ref.read(dfuActivityProvider.notifier).setRunning(false);
+    // Wrapped: closing the session the flash left behind can itself throw
+    // (the serial port gone after the reboot, say). Left unguarded, that
+    // throw would skip everything below — the activity flag and `running`
+    // never reset, which pins routing to this screen forever (spec 5.6).
+    // The run's own failure, if there was one, still wins over a close
+    // failure that came after it.
+    Object? closeFailure;
+    try {
+      await _closeUpdatingSession(active, isRecovery: bootloader != null);
+      if (failure == null && ref.mounted) await _reconnect(found);
+    } on Object catch (e) {
+      closeFailure = e;
+    } finally {
+      ref.read(dfuActivityProvider.notifier).setRunning(false);
+    }
     if (!ref.mounted) return;
     state = state.copyWith(
       running: false,
-      completed: failure == null,
-      error: failure,
+      completed: failure == null && closeFailure == null,
+      error: failure ?? closeFailure,
     );
   }
 

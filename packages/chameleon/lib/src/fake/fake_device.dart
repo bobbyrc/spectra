@@ -32,6 +32,7 @@ final class FakeDevice implements Transport {
     this.latency = Duration.zero,
     this.chunkSize = 20,
     this.openError,
+    this.closeError,
   }) : firmware = firmware ?? FakeFirmware();
 
   static const int _enterBootloaderCommand = 1010;
@@ -40,6 +41,12 @@ final class FakeDevice implements Transport {
   Duration latency;
   int chunkSize;
   TransportError? openError;
+
+  /// Makes [close] throw this after its cleanup runs, instead of returning
+  /// normally — the serial port having vanished under a reboot, say. Lets a
+  /// caller exercise the "the session's own close fails" path without a
+  /// second fake type.
+  TransportError? closeError;
 
   final FrameDecoder _decoder = FrameDecoder();
   final StreamController<Uint8List> _incoming = StreamController.broadcast();
@@ -177,6 +184,8 @@ final class FakeDevice implements Transport {
     releaseWrites();
     if (!_incoming.isClosed) await _incoming.close();
     if (!_state.isClosed) await _state.close();
+    final err = closeError;
+    if (err != null) throw err;
   }
 
   /// The whole of the largest frame the protocol defines: 4096 data bytes

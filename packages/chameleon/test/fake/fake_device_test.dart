@@ -51,6 +51,15 @@ void main() {
     expect(d.open(), throwsA(isA<PermissionDenied>()));
   });
 
+  test('close can fail with a transport error, after cleanup runs', () async {
+    final d = FakeDevice(closeError: const PortBusy('port gone'));
+    await d.open();
+    expect(d.close(), throwsA(isA<PortBusy>()));
+    // The cleanup a real close does still ran, even though it went on to
+    // throw: the state stream moved to closed and both streams are gone.
+    expect(d.currentState, isA<TransportClosed>());
+  });
+
   test('dropNextResponse swallows exactly one response', () async {
     final d = FakeDevice();
     await d.open();
