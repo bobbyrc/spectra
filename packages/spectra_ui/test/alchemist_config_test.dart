@@ -18,6 +18,10 @@ void main() {
     expect(config.ciGoldensConfig.enabled, isTrue);
   });
 
+  test('CI goldens compare exactly: they are generated on the CI platform', () {
+    expect(config.ciGoldensConfig.diffThreshold, 0.0);
+  });
+
   test('platform goldens are off unless explicitly requested', () {
     expect(config.platformGoldensConfig.enabled, isFalse);
   });

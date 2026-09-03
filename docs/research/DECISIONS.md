@@ -139,9 +139,14 @@ Status: design approved in brainstorm; spec at docs/superpowers/specs/2026-09-02
   `.github/workflows/goldens.yml` (`workflow_dispatch`, uploads
   `test/components/goldens/ci` as the `goldens-ci` artifact) and downloaded
   into the repo, so the images and the comparing `check` job share a
-  platform (spec 6.3). `diffThreshold` drops accordingly. The cost is that a
-  plain `flutter test` on macOS may report sub-1% golden diffs; the CI run is
-  authoritative and `packages/spectra_ui/README.md` says so.
+  platform (spec 6.3), and `diffThreshold` is removed entirely: alchemist's
+  default is 0.0, so any pixel difference now fails. `workflow_dispatch`
+  resolves a workflow on the default branch only, so the workflow also
+  triggers on a push that touches its own file — that is how it ran before
+  reaching main. The cost is that a plain `flutter test` on macOS reports
+  sub-1% diffs on a few scenarios (observed: button and hex viewer, light
+  and dark); the CI run is authoritative and
+  `packages/spectra_ui/README.md` says so.
 - **`no-material-in-features` message.** The rule stays — it prevents the
   dual-import compile error — but its message no longer claims features may
   not use Material widgets. It now says to import
