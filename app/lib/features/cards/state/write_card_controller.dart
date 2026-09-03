@@ -7,6 +7,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/errors/app_failures.dart';
 import '../../../core/session/active_device.dart';
 import '../../../core/session/active_session.dart';
+import '../../dictionaries/dictionaries.dart';
 import 'default_keys.dart';
 import 'write_target.dart';
 

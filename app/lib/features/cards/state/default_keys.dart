@@ -1,42 +1,12 @@
 import 'dart:typed_data';
 
-/// The MIFARE Classic keys a read tries before giving up.
-///
-/// Phase 9 replaces this with `DictionariesRepository` (spec 7.3): the
-/// reader facade already takes its keys as a parameter
-/// (`ReaderFacade.mf1ReadDump(candidateKeys: …)`, spec 8.1), so swapping the
-/// source is a one-line change at the call site in `read_controller.dart`
-/// and nothing else moves.
-///
-/// The transport key every blank card ships with comes first, because it
-/// opens the majority of cards in one chunk of
-/// MF1_CHECK_KEYS_OF_SECTORS and the facade stops as soon as every sector is
-/// solved.
-///
-/// Source: public MIFARE Classic default-key dictionaries circulated by the
-/// mfoc/libnfc/Proxmark3 community — not the GPL-3.0 reference app.
-const List<String> defaultMifareKeyHex = <String>[
-  'FFFFFFFFFFFF',
-  'A0A1A2A3A4A5',
-  'D3F7D3F7D3F7',
-  '000000000000',
-  'B0B1B2B3B4B5',
-  '4D3A99C351DD',
-  '1A982C7E459A',
-  'AABBCCDDEEFF',
-  '714C5C886E97',
-  '587EE5F9350F',
-  'A0478CC39091',
-  '533CB6C723F6',
-  '8FD0A4F256E9',
-];
-
-/// The T55xx passwords an EM410x write uses.
-///
-/// `ReaderFacade.em410xWriteToT55xx` takes its keys as parameters, like
-/// every other reader operation (spec 8.1), so the list lives in the app
-/// beside the MIFARE dictionary and Phase 9's `DictionariesRepository` can
-/// replace both without touching the SDK.
+/// The MIFARE Classic default-key list moved to
+/// `features/dictionaries/state/built_in_keys.dart` in Phase 9 — a feature
+/// may not import another feature's internals, so `defaultMifareKeyHex`/
+/// `defaultMifareKeys()` live there now, in front of
+/// `DictionariesRepository`'s stored rows as a synthesized read-only
+/// dictionary. The T55xx passwords below stay here: they are a write-path
+/// concern (`ReaderFacade.em410xWriteToT55xx`) with no dictionary UI in v1.
 ///
 /// These are the widely published defaults for T5577 blanks, not values read
 /// out of any GPL source. **`hardware-validate` (checklist H3):** whether a
@@ -62,12 +32,6 @@ Uint8List _hex(String hex) => Uint8List.fromList(<int>[
   for (int i = 0; i < hex.length; i += 2)
     int.parse(hex.substring(i, i + 2), radix: 16),
 ]);
-
-/// Fresh copies each call, so a caller mutating a key cannot poison the
-/// next read's dictionary.
-List<Uint8List> defaultMifareKeys() => <Uint8List>[
-  for (final String hex in defaultMifareKeyHex) _hex(hex),
-];
 
 /// A fresh copy each call, so a caller mutating a key cannot poison the
 /// next write.

@@ -4,8 +4,8 @@ import 'package:chameleon/chameleon.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/data/data.dart';
 import 'package:spectra/features/cards/state/card_codec.dart';
-import 'package:spectra/features/cards/state/default_keys.dart';
 import 'package:spectra/features/cards/state/hex.dart';
+import 'package:spectra/features/dictionaries/dictionaries.dart';
 
 SavedCard mini({Uint8List? bytes}) {
   final Uint8List blocks = bytes ?? Uint8List(20 * 16);

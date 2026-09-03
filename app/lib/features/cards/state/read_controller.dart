@@ -5,7 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/session/active_device.dart';
 import '../../../core/session/active_session.dart';
-import 'default_keys.dart';
+import '../../dictionaries/dictionaries.dart';
 import 'read_state.dart';
 
 part 'read_controller.g.dart';
