@@ -24,6 +24,14 @@ final class FakeBootloader {
   /// refused at execute time.
   final int expectedHwVersion;
 
+  /// What [DfuOp.getSerialMtu] reports. The Chameleon's USB CDC bootloader
+  /// sizes its SLIP buffer at `2 * (1024 + 1) + 1`.
+  int serialMtu = 2051;
+
+  /// False models a bootloader without the opcode (the BLE one): the request
+  /// is answered "opcode not supported".
+  bool supportsSerialMtu = true;
+
   /// Largest command object: the init packet always fits in one.
   static const int maxCommandSize = 512;
 
@@ -205,6 +213,9 @@ final class FakeBootloader {
         }
         _pendingCreated = false;
         return ok();
+      case DfuOp.getSerialMtu:
+        if (!supportsSerialMtu) return fail(DfuOp.resultOpcodeNotSupported);
+        return ok([serialMtu & 0xFF, (serialMtu >> 8) & 0xFF]);
       default:
         return fail(DfuOp.resultOpcodeNotSupported);
     }

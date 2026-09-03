@@ -25,6 +25,7 @@ export 'src/dfu/dfu_types.dart';
 export 'src/dfu/fake_bootloader.dart';
 export 'src/dfu/fake_dfu_channel.dart';
 export 'src/dfu/secure_dfu.dart' show SecureDfu;
+export 'src/dfu/serial_mtu.dart';
 
 // Dump formats (spec 3.5, 8.2).
 export 'src/dump/dump_format.dart';

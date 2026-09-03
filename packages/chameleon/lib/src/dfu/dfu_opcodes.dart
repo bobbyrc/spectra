@@ -7,6 +7,12 @@ abstract final class DfuOp {
   static const int calcCrc = 0x03;
   static const int execute = 0x04;
   static const int select = 0x06;
+
+  /// Serial transport only: ask the bootloader for its SLIP MTU. nrfutil's
+  /// `DfuTransportSerial.__get_mtu` sends this and reads a little-endian
+  /// uint16 back; the BLE bootloader answers "opcode not supported".
+  static const int getSerialMtu = 0x07;
+
   static const int response = 0x60;
 
   static const int resultSuccess = 0x01;
