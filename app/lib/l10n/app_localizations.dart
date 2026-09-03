@@ -418,11 +418,17 @@ abstract class AppLocalizations {
   /// **'Connect a device'**
   String get connectTitle;
 
-  /// Placeholder body of the Slots tab.
+  /// Heading of the slots grid.
   ///
   /// In en, this message translates to:
-  /// **'Slot management arrives in Phase 5.'**
-  String get comingSoonSlots;
+  /// **'Slots'**
+  String get slotsTitle;
+
+  /// Shown on the slots screen with no session.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a device to see its slots.'**
+  String get slotsEmpty;
 
   /// Placeholder body of the Cards tab.
   ///

@@ -198,7 +198,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connectTitle => 'Connect a device';
 
   @override
-  String get comingSoonSlots => 'Slot management arrives in Phase 5.';
+  String get slotsTitle => 'Slots';
+
+  @override
+  String get slotsEmpty => 'Connect a device to see its slots.';
 
   @override
   String get comingSoonCards => 'The card library arrives in Phase 6.';

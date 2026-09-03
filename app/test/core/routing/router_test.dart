@@ -75,10 +75,11 @@ void main() {
     await connectToEmulator(tester);
 
     await tester.tap(find.text('Slots').last);
-    await tester.pump();
-    await tester.pump();
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     expect(find.byType(SpectraAppShell), findsOneWidget);
-    expect(find.textContaining('Phase 5'), findsOneWidget);
+    expect(find.byType(SpectraSlotTile), findsNWidgets(8));
   });
 }
