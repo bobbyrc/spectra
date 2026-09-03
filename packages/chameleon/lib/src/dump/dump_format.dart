@@ -44,9 +44,9 @@ abstract final class DumpFormats {
     return f.parse(bytes, t);
   }
 
-  /// The single source of Ultralight/NTAG page counts by type. Matches
-  /// `FakeSlot.ntagPageCount` (see `lib/src/fake/fake_slot.dart`), which was
-  /// verified against `docs/research/chameleon-protocol.md`.
+  /// The single source of Ultralight/NTAG page counts by type, used by the
+  /// dump formats and by `FakeSlot.ntagPageCount`. Verified against
+  /// `docs/research/chameleon-protocol.md`.
   static int ultralightPageCount(TagType t) => switch (t) {
     TagType.ntag210 => 20,
     TagType.ntag212 => 41,

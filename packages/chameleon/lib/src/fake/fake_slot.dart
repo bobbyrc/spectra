@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../commands/lf_emulator.dart' show emuLfIdLengths;
+import '../dump/dump_format.dart';
 import '../model/enums.dart';
 import '../model/models.dart';
 
@@ -43,16 +44,10 @@ final class FakeSlot {
   final List<Uint8List> detectionLog = [];
 
   /// Pages the emulated tag reports, or zero when the slot holds no NTAG.
-  int get ntagPageCount => switch (hfType) {
-    TagType.ntag210 => 20,
-    TagType.ntag212 => 41,
-    TagType.ntag213 => 45,
-    TagType.ntag215 => 135,
-    TagType.ntag216 => 231,
-    TagType.mf0icu1 => 16,
-    TagType.mf0icu2 => 44,
-    TagType.mf0ul11 => 20,
-    TagType.mf0ul21 => 41,
-    _ => 0,
-  };
+  ///
+  /// Delegates to the one page-count table so the fake can never disagree
+  /// with the dump formats about how big a tag is.
+  int get ntagPageCount => hfType.family == TagFamily.ultralight
+      ? DumpFormats.ultralightPageCount(hfType)
+      : 0;
 }

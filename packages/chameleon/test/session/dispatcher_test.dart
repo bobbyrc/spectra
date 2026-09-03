@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:chameleon/src/codec/frame.dart';
 import 'package:chameleon/src/commands/device.dart';
 import 'package:chameleon/src/fake/fake_device.dart';
-import 'package:chameleon/src/fake/fake_firmware.dart';
 import 'package:chameleon/src/protocol/errors.dart';
 import 'package:chameleon/src/session/cancel_token.dart';
 import 'package:chameleon/src/session/dispatcher.dart';
@@ -247,8 +245,8 @@ void main() {
   test(
     'a write that never completes still times out, then dispatch resumes',
     () async {
-      final t = _StubTransport();
-      final d = CommandDispatcher(t, drainWindow: short);
+      device.stallWrites();
+      final d = CommandDispatcher(device, drainWindow: short);
       await expectLater(
         d.send(const GetAppVersion().toFrame(), timeout: short),
         throwsA(isA<CommandTimeout>()),
@@ -259,14 +257,14 @@ void main() {
         d.send(const GetActiveSlot().toFrame(), timeout: short),
         throwsA(isA<CommandTimeout>()),
       );
-      expect(t.writes.length, 2);
+      expect(device.writes.length, 2);
       await d.dispose();
     },
   );
 
   test('a write error is forwarded unwrapped', () async {
-    final t = _StubTransport(error: StateError('write refused'));
-    final d = CommandDispatcher(t);
+    device.failNextWrite(StateError('write refused'));
+    final d = CommandDispatcher(device);
     Object? err;
     StackTrace? st;
     try {
@@ -295,20 +293,19 @@ void main() {
   });
 
   test('a close superseded by a reopen does not fail later commands', () async {
-    final t = _ManualTransport();
-    final d = CommandDispatcher(t);
-    await t.open();
-    await Future<void>.delayed(Duration.zero);
+    final d = CommandDispatcher(device);
+    device.delayNextResponse(const Duration(milliseconds: 30));
     final pending = d.send(const GetAppVersion().toFrame(), timeout: patient);
     await Future<void>.delayed(Duration.zero);
     // A close queued before the reopen, delivered after it: the transport is
     // open now, so the stale event must not fail the command in flight.
-    t.emit(const TransportClosed(CloseCause.linkLost));
-    await Future<void>.delayed(Duration.zero);
-    t.deliver(FakeFirmware().handle(const GetAppVersion().toFrame())!.encode());
+    device.emitState(
+      const TransportClosed(CloseCause.linkLost),
+      setCurrent: false,
+    );
     final f = await pending;
     expect(f!.command, 1000);
-    expect(t.writes, hasLength(1));
+    expect(device.writes, hasLength(1));
     await d.dispose();
   });
 
@@ -333,91 +330,4 @@ void main() {
     );
     expect(token.listenerCount, 0);
   });
-}
-
-/// A transport that is always open and whose write either never completes or
-/// fails, for the paths [FakeDevice] cannot reach.
-final class _StubTransport implements Transport {
-  _StubTransport({this.error});
-
-  final Object? error;
-  final List<Uint8List> writes = [];
-  final StreamController<Uint8List> _incoming = StreamController.broadcast();
-  final StreamController<TransportState> _state = StreamController.broadcast();
-
-  @override
-  TransportKind get kind => TransportKind.fake;
-
-  @override
-  int get maxWriteLength => 4105;
-
-  @override
-  Stream<Uint8List> get incoming => _incoming.stream;
-
-  @override
-  Stream<TransportState> get state => _state.stream;
-
-  @override
-  TransportState get currentState => const TransportOpen();
-
-  @override
-  Future<void> open() async {}
-
-  @override
-  Future<void> close() async {
-    await _incoming.close();
-    await _state.close();
-  }
-
-  @override
-  Future<void> write(Uint8List bytes) {
-    writes.add(bytes);
-    final e = error;
-    if (e != null) return Future.error(e, StackTrace.current);
-    // Never completes.
-    return Completer<void>().future;
-  }
-}
-
-/// A transport whose state stream and current state are driven by hand, so a
-/// test can deliver a state event the transport has already moved past.
-final class _ManualTransport implements Transport {
-  final StreamController<Uint8List> _incoming = StreamController.broadcast();
-  final StreamController<TransportState> _state = StreamController.broadcast();
-  final List<Uint8List> writes = [];
-  TransportState _current = const TransportClosed(CloseCause.requested);
-
-  void emit(TransportState s) => _state.add(s);
-
-  void deliver(Uint8List bytes) => _incoming.add(bytes);
-
-  @override
-  TransportKind get kind => TransportKind.fake;
-
-  @override
-  int get maxWriteLength => 4105;
-
-  @override
-  Stream<Uint8List> get incoming => _incoming.stream;
-
-  @override
-  Stream<TransportState> get state => _state.stream;
-
-  @override
-  TransportState get currentState => _current;
-
-  @override
-  Future<void> open() async {
-    _current = const TransportOpen();
-    emit(_current);
-  }
-
-  @override
-  Future<void> close() async {
-    _current = const TransportClosed(CloseCause.requested);
-    emit(_current);
-  }
-
-  @override
-  Future<void> write(Uint8List bytes) async => writes.add(bytes);
 }

@@ -7,38 +7,7 @@ import 'package:chameleon/src/model/models.dart';
 import 'package:chameleon/src/protocol/errors.dart';
 import 'package:chameleon/src/session/connection_state.dart';
 import 'package:chameleon/src/session/device_session.dart';
-import 'package:chameleon/src/transport/transport.dart';
 import 'package:test/test.dart';
-
-/// A [FakeDevice] whose writes can be made to fail while the link stays up,
-/// which no fake transport option produces on its own.
-final class FailingWriteDevice implements Transport {
-  FailingWriteDevice(this.inner);
-
-  final FakeDevice inner;
-  bool failWrites = false;
-
-  @override
-  Future<void> write(Uint8List bytes) async {
-    if (failWrites) throw const Disconnected('write refused');
-    return inner.write(bytes);
-  }
-
-  @override
-  TransportKind get kind => inner.kind;
-  @override
-  int get maxWriteLength => inner.maxWriteLength;
-  @override
-  Future<void> open() => inner.open();
-  @override
-  Future<void> close() => inner.close();
-  @override
-  Stream<Uint8List> get incoming => inner.incoming;
-  @override
-  Stream<TransportState> get state => inner.state;
-  @override
-  TransportState get currentState => inner.currentState;
-}
 
 Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
 
@@ -234,7 +203,7 @@ void main() {
   test('a failed bootloader command leaves the session ready', () async {
     // The write fails with the link still up: nothing is rebooting, so a
     // session stranded in updating would refuse every later command.
-    final flaky = FailingWriteDevice(FakeDevice());
+    final flaky = FakeDevice();
     final other = DeviceSession(
       flaky,
       idlePollInterval: const Duration(days: 1),
@@ -242,7 +211,7 @@ void main() {
     );
     await other.open();
     await settle();
-    flaky.failWrites = true;
+    flaky.failNextWrite();
     await expectLater(
       other.firmware.enterBootloader(),
       throwsA(isA<ChameleonException>()),

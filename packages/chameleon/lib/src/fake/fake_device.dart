@@ -45,14 +45,21 @@ final class FakeDevice implements Transport {
   final StreamController<Uint8List> _incoming = StreamController.broadcast();
   final StreamController<TransportState> _state = StreamController.broadcast();
   final List<Frame> _received = [];
+  final List<Uint8List> _writes = [];
   TransportState _current = const TransportClosed(CloseCause.requested);
   Future<void> _outbound = Future.value();
   int _dropNext = 0;
   Duration? _delayNext;
   bool _corruptNext = false;
+  Object? _failNextWrite;
+  Completer<void>? _writeGate;
 
   /// Every request frame the device has decoded, in order.
   List<Frame> get received => List.unmodifiable(_received);
+
+  /// The raw bytes of every [write] the device was asked to make, including
+  /// the ones it stalled or failed and therefore never decoded.
+  List<Uint8List> get writes => List.unmodifiable(_writes);
 
   @override
   TransportKind get kind => TransportKind.fake;
@@ -74,6 +81,22 @@ final class FakeDevice implements Transport {
 
   /// Flips the last byte of the next response's LRC, corrupting it.
   void corruptNextResponse() => _corruptNext = true;
+
+  /// Makes the next [write] fail with [error] while the link stays up: a
+  /// driver that refuses a write, not a disconnect.
+  void failNextWrite([Object error = const PortBusy('write refused')]) =>
+      _failNextWrite = error;
+
+  /// Makes every [write] from now on hang until [releaseWrites]. This is the
+  /// stalled BLE write the dispatcher's write-bounded timeout exists for.
+  void stallWrites() => _writeGate ??= Completer<void>();
+
+  /// Lets the writes [stallWrites] held through, in order.
+  void releaseWrites() {
+    final gate = _writeGate;
+    _writeGate = null;
+    if (gate != null && !gate.isCompleted) gate.complete();
+  }
 
   /// The bootloader this device presents while [inBootloader]. Its expected
   /// hardware version follows the configured model, so a package built for
@@ -117,7 +140,7 @@ final class FakeDevice implements Transport {
   void emitState(TransportState s, {bool setCurrent = true}) {
     if (setCurrent) {
       _setState(s);
-    } else {
+    } else if (!_state.isClosed) {
       _state.add(s);
     }
   }
@@ -138,11 +161,17 @@ final class FakeDevice implements Transport {
     _setState(const TransportOpen());
   }
 
+  /// Closes the link and, with it, this device for good: the streams it owns
+  /// are closed, so nothing can leak past a test that forgot to tear down.
+  /// A closed [FakeDevice] does not open again; make a new one.
   @override
   Future<void> close() async {
     if (_current is TransportOpen) {
       _setState(const TransportClosed(CloseCause.requested));
     }
+    releaseWrites();
+    if (!_incoming.isClosed) await _incoming.close();
+    if (!_state.isClosed) await _state.close();
   }
 
   /// The whole of the largest frame the protocol defines: 4096 data bytes
@@ -155,6 +184,16 @@ final class FakeDevice implements Transport {
     if (_current is! TransportOpen) {
       throw const Disconnected('fake device not open');
     }
+    _writes.add(bytes);
+    final failure = _failNextWrite;
+    if (failure != null) {
+      _failNextWrite = null;
+      throw failure;
+    }
+    // A stalled write never completes, so nothing after this is reached
+    // until releaseWrites().
+    final gate = _writeGate;
+    if (gate != null) await gate.future;
     for (final frame in _decoder.feed(bytes)) {
       _received.add(frame);
       final response = firmware.handle(frame);
@@ -180,6 +219,7 @@ final class FakeDevice implements Transport {
       _outbound = _outbound.then((_) async {
         await Future<void>.delayed(delay);
         if (_current is! TransportOpen) return;
+        if (_incoming.isClosed) return;
         for (var i = 0; i < encoded.length; i += chunkSize) {
           final end = i + chunkSize > encoded.length
               ? encoded.length
@@ -192,7 +232,7 @@ final class FakeDevice implements Transport {
 
   void _setState(TransportState s) {
     _current = s;
-    _state.add(s);
+    if (!_state.isClosed) _state.add(s);
   }
 }
 

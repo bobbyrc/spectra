@@ -190,9 +190,12 @@ final class FakeBootloader {
             return fail(DfuOp.resultNotPermitted);
           }
           _init = parsed;
-          // A fresh init packet resets the firmware progress.
+          // A fresh init packet resets the firmware progress: the image it
+          // names has not been written yet, which matters for a package
+          // carrying more than one image.
           _data.clear();
           _committed = 0;
+          completed = false;
         } else {
           _committed = _data.length;
           executedDataObjects++;
