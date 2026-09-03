@@ -205,7 +205,7 @@ class UpdateController extends _$UpdateController {
     _cancel = null;
     _inFlight = false;
 
-    await _closeUpdatingSession(active, succeeded: failure == null);
+    await _closeUpdatingSession(active, isRecovery: bootloader != null);
     if (failure == null && ref.mounted) await _reconnect(found);
     ref.read(dfuActivityProvider.notifier).setRunning(false);
     if (!ref.mounted) return;
@@ -228,15 +228,21 @@ class UpdateController extends _$UpdateController {
   ///
   /// A run that failed its pre-flight checks — wrong model, an image whose
   /// hash does not match — never sent ENTER_BOOTLOADER. That session is
-  /// still live and is left alone, which is why [succeeded] is not the only
-  /// thing consulted.
+  /// still live and is left alone, which is why every ending checks
+  /// `SessionUpdating` rather than just success/failure.
+  ///
+  /// [isRecovery] is a run started from a device already sitting in its
+  /// bootloader: [previous] (whatever session happened to be active when
+  /// the recovery run was kicked off) is never touched by this run — it is
+  /// not the session the flash used, so it must never be the one this
+  /// closes, whatever its connection state happens to be.
   Future<void> _closeUpdatingSession(
     ActiveSession? previous, {
-    required bool succeeded,
+    required bool isRecovery,
   }) async {
-    if (previous == null) return;
+    if (previous == null || isRecovery) return;
     final updating = previous.session.connectionState.value is SessionUpdating;
-    if (!succeeded && !updating) return;
+    if (!updating) return;
     await ref.read(sessionsProvider.notifier).disconnect(previous.identity);
   }
 

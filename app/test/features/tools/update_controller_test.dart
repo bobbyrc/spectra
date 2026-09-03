@@ -4,6 +4,7 @@ import 'package:chameleon/chameleon.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/core/dfu/dfu_runtime.dart';
 import 'package:spectra/core/errors/app_failures.dart';
+import 'package:spectra/core/session/active_device.dart';
 import 'package:spectra/core/session/sessions.dart';
 import 'package:spectra/features/tools/state/update_controller.dart';
 
@@ -113,6 +114,51 @@ void main() {
     expect(
       readProvider(tester, emulatorBootloaderProvider).bootloader.flashed,
       buildBin(4096),
+    );
+  });
+
+  testWidgetsApp('a recovery run leaves an unrelated live session connected', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    await tester.pumpWidget(
+      buildDfuTestApp(
+        source: MemoryFirmwarePackageSource(buildDfuZip(size: 4096)),
+      ),
+    );
+    await connectToEmulator(tester);
+
+    // The session connected before the recovery run starts: unrelated to
+    // the bootloader being flashed, since `bootloader` targets its own
+    // device and never this session's.
+    final before = readProvider(tester, activeSessionProvider);
+    expect(before, isNotNull);
+    final beforeSession = before!.session;
+    final beforeIdentity = before.identity;
+
+    final controller = readProvider(tester, updateControllerProvider.notifier);
+    await controller.loadPackage('ultra-dfu-app.zip');
+    await pumpFrames(tester);
+
+    final run = controller.start(bootloader: FakeScanner.emulatedBootloader);
+    await pumpFrames(tester, count: 60);
+    await run;
+
+    final state = readProvider(tester, updateControllerProvider);
+    expect(state.completed, isTrue);
+    expect(state.error, isNull);
+
+    // The unrelated session is untouched: a recovery run never uses it, so
+    // it must not be the one this run disconnects. Checking the connection
+    // state directly (not just map membership) catches a version of the
+    // bug that disconnects and silently reconnects under the same identity.
+    expect(
+      beforeSession.connectionState.value,
+      isNot(isA<SessionDisconnected>()),
+    );
+    expect(
+      readProvider(tester, sessionsProvider).sessions[beforeIdentity]?.session,
+      same(beforeSession),
     );
   });
 
