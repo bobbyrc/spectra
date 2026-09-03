@@ -96,3 +96,27 @@ dated entry per lesson; keep each one actionable.
   `MISE_X=""` for `tool/check_codegen.sh` so it uses the exported `PATH`
   directly instead of re-resolving through `mise x --`; this is what CI
   already does.
+- **Generate committed goldens on the platform that compares them.** A
+  tolerance (`diffThreshold`) buys a green CI run but hides sub-threshold
+  regressions forever. The better fix is a `workflow_dispatch` job that runs
+  `flutter test --update-goldens` on the CI platform and uploads the images
+  as an artifact; download, commit, and tighten the threshold. Say plainly in
+  the package README that a local `flutter test` may then disagree.
+- **`Semantics(button: true, excludeSemantics: true, child: GestureDetector)`
+  is a trap.** It announces a button that has no `SemanticsAction.tap` (put
+  `onTap:` on the `Semantics` node itself) and cannot take keyboard focus.
+  Exclude the child's semantics *below* the focus widget, not above it, and
+  wrap in `MergeSemantics` so the one announced node keeps both the tap
+  action and the focusable flag. Assert it with
+  `expect(tester.getSemantics(f), matchesSemantics(hasTapAction: true, ...))`
+  — a `find.bySemanticsLabel` check passes without either.
+- **A `ThemeData` with an under-specified `ColorScheme` looks fine until it
+  doesn't.** Unset roles fall back to Material's seeded defaults, so an
+  off-palette navigation indicator or a tinted app bar appears only in the
+  one screen that uses that widget. Fill every role from a token and assert
+  the previously-defaulting ones in a test. Same for `TextTheme`: fill all
+  fifteen roles, not just the ones your own scale names.
+- **A `const` constructor cannot assert on `list.length`.** `assert(i <
+  steps.length)` in a const constructor is a `const_eval_property_access`
+  error at every const call site. Keep the const-safe half (`i >= 0`) in the
+  constructor and put the bound check plus a clamp at the top of `build`.

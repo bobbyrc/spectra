@@ -94,14 +94,60 @@ Status: design approved in brainstorm; spec at docs/superpowers/specs/2026-09-02
   both bundled under `packages/spectra_ui/assets/google_fonts/` with
   `GoogleFonts.config.allowRuntimeFetching = false`. Production is offline
   capable; tests do not await the async font load, so golden text renders in
-  flutter_test's Ahem and is identical on every platform.
+  flutter_test's Ahem rather than Inter. That removes glyph rendering as a
+  source of cross-platform golden noise, but not all of it: see the goldens
+  decision below.
 - **Localization.** The kit owns an ARB catalog for its own strings
   (`SpectraUiLocalizations`), generated with `flutter gen-l10n` into
   `lib/l10n/` and committed; `tool/check_codegen.sh` fails when it goes stale.
   A textual lint (`tool/src/string_rules.dart`, rule `no-literal-text`) fails
   on string literals passed to `Text(` under
   `packages/spectra_ui/lib/src/components/` and `app/lib/features/**/ui/`,
-  with `// l10n-exempt` for genuinely non-user-facing text.
+  with `// l10n-exempt` for genuinely non-user-facing text. The named
+  arguments it scans are `label`, `labelText`, `title`, `subtitle`,
+  `hintText`, `helperText`, `errorText`, `semanticsLabel` and `tooltip`.
+
+### Final-review decisions (2026-09-03)
+
+- **`borderStrong` colour role.** `border` (neutral200 light / neutral700
+  dark) is a decorative separator at 1.3:1 and 1.5:1 on surface, well under
+  WCAG 1.4.11's 3:1 for a control boundary. A second role, `borderStrong`
+  (neutral500 light / neutral400 dark, 4.6:1 to 6.3:1 on surface,
+  surfaceRaised and background), now outlines anything interactive: the
+  secondary button and the text field. The secondary button's fill moved from
+  `surface` to `surfaceRaised` at the same time, so it reads as a control on
+  a card. `tokens_test.dart` computes and asserts both contrasts.
+- **`SpectraTappable`.** Every tappable component (button, card, list tile,
+  slot tile, section-header action, bottom-sheet close, disclosure header)
+  routes through one internal primitive built on `FocusableActionDetector`:
+  Tab focus, Enter/Space activation, an accent 2px focus ring animated over
+  `SpectraMotion.fast`, a hover tint, and `onTap` on the semantics node so
+  the node actually carries `SemanticsAction.tap`. The child's semantics are
+  excluded *inside* the detector rather than at the top, and the whole thing
+  is wrapped in `MergeSemantics`, so the single announced node keeps both the
+  tap action and the focusable flag.
+- **Theme completeness.** `spectraThemeData` now fills every `ColorScheme`
+  role from a token (outline, outlineVariant, secondaryContainer, the
+  surfaceContainer ladder, surfaceTint, scrim, onSurfaceVariant) and adds
+  `inputDecorationTheme`, `dialogTheme`, `bottomSheetTheme`, `appBarTheme`
+  and `dividerTheme`; `SpectraTypography.textTheme` fills all fifteen
+  `TextTheme` roles, not six, because `material_ui` reads `bodyLarge`,
+  `labelMedium` and `titleLarge` internally and an unset role falls back to
+  Roboto.
+- **Goldens on Linux (supersedes the 1% tolerance above).** The committed CI
+  goldens are generated on ubuntu-latest by
+  `.github/workflows/goldens.yml` (`workflow_dispatch`, uploads
+  `test/components/goldens/ci` as the `goldens-ci` artifact) and downloaded
+  into the repo, so the images and the comparing `check` job share a
+  platform (spec 6.3). `diffThreshold` drops accordingly. The cost is that a
+  plain `flutter test` on macOS may report sub-1% golden diffs; the CI run is
+  authoritative and `packages/spectra_ui/README.md` says so.
+- **`no-material-in-features` message.** The rule stays — it prevents the
+  dual-import compile error — but its message no longer claims features may
+  not use Material widgets. It now says to import
+  `package:material_ui/material_ui.dart` (or `package:flutter/widgets.dart`)
+  instead of the SDK's Material library. A symbol allowlist for `material_ui`
+  is deferred.
 
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).

@@ -38,7 +38,17 @@ melos:
         dirExists: test
     goldens:update:
       run: melos exec --scope=spectra_ui -- flutter test --update-goldens
-      description: Regenerate spectra_ui's committed CI goldens.
+      description: >-
+        Regenerate spectra_ui's goldens locally. Only for eyeballing: the
+        committed CI goldens must come from Linux, see goldens:update-ci.
+    goldens:update-ci:
+      run: >-
+        echo 'CI goldens are generated on Linux; run, with BRANCH set:' &&
+        echo '  gh workflow run goldens.yml --ref "$BRANCH"' &&
+        echo '  gh run list --workflow goldens.yml --branch "$BRANCH" --limit 1' &&
+        echo '  gh run download <run-id> -n goldens-ci -D /tmp/goldens-ci' &&
+        echo '  cp /tmp/goldens-ci/*.png packages/spectra_ui/test/components/goldens/ci/'
+      description: Print how to refresh the committed CI goldens from Linux.
     lint:deps:
       run: dart run tool/dep_lint.dart
     test:root:

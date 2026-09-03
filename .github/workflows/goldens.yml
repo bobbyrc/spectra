@@ -1,0 +1,29 @@
+name: goldens
+# Golden images are compared on Ubuntu by the `check` job, so they have to be
+# generated on Ubuntu too (spec 6.3: one golden platform). Run this manually
+# after a visual change, download the `goldens-ci` artifact and commit it:
+#   gh workflow run goldens.yml --ref <branch>
+on:
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: 3.47.2
+
+jobs:
+  goldens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --update-goldens
+        working-directory: packages/spectra_ui
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goldens-ci
+          path: packages/spectra_ui/test/components/goldens/ci
