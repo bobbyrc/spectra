@@ -32,8 +32,22 @@ bool isChameleonPort(SerialPortDescriptor port) {
 /// Polls the serial ports and reports the Chameleons among them (spec 4.2).
 ///
 /// Serial has no attach/detach event on desktop, so this polls rather than
-/// subscribing to one. [pollInterval] defaults to two seconds, and an
-/// unchanged port list re-emits nothing.
+/// subscribing to one. [pollInterval] defaults to two seconds.
+///
+/// Stream behaviour, identical to [BleScanner]'s so `mergedScan` can treat
+/// the two alike:
+///
+/// * The first event is the first poll's result, emitted as soon as that
+///   enumeration finishes — the empty list when nothing is attached, so
+///   the UI always has something to render.
+/// * Every later event is the whole current list, never a delta, and an
+///   unchanged list is not re-emitted.
+/// * A port that has gone is dropped on the next poll: this list is what
+///   is attached now, not everything ever seen (the counterpart of
+///   [BleScanner.staleAfter]).
+/// * An enumeration failure ends the scan: the error is forwarded, polling
+///   stops and the stream closes. Restarting means calling [scan] again.
+/// * Cancelling the subscription stops the polling.
 final class SerialScanner implements DeviceScanner {
   // The public parameter name is `adapter`, distinct from the private
   // field `_adapter`, per the brief's interface, so this can't be an

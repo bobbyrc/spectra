@@ -44,6 +44,56 @@ void main() {
     );
   });
 
+  test('scan emits an empty list on subscribe, like SerialScanner', () async {
+    final adapter = FakeBleAdapter();
+    final scanner = BleScanner(adapter: adapter);
+    final emissions = <List<DiscoveredDevice>>[];
+    final sub = scanner.scan().listen(emissions.add);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    // Nothing has advertised yet: the UI still gets an answer to render.
+    expect(emissions, <Object>[<DiscoveredDevice>[]]);
+    await sub.cancel();
+    await adapter.dispose();
+  });
+
+  test('a device that stops advertising ages out', () async {
+    final adapter = FakeBleAdapter();
+    final scanner = BleScanner(
+      adapter: adapter,
+      staleAfter: const Duration(milliseconds: 60),
+    );
+    final emissions = <List<DiscoveredDevice>>[];
+    final sub = scanner.scan().listen(emissions.add);
+    adapter.emitAdvertisement(
+      const BleScanEntry(
+        deviceId: 'A',
+        name: 'ChameleonUltra',
+        services: [nus],
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(emissions.last, hasLength(1));
+
+    // Still advertising: it must not be dropped while it is in range.
+    for (var i = 0; i < 4; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      adapter.emitAdvertisement(
+        const BleScanEntry(
+          deviceId: 'A',
+          name: 'ChameleonUltra',
+          services: [nus],
+        ),
+      );
+    }
+    expect(emissions.last, hasLength(1));
+
+    // Out of range: gone within staleAfter plus one tick.
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    expect(emissions.last, isEmpty);
+    await sub.cancel();
+    await adapter.dispose();
+  });
+
   test(
     'scan emits a growing, de-duplicated list of DiscoveredDevices',
     () async {
@@ -91,7 +141,11 @@ void main() {
 
     await expectLater(
       scanner.scan(),
-      emitsInOrder(<Object>[emitsError(isA<AdapterOff>()), emitsDone]),
+      emitsInOrder(<Object>[
+        <DiscoveredDevice>[],
+        emitsError(isA<AdapterOff>()),
+        emitsDone,
+      ]),
     );
     expect(adapter.scanStopped, isTrue);
     await adapter.dispose();

@@ -6,63 +6,6 @@ import 'package:flutter/material.dart';
 
 import 'session_page.dart';
 
-/// The union of every scanner's latest result list, de-duplicated by
-/// [DiscoveredDevice] identity (transport kind plus transport id) — the
-/// merge the connect screen will do properly in Phase 4 (spec 4.2).
-///
-/// A scanner error is forwarded as a stream error but never stops the
-/// merge: the other scanners' contributions keep flowing as new list
-/// events. The controller closes once every scanner's own stream is done,
-/// so a caller waiting on completion — including a test — isn't left
-/// hanging when every scanner is finite.
-Stream<List<DiscoveredDevice>> mergedScan(List<DeviceScanner> scanners) {
-  final latest = <int, List<DiscoveredDevice>>{};
-  final controller = StreamController<List<DiscoveredDevice>>();
-  final subs = <StreamSubscription<List<DiscoveredDevice>>>[];
-
-  controller.onListen = () {
-    if (scanners.isEmpty) return;
-    var done = 0;
-    for (var i = 0; i < scanners.length; i++) {
-      final index = i;
-      subs.add(
-        scanners[i].scan().listen(
-          (devices) {
-            latest[index] = devices;
-            final merged = <DiscoveredDevice, DiscoveredDevice>{};
-            for (final list in latest.values) {
-              for (final d in list) {
-                merged[d] = d;
-              }
-            }
-            if (!controller.isClosed) {
-              controller.add(
-                List<DiscoveredDevice>.unmodifiable(merged.values),
-              );
-            }
-          },
-          onError: (Object e, StackTrace s) {
-            if (!controller.isClosed) controller.addError(e, s);
-          },
-          onDone: () {
-            done++;
-            if (done == scanners.length && !controller.isClosed) {
-              controller.close();
-            }
-          },
-        ),
-      );
-    }
-  };
-  controller.onCancel = () async {
-    for (final s in subs) {
-      await s.cancel();
-    }
-    if (!controller.isClosed) await controller.close();
-  };
-  return controller.stream;
-}
-
 class ScanPage extends StatefulWidget {
   const ScanPage({required this.scanners, super.key});
 

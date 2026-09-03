@@ -16,6 +16,7 @@ export 'src/dfu/slip.dart';
 export 'src/dfu/slip_serial_dfu_channel.dart';
 export 'src/guidance.dart';
 export 'src/host_platform.dart';
+export 'src/merged_scan.dart';
 export 'src/serial/libserialport_adapter.dart';
 export 'src/serial/serial_adapter.dart';
 export 'src/serial/serial_adapter_factory.dart';
