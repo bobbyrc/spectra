@@ -100,7 +100,7 @@ final class ReadState {
 /// Bit 3 (0x08) is the "MIFARE Classic compliant" bit and bit 6 (0x40) plus
 /// the cascade bit 0x04 carry UID-length and ISO14443-4 information that says
 /// nothing about capacity, so the low nibble decides. Anything that is not
-/// one of the four known values is [TagType.undefined]; the caller then falls
+/// one of the five known values is [TagType.undefined]; the caller then falls
 /// back on `detectMf1Support()` (see `read_controller.dart`).
 TagType classicTypeForSak(int sak) => switch (sak & 0x1F) {
   0x09 => TagType.mifareMini,

@@ -47,28 +47,49 @@ class CardReader extends _$CardReader {
   CancelToken? _cancel;
   bool _inFlight = false;
 
+  /// Bumped by [reset]. `_run` captures the generation it started with and
+  /// checks it again after every `await`; a mismatch means `reset()` fired
+  /// while the read was still on the wire, so the read's own outcome
+  /// (a result, or the `CommandCancelled` its cancellation produces) must
+  /// not repopulate the state `reset()` already cleared.
+  int _generation = 0;
+
   /// Scan the 13.56 MHz field, and read the whole card when it is a MIFARE
   /// Classic the firmware can authenticate.
   Future<void> readHf() => _run(
-    (ReaderFacade reader, CancelToken cancel) => _readHf(reader, cancel),
+    (ReaderFacade reader, CancelToken cancel, int generation) =>
+        _readHf(reader, cancel, generation),
   );
 
   /// Scan the 125 kHz field for an EM410x, the one LF family with a
   /// `DumpFormat` (spec 3.5).
-  Future<void> readLf() =>
-      _run((ReaderFacade reader, CancelToken cancel) => _readLf(reader));
+  Future<void> readLf() => _run(
+    (ReaderFacade reader, CancelToken cancel, int generation) =>
+        _readLf(reader),
+  );
 
   /// Asks the running read to stop. The SDK has no wire-level cancel, so the
   /// command in flight still runs to completion or timeout before the future
-  /// resolves with [CommandCancelled] (spec 4.3's honest contract).
+  /// resolves with [CommandCancelled] (spec 4.3's honest contract). An LF
+  /// scan (`scanEm410x`, from [readLf]) takes no `CancelToken` at all — it is
+  /// one round trip with no loop to check cancellation between, so calling
+  /// this during a [readLf] does nothing and that read completes normally.
   void cancel() => _cancel?.cancel();
 
-  /// Back to the empty screen, so "Read again" starts clean.
-  void reset() => state = const ReadState();
+  /// Back to the empty screen, so "Read again" starts clean. Also cancels a
+  /// read still in flight and bumps [_generation], so that read's eventual
+  /// outcome — a result, or the `CommandCancelled` cancelling it produces —
+  /// is discarded instead of repopulating the state this just cleared.
+  void reset() {
+    _cancel?.cancel();
+    _generation++;
+    state = const ReadState();
+  }
 
   Future<CardReadResult> _readHf(
     ReaderFacade reader,
     CancelToken cancel,
+    int generation,
   ) async {
     final List<Hf14aTag> tags = await reader.scan14a();
     if (tags.isEmpty) throw const HfTagNotFound();
@@ -85,14 +106,14 @@ class CardReader extends _$CardReader {
         ? TagType.mifare1k
         : guessed;
 
-    if (ref.mounted) {
+    if (_current(generation)) {
       state = const ReadState(busy: true, progress: 0);
     }
     final Mf1DumpReadResult dump = await reader.mf1ReadDump(
       type: type,
       candidateKeys: defaultMifareKeys(),
       onProgress: (int done, int total) {
-        if (!ref.mounted) return;
+        if (!_current(generation)) return;
         state = ReadState(
           busy: true,
           progress: total == 0 ? null : done / total,
@@ -128,7 +149,11 @@ class CardReader extends _$CardReader {
   }
 
   Future<void> _run(
-    Future<CardReadResult> Function(ReaderFacade reader, CancelToken cancel)
+    Future<CardReadResult> Function(
+      ReaderFacade reader,
+      CancelToken cancel,
+      int generation,
+    )
     body,
   ) async {
     if (_inFlight) return;
@@ -138,19 +163,28 @@ class CardReader extends _$CardReader {
       return;
     }
     _inFlight = true;
+    final int generation = _generation;
     final CancelToken cancel = CancelToken();
     _cancel = cancel;
     state = const ReadState(busy: true);
     try {
-      final CardReadResult result = await body(active.session.reader, cancel);
-      if (!ref.mounted) return;
+      final CardReadResult result = await body(
+        active.session.reader,
+        cancel,
+        generation,
+      );
+      if (!_current(generation)) return;
       state = ReadState(result: result);
     } on Object catch (error) {
-      if (!ref.mounted) return;
+      if (!_current(generation)) return;
       state = ReadState(error: error);
     } finally {
       _inFlight = false;
       _cancel = null;
     }
   }
+
+  /// Whether [generation] is still the current one: the element has not
+  /// been disposed, and `reset()` has not fired since this read started.
+  bool _current(int generation) => ref.mounted && generation == _generation;
 }

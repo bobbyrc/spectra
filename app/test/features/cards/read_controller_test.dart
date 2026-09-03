@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:ui';
 
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,9 +27,7 @@ FakeDevice deviceWith({bool hf = true, bool lf = false}) {
 
 void main() {
   Future<CardReader> connected(WidgetTester tester, FakeDevice device) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    useDesktopSurface(tester);
     await pumpTestApp(tester, transport: (_) => device);
     await connectToEmulator(tester);
     keepAlive(tester, cardReaderProvider);
@@ -42,9 +39,7 @@ void main() {
 
     // Ruling 22: start, pump, then await — the fake replies on a real timer.
     final Future<void> run = reader.readHf();
-    for (var i = 0; i < 40; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 40, step: const Duration(milliseconds: 50));
     await run;
 
     final ReadState state = readProvider(tester, cardReaderProvider);
@@ -64,15 +59,75 @@ void main() {
     );
   });
 
+  testWidgetsApp('a sector with no working key makes a partial read', (
+    tester,
+  ) async {
+    final FakeFirmware firmware = FakeFirmware();
+    final FakeMf1Card card = FakeMf1Card.classic1k(
+      uid: Uint8List.fromList(<int>[0xDE, 0xAD, 0xBE, 0xEF]),
+    );
+    // Sector 5 has neither key, so its four blocks cannot be read.
+    card.keys.remove(FakeMf1Card.keyId(5, KeyType.a));
+    card.keys.remove(FakeMf1Card.keyId(5, KeyType.b));
+    firmware.present(card);
+    final CardReader reader = await connected(
+      tester,
+      FakeDevice(firmware: firmware),
+    );
+
+    final Future<void> run = reader.readHf();
+    await pumpFrames(tester, count: 40, step: const Duration(milliseconds: 50));
+    await run;
+
+    final ReadState state = readProvider(tester, cardReaderProvider);
+    expect(state.error, isNull);
+    final CardReadResult result = state.result!;
+    expect(result.readChunks, 60);
+    expect(result.totalChunks, 64);
+    expect(result.keysFound, 15);
+    expect(result.isPartial, isTrue);
+  });
+
+  testWidgetsApp('an Ultralight in the field is identity only', (tester) async {
+    final FakeFirmware firmware = FakeFirmware();
+    firmware.present(
+      FakeUltralightCard(
+        uid: Uint8List.fromList(<int>[
+          0x04,
+          0x11,
+          0x22,
+          0x33,
+          0x44,
+          0x55,
+          0x66,
+        ]),
+        pages: Uint8List(4 * 20),
+      ),
+    );
+    final CardReader reader = await connected(
+      tester,
+      FakeDevice(firmware: firmware),
+    );
+
+    final Future<void> run = reader.readHf();
+    await pumpFrames(tester, count: 40, step: const Duration(milliseconds: 50));
+    await run;
+
+    final ReadState state = readProvider(tester, cardReaderProvider);
+    expect(state.error, isNull);
+    final CardReadResult result = state.result!;
+    expect(result.tagType, TagType.hf14a4);
+    expect(result.bytes, isEmpty);
+    expect(result.canSave, isFalse);
+  });
+
   testWidgetsApp('no card in the field is a typed error, not a crash', (
     tester,
   ) async {
     final CardReader reader = await connected(tester, deviceWith(hf: false));
 
     final Future<void> run = reader.readHf();
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
     await run;
 
     final ReadState state = readProvider(tester, cardReaderProvider);
@@ -88,9 +143,7 @@ void main() {
     );
 
     final Future<void> run = reader.readLf();
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
     await run;
 
     final CardReadResult result = readProvider(
@@ -111,9 +164,7 @@ void main() {
     final CardReader reader = await connected(tester, deviceWith(hf: false));
 
     final Future<void> run = reader.readLf();
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
     await run;
 
     expect(
@@ -130,9 +181,7 @@ void main() {
     final Future<void> run = reader.readHf();
     await tester.pump(const Duration(milliseconds: 20));
     reader.cancel();
-    for (var i = 0; i < 40; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 40, step: const Duration(milliseconds: 50));
     await run;
 
     final ReadState state = readProvider(tester, cardReaderProvider);
@@ -150,9 +199,7 @@ void main() {
     final Future<void> first = reader.readHf();
     await tester.pump(const Duration(milliseconds: 10));
     final Future<void> second = reader.readHf();
-    for (var i = 0; i < 60; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 60, step: const Duration(milliseconds: 50));
     await first;
     await second;
 
@@ -166,15 +213,35 @@ void main() {
   testWidgetsApp('reset clears the last result', (tester) async {
     final CardReader reader = await connected(tester, deviceWith());
     final Future<void> run = reader.readHf();
-    for (var i = 0; i < 40; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await pumpFrames(tester, count: 40, step: const Duration(milliseconds: 50));
     await run;
     expect(readProvider(tester, cardReaderProvider).result, isNotNull);
 
     reader.reset();
     await tester.pump();
     expect(readProvider(tester, cardReaderProvider).result, isNull);
+  });
+
+  testWidgetsApp('reset cancels an in-flight read so it is not repopulated', (
+    tester,
+  ) async {
+    final FakeDevice device = deviceWith();
+    device.latency = const Duration(milliseconds: 5);
+    final CardReader reader = await connected(tester, device);
+
+    final Future<void> run = reader.readHf();
+    await tester.pump(const Duration(milliseconds: 20));
+    reader.reset();
+    await pumpFrames(tester, count: 40, step: const Duration(milliseconds: 50));
+    await run;
+
+    // The device read that was in flight when `reset()` fired still runs to
+    // completion (or CommandCancelled) on the wire, but must not repopulate
+    // the state `reset()` already cleared.
+    final ReadState state = readProvider(tester, cardReaderProvider);
+    expect(state.busy, isFalse);
+    expect(state.result, isNull);
+    expect(state.error, isNull);
   });
 
   testWidgetsApp(
@@ -205,9 +272,11 @@ void main() {
       await tester.pump();
 
       device.latency = Duration.zero;
-      for (var i = 0; i < 40; i++) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
+      await pumpFrames(
+        tester,
+        count: 40,
+        step: const Duration(milliseconds: 50),
+      );
       // No UnmountedRefException: the notifier notices it is gone and
       // simply stops assigning state. The device read itself still
       // completes — disposing the screen does not cancel the command
@@ -216,9 +285,27 @@ void main() {
     },
   );
 
-  test('classicTypeForSak maps the four SAK values', () {
+  testWidgetsApp('reading with no active session is a typed error', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+    await tester.pump();
+    keepAlive(tester, cardReaderProvider);
+    final CardReader reader = readProvider(tester, cardReaderProvider.notifier);
+
+    await reader.readHf();
+
+    expect(
+      readProvider(tester, cardReaderProvider).error,
+      isA<SessionNotReady>(),
+    );
+  });
+
+  test('classicTypeForSak maps the five SAK values', () {
     expect(classicTypeForSak(0x09), TagType.mifareMini);
     expect(classicTypeForSak(0x08), TagType.mifare1k);
+    expect(classicTypeForSak(0x19), TagType.mifare2k);
     expect(classicTypeForSak(0x18), TagType.mifare4k);
     expect(classicTypeForSak(0x88), TagType.mifare1k);
     expect(classicTypeForSak(0x00), TagType.undefined);
