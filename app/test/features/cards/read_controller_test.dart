@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/features/cards/state/read_controller.dart';
 import 'package:spectra/features/cards/state/read_state.dart';
+import 'package:spectra/features/cards/state/write_target.dart';
 
 import '../../support/app_harness.dart';
 
@@ -86,6 +87,71 @@ void main() {
     expect(result.totalChunks, 64);
     expect(result.keysFound, 15);
     expect(result.isPartial, isTrue);
+  });
+
+  testWidgetsApp('a full read patches the recovered keys into every trailer', (
+    tester,
+  ) async {
+    final CardReader reader = await connected(tester, deviceWith());
+
+    final Future<void> run = reader.readHf();
+    await pumpFrames(tester, count: 40, step: const Duration(milliseconds: 50));
+    await run;
+
+    final CardReadResult result = readProvider(
+      tester,
+      cardReaderProvider,
+    ).result!;
+    // The card answers a trailer read with key A zeroed (real hardware, and
+    // the fake since Phase 7's fix wave). The keys `mf1ReadDump` reports are
+    // patched back in, so the stored dump is loadable and writable.
+    for (int sector = 0; sector < 16; sector++) {
+      final int trailer = MifareGeometry.trailerOf(sector) * 16;
+      expect(
+        result.bytes.sublist(trailer, trailer + 6),
+        everyElement(0xFF),
+        reason: 'sector \$sector key A',
+      );
+      expect(
+        result.bytes.sublist(trailer + 10, trailer + 16),
+        everyElement(0xFF),
+        reason: 'sector \$sector key B',
+      );
+    }
+    expect(unreadSectors(TagType.mifare1k, result.bytes), isEmpty);
+  });
+
+  testWidgetsApp('only a sector with no recovered key stays key-A zeroed', (
+    tester,
+  ) async {
+    final FakeFirmware firmware = FakeFirmware();
+    final FakeMf1Card card = FakeMf1Card.classic1k(
+      uid: Uint8List.fromList(<int>[0xDE, 0xAD, 0xBE, 0xEF]),
+    );
+    // Sector 9's keys are not in the candidate list, so nothing is recovered
+    // for it and its trailer keeps the zeros the read left behind.
+    final Uint8List unknown = Uint8List.fromList(<int>[9, 9, 9, 9, 9, 9]);
+    card.keys[FakeMf1Card.keyId(9, KeyType.a)] = unknown;
+    card.keys[FakeMf1Card.keyId(9, KeyType.b)] = unknown;
+    firmware.present(card);
+    final CardReader reader = await connected(
+      tester,
+      FakeDevice(firmware: firmware),
+    );
+
+    final Future<void> run = reader.readHf();
+    await pumpFrames(tester, count: 40, step: const Duration(milliseconds: 50));
+    await run;
+
+    final CardReadResult result = readProvider(
+      tester,
+      cardReaderProvider,
+    ).result!;
+    expect(unreadSectors(TagType.mifare1k, result.bytes), <int>[
+      9,
+    ], reason: 'exactly the sector whose key was never recovered');
+    final int trailer = MifareGeometry.trailerOf(9) * 16;
+    expect(result.bytes.sublist(trailer, trailer + 6), everyElement(0));
   });
 
   testWidgetsApp('an Ultralight in the field is identity only', (tester) async {

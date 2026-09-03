@@ -130,11 +130,12 @@ class CardReader extends _$CardReader {
       cancel: cancel,
     );
 
+    final Uint8List blocks = _withRecoveredKeys(dump, type);
     final MifareClassicDump parsed =
-        DumpFormats.parse(dump.blocks, type) as MifareClassicDump;
+        DumpFormats.parse(blocks, type) as MifareClassicDump;
     return CardReadResult(
       tagType: type,
-      bytes: dump.blocks,
+      bytes: blocks,
       fields: const MifareClassicFormat().describe(parsed),
       readChunks: dump.readBlockCount,
       totalChunks: dump.blockCount,
@@ -142,6 +143,43 @@ class CardReader extends _$CardReader {
           .where((SectorKeys k) => k.keyA != null || k.keyB != null)
           .length,
     );
+  }
+
+  /// [Mf1DumpReadResult.blocks] with the recovered keys patched back into
+  /// each sector trailer.
+  ///
+  /// A real card never hands its keys back: `ReaderFacade.mf1ReadDump`'s doc
+  /// (`packages/chameleon/lib/src/session/facades/reader.dart`) records that
+  /// a trailer read answers with key A zeroed, and the working keys come out
+  /// of [Mf1DumpReadResult.keys] instead. Storing the raw blocks would save
+  /// a dump whose key A is `000000000000` in every sector — which
+  /// `write_target.dart`'s `unreadSectors` then flags as unread on *every*
+  /// real card, and which, once confirmed past that warning, would emulate
+  /// or write an all-zero key A while the screen said "verified"
+  /// (Phase 7 ruling 31).
+  ///
+  /// Key A is bytes 0-5 of the trailer and key B bytes 10-15; the four
+  /// access-bit bytes between them are the card's own and are left alone. A
+  /// sector whose key was never recovered has nothing to patch in and keeps
+  /// its zeroed key A, so `unreadSectors` names exactly those sectors and no
+  /// others.
+  Uint8List _withRecoveredKeys(Mf1DumpReadResult dump, TagType type) {
+    final Uint8List blocks = Uint8List.fromList(dump.blocks);
+    final int sectors = MifareGeometry.sectorCount(type);
+    for (
+      int sector = 0;
+      sector < sectors && sector < dump.keys.length;
+      sector++
+    ) {
+      final SectorKeys found = dump.keys[sector];
+      final int start = MifareGeometry.trailerOf(sector) * 16;
+      if (start + 16 > blocks.length) continue;
+      final Uint8List? keyA = found.keyA;
+      final Uint8List? keyB = found.keyB;
+      if (keyA != null) blocks.setRange(start, start + 6, keyA);
+      if (keyB != null) blocks.setRange(start + 10, start + 16, keyB);
+    }
+    return blocks;
   }
 
   Future<CardReadResult> _readLf(ReaderFacade reader) async {
