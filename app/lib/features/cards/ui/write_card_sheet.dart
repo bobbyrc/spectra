@@ -8,6 +8,8 @@ import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../../core/errors/problem_view.dart';
+import '../../../core/errors/warning_callout.dart';
+import '../../../core/format/sector_list.dart';
 import '../../../core/format/tag_labels.dart';
 import '../../../core/routing/routes.dart';
 import '../../../l10n/app_localizations.dart';
@@ -253,10 +255,10 @@ class _Finished extends StatelessWidget {
   }
 }
 
-/// Ruling 23/27: names the sector trailers a dump has no recovered key A
-/// for and asks for an explicit yes before writing zero keys onto the
-/// card. Styled like `load_to_slot_sheet.dart`'s `_UnreadSectorsWarning` —
-/// `spectra_ui` has no callout component, and this phase does not add one.
+/// Ruling 23/27: names the sector trailers a dump has no recovered key for
+/// and asks for an explicit yes before writing them onto the card — or a way
+/// back to the confirm card, where the trailers toggle that caused the
+/// warning can be turned off (review I3).
 class _UnreadSectorsWarning extends StatelessWidget {
   const _UnreadSectorsWarning({
     required this.sectors,
@@ -265,46 +267,24 @@ class _UnreadSectorsWarning extends StatelessWidget {
   });
 
   final List<int> sectors;
+  final VoidCallback onConfirm;
 
   /// Returns to the confirm card without writing anything.
   final VoidCallback onBack;
-  final VoidCallback onConfirm;
 
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
-    final Color warning = SpectraTheme.of(context).colors.warning;
     return SpectraCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(Icons.warning_amber_rounded, color: warning, size: 20),
-              const SizedBox(width: SpectraSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      l10n.cardsWriteUnreadSectorsTitle,
-                      style: SpectraTypography.body.copyWith(color: warning),
-                    ),
-                    const SizedBox(height: SpectraSpacing.xs),
-                    Text(
-                      l10n.cardsWriteUnreadSectorsBody(
-                        sectors.length,
-                        _formatSectorList(sectors),
-                      ),
-                      style: SpectraTypography.bodySmall.copyWith(
-                        color: warning,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          WarningCallout(
+            title: l10n.cardsWriteUnreadSectorsTitle,
+            body: l10n.cardsWriteUnreadSectorsBody(
+              sectors.length,
+              formatSectorList(sectors),
+            ),
           ),
           const SizedBox(height: SpectraSpacing.lg),
           SpectraButton(
@@ -324,13 +304,4 @@ class _UnreadSectorsWarning extends StatelessWidget {
       ),
     );
   }
-}
-
-/// `[0, 3, 7]` -> `"0, 3 and 7"`; a single sector -> `"0"`. Sector indexes
-/// are shown 0-based, matching `load_to_slot_sheet.dart`'s formatting.
-String _formatSectorList(List<int> sectors) {
-  final List<String> parts = sectors.map((int s) => '$s').toList();
-  if (parts.length == 1) return parts.single;
-  final String head = parts.sublist(0, parts.length - 1).join(', ');
-  return '$head and ${parts.last}';
 }

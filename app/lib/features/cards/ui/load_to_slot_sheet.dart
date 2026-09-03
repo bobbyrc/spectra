@@ -10,6 +10,8 @@ import 'package:spectra_ui/spectra_ui.dart';
 import '../../../core/errors/app_failures.dart';
 import '../../../core/errors/error_catalog.dart';
 import '../../../core/errors/problem_view.dart';
+import '../../../core/errors/warning_callout.dart';
+import '../../../core/format/sector_list.dart';
 import '../../../core/format/tag_labels.dart';
 import '../../../core/routing/routes.dart';
 import '../../../l10n/app_localizations.dart';
@@ -269,9 +271,8 @@ class _Finished extends StatelessWidget {
 }
 
 /// Ruling 23: names the sector trailers a dump has no recovered key for and
-/// asks for an explicit yes before loading them blank. Styled like
-/// `save_card_sheet.dart`'s partial-read warning (R33) — `spectra_ui` has no
-/// callout component, and this phase does not add one.
+/// asks for an explicit yes before loading them blank — or a way back to the
+/// confirm card (review I3).
 class _UnreadSectorsWarning extends StatelessWidget {
   const _UnreadSectorsWarning({
     required this.sectors,
@@ -280,46 +281,24 @@ class _UnreadSectorsWarning extends StatelessWidget {
   });
 
   final List<int> sectors;
+  final VoidCallback onConfirm;
 
   /// Returns to the confirm card without loading anything.
   final VoidCallback onBack;
-  final VoidCallback onConfirm;
 
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
-    final Color warning = SpectraTheme.of(context).colors.warning;
     return SpectraCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(Icons.warning_amber_rounded, color: warning, size: 20),
-              const SizedBox(width: SpectraSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      l10n.cardsLoadUnreadSectorsTitle,
-                      style: SpectraTypography.body.copyWith(color: warning),
-                    ),
-                    const SizedBox(height: SpectraSpacing.xs),
-                    Text(
-                      l10n.cardsLoadUnreadSectorsBody(
-                        sectors.length,
-                        _formatSectorList(sectors),
-                      ),
-                      style: SpectraTypography.bodySmall.copyWith(
-                        color: warning,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          WarningCallout(
+            title: l10n.cardsLoadUnreadSectorsTitle,
+            body: l10n.cardsLoadUnreadSectorsBody(
+              sectors.length,
+              formatSectorList(sectors),
+            ),
           ),
           const SizedBox(height: SpectraSpacing.lg),
           SpectraButton(
@@ -339,14 +318,4 @@ class _UnreadSectorsWarning extends StatelessWidget {
       ),
     );
   }
-}
-
-/// `[0, 3, 7]` -> `"0, 3 and 7"`; a single sector -> `"0"`. Sector indexes
-/// are shown 0-based, matching how `cardsEditBadIndex` already shows block
-/// and page indexes elsewhere in this feature.
-String _formatSectorList(List<int> sectors) {
-  final List<String> parts = sectors.map((int s) => '$s').toList();
-  if (parts.length == 1) return parts.single;
-  final String head = parts.sublist(0, parts.length - 1).join(', ');
-  return '$head and ${parts.last}';
 }

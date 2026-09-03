@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../../core/errors/problem_view.dart';
+import '../../../core/errors/warning_callout.dart';
 import '../../../data/data.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/saved_cards_provider.dart';
@@ -173,28 +174,10 @@ class _CardDetailsFormState extends ConsumerState<_CardDetailsForm> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        // R33. A plain warning-coloured line rather than a component:
-        // `spectra_ui` has no callout, and this phase does not add one.
+        // R33, review M4: the shared callout the two write-path sheets use
+        // for the same kind of "less than perfect, still your call" notice.
         if (unread > 0) ...<Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(
-                Icons.warning_amber_rounded,
-                color: SpectraTheme.of(context).colors.warning,
-                size: 20,
-              ),
-              const SizedBox(width: SpectraSpacing.sm),
-              Expanded(
-                child: Text(
-                  l10n.cardsSavePartial(unread),
-                  style: SpectraTypography.body.copyWith(
-                    color: SpectraTheme.of(context).colors.warning,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          WarningCallout(title: l10n.cardsSavePartial(unread)),
           const SizedBox(height: SpectraSpacing.md),
         ],
         SpectraTextField(

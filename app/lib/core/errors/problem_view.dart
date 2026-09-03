@@ -85,17 +85,14 @@ class ProblemView extends StatelessWidget {
             summary: Text(l10n.commonDetails),
             detail: Text(p.detail),
           ),
-          if (p.recovery != ErrorRecovery.none) ...<Widget>[
+          // One switch decides both whether there is an action and what it
+          // says: `none` returning null is the single source of "no button
+          // here", instead of an `if` above and a dead `none => 'Try again'`
+          // arm below it that no build could ever reach (review M1).
+          if (_actionLabel(l10n, p.recovery) case final String label) ...[
             const SizedBox(height: SpectraSpacing.md),
             SpectraButton(
-              label: switch (p.recovery) {
-                ErrorRecovery.openSettings => l10n.commonOpenSettings,
-                ErrorRecovery.update => l10n.commonUpdateFirmware,
-                ErrorRecovery.retry ||
-                ErrorRecovery.platformInstructions ||
-                ErrorRecovery.reconnect ||
-                ErrorRecovery.none => l10n.commonRetry,
-              },
+              label: label,
               variant: variant ?? SpectraButtonVariant.primary,
               onPressed: p.recovery == ErrorRecovery.update
                   ? (onUpdate ??
@@ -108,3 +105,14 @@ class ProblemView extends StatelessWidget {
     );
   }
 }
+
+/// The recovery button's label, or null when this recovery offers none.
+String? _actionLabel(AppLocalizations l10n, ErrorRecovery recovery) =>
+    switch (recovery) {
+      ErrorRecovery.none => null,
+      ErrorRecovery.openSettings => l10n.commonOpenSettings,
+      ErrorRecovery.update => l10n.commonUpdateFirmware,
+      ErrorRecovery.retry ||
+      ErrorRecovery.platformInstructions ||
+      ErrorRecovery.reconnect => l10n.commonRetry,
+    };
