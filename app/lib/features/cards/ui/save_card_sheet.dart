@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
+import '../../../core/errors/problem_view.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/saved_cards_provider.dart';
 
@@ -81,7 +82,8 @@ class _SaveCardFormState extends ConsumerState<_SaveCardForm> {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
-    final bool busy = ref.watch(cardLibraryProvider).isLoading;
+    final AsyncValue<void> library = ref.watch(cardLibraryProvider);
+    final bool busy = library.isLoading;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -127,6 +129,14 @@ class _SaveCardFormState extends ConsumerState<_SaveCardForm> {
               ),
           ],
         ),
+        if (library.hasError) ...<Widget>[
+          const SizedBox(height: SpectraSpacing.lg),
+          ProblemView(
+            error: library.error!,
+            onAction: () => ref.read(cardLibraryProvider.notifier).reset(),
+            variant: SpectraButtonVariant.secondary,
+          ),
+        ],
         const SizedBox(height: SpectraSpacing.lg),
         SpectraButton(
           label: l10n.cardsSaveConfirm,

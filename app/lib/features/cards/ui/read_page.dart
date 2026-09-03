@@ -128,11 +128,16 @@ class _Result extends StatelessWidget {
         SpectraButton(
           label: l10n.cardsSaveToLibrary,
           onPressed: result.canSave
-              ? () => showSaveCardSheet(
-                  context,
-                  type: result.tagType,
-                  bytes: result.bytes,
-                )
+              ? () async {
+                  final bool? saved = await showSaveCardSheet(
+                    context,
+                    type: result.tagType,
+                    bytes: result.bytes,
+                  );
+                  if (saved != true || !context.mounted) return;
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(l10n.cardsSaved)));
+                }
               : null,
         ),
         const SizedBox(height: SpectraSpacing.md),

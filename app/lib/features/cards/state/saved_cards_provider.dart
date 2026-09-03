@@ -78,7 +78,7 @@ class CardLibrary extends _$CardLibrary {
           name: name,
           tagType: tagTypeName(type),
           bytes: bytes,
-          updatedAt: DateTime.now(),
+          updatedAt: DateTime.now().toUtc(),
           folder: folder,
           color: color,
         ),
@@ -101,7 +101,7 @@ class CardLibrary extends _$CardLibrary {
           name: card.name,
           tagType: card.tagType,
           bytes: card.bytes,
-          updatedAt: DateTime.now(),
+          updatedAt: DateTime.now().toUtc(),
           folder: card.folder,
           color: card.color,
         ),
@@ -112,6 +112,11 @@ class CardLibrary extends _$CardLibrary {
   Future<void> remove(String id) async {
     await _run((SavedCardsRepository repo) => repo.delete(id));
   }
+
+  /// Clears a failed write's [state] back to idle, so the save sheet's
+  /// "Try again" reopens the form instead of leaving the `ProblemView` up
+  /// forever. Nothing is retried automatically: the user re-submits.
+  void reset() => state = const AsyncData<void>(null);
 
   /// Lets a test drive an `AsyncError` without a repository that throws.
   /// `Notifier.state` is `@protected`; this is the narrow door around that.
