@@ -204,6 +204,24 @@
     "description": "Second line of a library row when the card has no folder (ruling 20: no dangling separator).",
     "placeholders": {"tagType": {"type": "String"}}
   },
+  "cardsDetailNotFound": "That card is not in the library.",
+  "@cardsDetailNotFound": {"description": "Shown when a card route names an id that is gone."},
+  "cardsDetailDelete": "Delete",
+  "@cardsDetailDelete": {"description": "Removes a card from the library."},
+  "cardsDetailDeleteTitle": "Delete this card?",
+  "@cardsDetailDeleteTitle": {"description": "Title of the delete confirmation."},
+  "cardsDetailDeleteBody": "The saved dump is removed from Spectra. The physical card is not touched.",
+  "@cardsDetailDeleteBody": {"description": "Body of the delete confirmation."},
+  "cardsDetailProblems": "This dump has problems: {problems}",
+  "@cardsDetailProblems": {
+    "description": "Lists the validation problems of a stored dump.",
+    "placeholders": {"problems": {"type": "String"}}
+  },
+  "cardsDetailBytes": "{count} bytes",
+  "@cardsDetailBytes": {
+    "description": "Size of the stored dump.",
+    "placeholders": {"count": {"type": "int"}}
+  },
   "comingSoonSettings": "Settings arrive in Phase 9.",
   "@comingSoonSettings": {"description": "Placeholder body of the Settings tab."},
   "comingSoonUpdate": "Firmware update arrives in Phase 8.",

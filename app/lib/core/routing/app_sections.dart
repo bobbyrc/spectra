@@ -64,7 +64,16 @@ final List<AppSection> appSections = <AppSection>[
     selectedIcon: Icons.style,
     builder: (context, state) => const CardsPage(),
     subRoutes: <RouteBase>[
+      // `read` is listed before `:id`: go_router matches sub-routes in list
+      // order, and a literal segment and a parameter both match
+      // `/cards/read` — without this ordering `:id` would capture "read"
+      // as a card id instead of the read screen ever being reached.
       GoRoute(path: 'read', builder: (context, state) => const ReadPage()),
+      GoRoute(
+        path: ':id',
+        builder: (context, state) =>
+            CardDetailPage(id: state.pathParameters['id'] ?? ''),
+      ),
     ],
   ),
   AppSection(

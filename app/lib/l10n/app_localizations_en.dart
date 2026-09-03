@@ -328,6 +328,29 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get cardsDetailNotFound => 'That card is not in the library.';
+
+  @override
+  String get cardsDetailDelete => 'Delete';
+
+  @override
+  String get cardsDetailDeleteTitle => 'Delete this card?';
+
+  @override
+  String get cardsDetailDeleteBody =>
+      'The saved dump is removed from Spectra. The physical card is not touched.';
+
+  @override
+  String cardsDetailProblems(String problems) {
+    return 'This dump has problems: $problems';
+  }
+
+  @override
+  String cardsDetailBytes(int count) {
+    return '$count bytes';
+  }
+
+  @override
   String get comingSoonSettings => 'Settings arrive in Phase 9.';
 
   @override

@@ -652,6 +652,42 @@ abstract class AppLocalizations {
   /// **'{tagType}'**
   String cardsSubtitleNoFolder(String tagType);
 
+  /// Shown when a card route names an id that is gone.
+  ///
+  /// In en, this message translates to:
+  /// **'That card is not in the library.'**
+  String get cardsDetailNotFound;
+
+  /// Removes a card from the library.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get cardsDetailDelete;
+
+  /// Title of the delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this card?'**
+  String get cardsDetailDeleteTitle;
+
+  /// Body of the delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'The saved dump is removed from Spectra. The physical card is not touched.'**
+  String get cardsDetailDeleteBody;
+
+  /// Lists the validation problems of a stored dump.
+  ///
+  /// In en, this message translates to:
+  /// **'This dump has problems: {problems}'**
+  String cardsDetailProblems(String problems);
+
+  /// Size of the stored dump.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} bytes'**
+  String cardsDetailBytes(int count);
+
   /// Placeholder body of the Settings tab.
   ///
   /// In en, this message translates to:
