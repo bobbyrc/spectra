@@ -239,7 +239,11 @@ final class DfuOrchestrator {
   ///
   /// The open is inside the same try as the transfer, so a channel that
   /// finishes opening after this stream has been unsubscribed is still closed
-  /// rather than leaked.
+  /// rather than leaked. A failure in that same pre-stream section (the
+  /// opener, `channel.open()`) is also reported through [onFailure] rather
+  /// than thrown out of the stream: `yield*` hands a stream's errors straight
+  /// to the consumer, past `run()`'s own try/catch, so a raw throw here would
+  /// otherwise escape as an unhandled stream error instead of a `DfuFailed`.
   ///
   /// The failure is caught the moment it happens rather than left on a future
   /// to await later: a future carrying an error nothing has subscribed to,
@@ -270,6 +274,15 @@ final class DfuOrchestrator {
       }).then<void>((_) {}, onError: onFailure).whenComplete(events.close);
       yield* events.stream;
       await done;
+    } on Object catch (e, s) {
+      // Everything before `yield*` throws into this generator, and `yield*`
+      // hands a generator's error straight to the consumer — past `run()`'s
+      // own try/catch. Reporting it through [onFailure] is what keeps the
+      // promise that a run always ends in exactly one DfuFailed. Nothing
+      // after `yield*` can get here: the transfer's own failure is already
+      // routed to [onFailure] by `then(onError:)`, so `await done` never
+      // throws, and a double report is impossible.
+      onFailure(e, s);
     } finally {
       await channel?.close();
     }

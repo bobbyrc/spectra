@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:chameleon/src/dfu/dfu_channel.dart';
 import 'package:chameleon/src/dfu/dfu_orchestrator.dart';
 import 'package:chameleon/src/dfu/dfu_package.dart';
 import 'package:chameleon/src/dfu/fake_dfu_channel.dart';
@@ -11,6 +12,8 @@ import 'package:chameleon/src/protocol/errors.dart';
 import 'package:chameleon/src/session/cancel_token.dart';
 import 'package:chameleon/src/session/connection_state.dart';
 import 'package:chameleon/src/session/device_session.dart';
+import 'package:chameleon/src/transport/scanner.dart';
+import 'package:chameleon/src/transport/transport.dart';
 import 'package:test/test.dart';
 
 import 'proto_builder.dart';
@@ -264,4 +267,68 @@ void main() {
       await s.close();
     },
   );
+
+  group('a failure before the transfer starts', () {
+    DfuPackage packageOf() {
+      final bin = Uint8List.fromList(List<int>.generate(64, (i) => i));
+      return DfuPackage.fromZip(
+        buildZip(
+          bin: bin,
+          dat: buildInitPacket(bin: bin),
+        ),
+      );
+    }
+
+    const bootloader = DiscoveredDevice(
+      name: 'CU',
+      kind: TransportKind.usb,
+      transportId: '/dev/tty.bootloader',
+      isBootloader: true,
+    );
+
+    test(
+      'an opener that throws reports DfuFailed, not a stream error',
+      () async {
+        final orchestrator = DfuOrchestrator(
+          scanners: const <DeviceScanner>[],
+          openChannel: (_) async =>
+              throw const PortBusy('held by ModemManager'),
+        );
+        final events = await orchestrator
+            .run(package: packageOf(), bootloader: bootloader)
+            .toList();
+        expect(events.last, isA<DfuFailed>());
+        expect((events.last as DfuFailed).error, isA<PortBusy>());
+      },
+    );
+
+    test('a channel whose open() throws reports DfuFailed', () async {
+      final orchestrator = DfuOrchestrator(
+        scanners: const <DeviceScanner>[],
+        openChannel: (_) async => _UnopenableChannel(),
+      );
+      final events = await orchestrator
+          .run(package: packageOf(), bootloader: bootloader)
+          .toList();
+      expect(events.last, isA<DfuFailed>());
+      expect((events.last as DfuFailed).error, isA<DfuError>());
+    });
+  });
+}
+
+/// A channel that opens onto nothing: `open()` is where every real channel
+/// does its connect, and a failure there used to escape `run()`.
+final class _UnopenableChannel implements DfuChannel {
+  @override
+  int get maxDataWrite => 20;
+  @override
+  Future<void> open() async => throw StateError('the bootloader went away');
+  @override
+  Future<void> writeControl(Uint8List bytes) async {}
+  @override
+  Future<void> writeData(Uint8List bytes) async {}
+  @override
+  Stream<Uint8List> get responses => const Stream<Uint8List>.empty();
+  @override
+  Future<void> close() async {}
 }
