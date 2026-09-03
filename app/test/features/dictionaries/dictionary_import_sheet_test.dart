@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/core/errors/problem_view.dart';
 import 'package:spectra/features/dictionaries/state/dictionaries_provider.dart';
@@ -55,6 +56,7 @@ void main() {
     tester,
   ) async {
     await _openImport(tester);
+    keepAlive(tester, dictionaryLibraryProvider);
     await _paste(tester, 'FFFFFFFFFFFF\nnot-a-key');
 
     expect(
@@ -62,6 +64,15 @@ void main() {
       findsOneWidget,
     );
     expect(readProvider(tester, dictionariesProvider).value, hasLength(1));
+    // A bad paste is a typed `DictionaryImportException`, worded in the
+    // sheet's own field — it must not also poison the notifier's shared
+    // `AsyncValue` state, which would show a generic `ProblemView` on the
+    // dictionaries list page behind the sheet.
+    expect(
+      readProvider(tester, dictionaryLibraryProvider),
+      isA<AsyncData<void>>(),
+    );
+    expect(find.byType(ProblemView), findsNothing);
   });
 
   testWidgetsApp('a repository failure is shown through ProblemView, not as a '

@@ -148,7 +148,13 @@ class DictionaryLibrary extends _$DictionaryLibrary {
       _inFlight = false;
       return ImportOutcome(written: written, error: error);
     }
-    state = error == null
+    // A `DictionaryImportException` is a paste the user typed wrong — the
+    // import sheet already renders it as a typed field error from the
+    // `ImportOutcome` this method returns. Putting it in the notifier's
+    // own `AsyncError` state too would also show a generic `ProblemView`
+    // on the list page behind the sheet, which has nothing to do with a
+    // typo in a paste and would outlive the sheet being dismissed.
+    state = error == null || error is DictionaryImportException
         ? const AsyncData<void>(null)
         : AsyncError<void>(error, stackTrace!);
     _inFlight = false;
