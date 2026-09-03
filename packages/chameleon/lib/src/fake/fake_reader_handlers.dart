@@ -59,7 +59,13 @@ extension FakeReaderHandlers on FakeFirmware {
         if (!c.authenticates(block, type, key)) {
           return statusFrame(cmd, Status.mfErrAuth);
         }
-        return okFrame(cmd, c.blocks.sublist(block * 16, block * 16 + 16));
+        final Uint8List read = c.blocks.sublist(block * 16, block * 16 + 16);
+        // A real card never hands back key A: MF1_READ_ONE_BLOCK on a sector
+        // trailer answers with bytes 0-5 zeroed, leaving only the access bits
+        // (and whatever key B the access bits permit) meaningful. Callers get
+        // the keys that actually work from `Mf1DumpReadResult.keys`.
+        if (FakeMf1Card.isTrailer(block)) read.fillRange(0, 6, 0);
+        return okFrame(cmd, read);
       case 2009:
         final c = hfCard;
         final type = KeyType.fromCode(r.u8());

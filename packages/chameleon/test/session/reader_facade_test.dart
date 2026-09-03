@@ -15,6 +15,19 @@ import 'session_helpers.dart';
 
 Uint8List b(List<int> l) => Uint8List.fromList(l);
 
+/// [blocks] as a *read* of that card returns it: every sector trailer's key
+/// A (bytes 0-5) zeroed, the way a real card and the fake's 2008 handler
+/// both answer.
+Uint8List asRead(Uint8List blocks) {
+  final Uint8List out = Uint8List.fromList(blocks);
+  for (int block = 0; block < out.length ~/ 16; block++) {
+    if (FakeMf1Card.isTrailer(block)) {
+      out.fillRange(block * 16, block * 16 + 6, 0);
+    }
+  }
+  return out;
+}
+
 /// Every CHANGE_DEVICE_MODE the device saw, in order, as the mode asked for.
 List<DeviceMode> modeChanges(FakeDevice d) => [
   for (final f in d.received)
@@ -120,13 +133,47 @@ void main() {
     );
     expect(dump.blockCount, 64);
     expect(dump.isComplete, isTrue);
-    expect(dump.blocks, card.blocks);
+    expect(dump.blocks, asRead(card.blocks));
     expect(dump.keys, hasLength(16));
     expect(dump.keys[3].keyA, FakeMf1Card.defaultKey);
     expect(progress, List.generate(16, (i) => i + 1));
     expect(totals, {16});
     expect(device.firmware.mode, DeviceMode.emulator);
     expect(s.readerLeaseCount, 0);
+  });
+
+  test('a read dump carries key A zeroed and reports the keys used', () async {
+    final card = FakeMf1Card.classic1k(uid: b([1, 2, 3, 4]));
+    device.firmware.present(card);
+    final dump = await s.reader.mf1ReadDump(
+      type: TagType.mifare1k,
+      candidateKeys: [FakeMf1Card.defaultKey],
+    );
+
+    for (var sector = 0; sector < 16; sector++) {
+      final trailer = (sector * 4 + 3) * 16;
+      // Key A: never returned by the card.
+      expect(
+        dump.blocks.sublist(trailer, trailer + 6),
+        everyElement(0),
+        reason: 'sector $sector key A must come back zeroed',
+      );
+      // Access bits and key B: the real values, untouched.
+      expect(dump.blocks.sublist(trailer + 6, trailer + 10), [
+        0xFF,
+        0x07,
+        0x80,
+        0x69,
+      ]);
+      expect(
+        dump.blocks.sublist(trailer + 10, trailer + 16),
+        FakeMf1Card.defaultKey,
+      );
+      // The keys that actually work come back separately.
+      expect(dump.keys[sector].keyA, FakeMf1Card.defaultKey);
+      expect(dump.keys[sector].keyB, FakeMf1Card.defaultKey);
+    }
+    expect(dump.isComplete, isTrue);
   });
 
   test('mf1ReadDump marks unreadable sectors and stays partial', () async {
@@ -161,7 +208,7 @@ void main() {
       expect(dump.keys[7].keyB, FakeMf1Card.defaultKey);
       expect(dump.readMask.sublist(28, 32), everyElement(isTrue));
       expect(dump.isComplete, isTrue);
-      expect(dump.blocks, card.blocks);
+      expect(dump.blocks, asRead(card.blocks));
     },
   );
 

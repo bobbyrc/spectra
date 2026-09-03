@@ -82,6 +82,18 @@ final class FakeMf1Card extends FakeCard {
   static int sectorOf(int block) =>
       block < 128 ? block ~/ 4 : 32 + (block - 128) ~/ 16;
 
+  /// Whether [block] is its sector's trailer — the last block of the sector,
+  /// carrying key A, the access bits and key B.
+  ///
+  /// A real card answers a read of a trailer with key A blanked out
+  /// (`MF1_READ_ONE_BLOCK` returns zeros in bytes 0-5), which is why
+  /// `ReaderFacade.mf1ReadDump` reports the keys it authenticated with
+  /// separately instead of leaving the caller to read them back out of the
+  /// dump. The fake reproduces that in its 2008 handler
+  /// (`fake_reader_handlers.dart`), so the suite sees the hardware shape.
+  static bool isTrailer(int block) =>
+      block < 128 ? block % 4 == 3 : (block - 128) % 16 == 15;
+
   bool authenticates(int block, KeyType type, Uint8List key) {
     if (block >= blockCount) return false;
     final expected = keys[keyId(sectorOf(block), type)];
