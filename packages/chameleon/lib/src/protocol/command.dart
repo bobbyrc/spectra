@@ -10,7 +10,9 @@ enum CommandRange {
   lfReader(0x40),
   hfEmulator(0x68),
   lfEmulator(0x68),
-  iso14443_4(0x00); // hardware-validate
+
+  /// Success status 0x00 pending hardware validation (hardware-validate).
+  iso14443_4(0x00);
 
   const CommandRange(this.successStatus);
   final int successStatus;
@@ -53,7 +55,11 @@ abstract base class Command<R> {
     if (frame.status != range.successStatus) {
       throw DeviceError.fromStatus(frame.status);
     }
-    return decode(frame.data);
+    try {
+      return decode(frame.data);
+    } on RangeError catch (e) {
+      throw MalformedResponse('short response for command $id: $e');
+    }
   }
 }
 

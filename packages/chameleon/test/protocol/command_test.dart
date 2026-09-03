@@ -37,6 +37,14 @@ void main() {
     );
   });
 
+  test('parseResponse wraps a short-payload decode as MalformedResponse', () {
+    final f = Frame(command: 1018, status: 0x68);
+    expect(
+      () => const _Echo().parseResponse(f),
+      throwsA(isA<MalformedResponse>()),
+    );
+  });
+
   test('parseResponse rejects a frame for another command', () {
     final f = Frame(command: 1000, status: 0x68, data: Uint8List.fromList([5]));
     expect(
