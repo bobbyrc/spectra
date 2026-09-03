@@ -12,6 +12,11 @@ import '../transport/transport.dart';
 import 'cancel_token.dart';
 import 'connection_state.dart';
 import 'dispatcher.dart';
+import 'facades/device.dart';
+import 'facades/emulator.dart';
+import 'facades/firmware.dart';
+import 'facades/settings.dart';
+import 'facades/slots.dart';
 import 'reader_lease.dart';
 import 'state_stream.dart';
 
@@ -61,6 +66,15 @@ final class DeviceSession {
   final StateStream<DeviceSettings?> settingsState = StateStream(null);
   final StateStream<BatteryInfo?> battery = StateStream(null);
   final StateStream<DeviceMode?> mode = StateStream(null);
+
+  /// The app-facing API. [send] is internal to the SDK: everything an app
+  /// does to the device goes through one of these, so the write-through of
+  /// the caches above lives in one place per feature.
+  late final DeviceFacade device = DeviceFacade(this);
+  late final SlotsFacade slots = SlotsFacade(this);
+  late final SettingsFacade settings = SettingsFacade(this);
+  late final EmulatorFacade emulator = EmulatorFacade(this);
+  late final FirmwareFacade firmware = FirmwareFacade(this);
 
   final StreamController<ChameleonException> _backgroundErrors =
       StreamController.broadcast();
