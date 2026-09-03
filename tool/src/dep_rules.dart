@@ -48,6 +48,13 @@ const Map<String, Set<String>> allowlists = {
 };
 
 /// Packages any member may import from `test/` or `integration_test/`.
+///
+/// `archive` and `crypto` are here for `chameleon_flutter`'s DFU channel
+/// tests, which build a real Nordic DFU `.zip` package (and its SHA-256
+/// init-packet hash) to drive `SecureDfu` end to end — the same shape of
+/// test `chameleon`'s own DFU suite runs, but `chameleon_flutter` has no
+/// production use for either package, unlike `chameleon`, which already
+/// carries both in its own allowlist above.
 const Set<String> testOnly = {
   'test',
   'flutter_test',
@@ -55,6 +62,8 @@ const Set<String> testOnly = {
   'mocktail',
   'alchemist',
   'integration_test',
+  'archive',
+  'crypto',
 };
 
 const String appPackage = 'spectra';

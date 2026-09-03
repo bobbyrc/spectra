@@ -46,6 +46,24 @@ void main() {
       );
       expect(v, isEmpty);
     });
+
+    test('chameleon_flutter test file may import archive and crypto, '
+        'a lib file may not', () {
+      final testFile = checkFile(
+        packageName: 'chameleon_flutter',
+        relativePath: 'test/dfu/dfu_channel_flash_test.dart',
+        imports: ['package:archive/archive.dart', 'package:crypto/crypto.dart'],
+      );
+      expect(testFile, isEmpty);
+
+      final libFile = checkFile(
+        packageName: 'chameleon_flutter',
+        relativePath: 'lib/src/dfu/ble_dfu_channel.dart',
+        imports: ['package:archive/archive.dart', 'package:crypto/crypto.dart'],
+      );
+      expect(libFile.map((e) => e.rule), everyElement('package-allowlist'));
+      expect(libFile, hasLength(2));
+    });
   });
 
   group('app structure', () {
