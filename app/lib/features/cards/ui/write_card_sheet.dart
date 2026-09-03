@@ -92,8 +92,17 @@ class _WriteCardBodyState extends ConsumerState<_WriteCardBody> {
 
   @override
   Widget build(BuildContext context) {
-    final AppLocalizations l10n = AppLocalizations.of(context);
     final CardWriteState state = ref.watch(cardWriterProvider);
+    // Ruling 30: the one screen that can leave a card mid-write must not
+    // be dismissable while it is running — a swipe-down or the sheet's own
+    // X (`SpectraBottomSheet`'s close icon goes through `maybePop`) is
+    // refused, and only `Cancel` on the progress indicator can end the
+    // write early.
+    return PopScope(canPop: !state.busy, child: _body(context, state));
+  }
+
+  Widget _body(BuildContext context, CardWriteState state) {
+    final AppLocalizations l10n = AppLocalizations.of(context);
     final CardWriter writer = ref.read(cardWriterProvider.notifier);
 
     if (state.error case final Object error) {

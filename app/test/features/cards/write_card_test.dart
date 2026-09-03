@@ -60,6 +60,27 @@ Future<(CardWriter, FakeMf1Card)> openWriterWithMf1Card(
   return (readProvider(tester, cardWriterProvider.notifier), card);
 }
 
+/// Like [openWriterWithMf1Card], but the fake device replies with real
+/// latency (`FakeDevice.latency`, zero by default) so a UI-driven test can
+/// tap into the sheet while a write is still in flight (ruling 22) instead
+/// of racing a write that would otherwise finish inside a single pump.
+Future<CardWriter> openSlowWriter(
+  WidgetTester tester, {
+  Duration latency = const Duration(milliseconds: 50),
+}) async {
+  useDesktopSurface(tester);
+  final FakeFirmware firmware = FakeFirmware()
+    ..present(FakeMf1Card.classic1k(uid: demoMifareUid));
+  await pumpTestApp(
+    tester,
+    transport: (_) => FakeDevice(firmware: firmware, latency: latency),
+  );
+  await connectToEmulator(tester);
+  keepAlive(tester, cardWriterProvider);
+  await pumpFrames(tester);
+  return readProvider(tester, cardWriterProvider.notifier);
+}
+
 /// A fresh app with a single [FakeLfCard] in the field (EM410X_SCAN, command
 /// id 3000 — the same id `demo_cards.dart` scripts), returning the writer
 /// and the card so a test can read its id bytes back after a write.
@@ -595,9 +616,283 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byIcon(Icons.close));
+      // Ruling 7: the close icon finder is scoped to this sheet, not the
+      // whole tree.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SpectraBottomSheet),
+          matching: find.byIcon(Icons.close),
+        ),
+      );
       await pumpFrames(tester);
       await pending;
     });
+
+    testWidgetsApp(
+      'cancelling mid-write shows its own words, not a failure (ruling 3)',
+      (tester) async {
+        await openSlowWriter(tester);
+        final BuildContext context = tester.element(
+          find.byType(SpectraAppShell),
+        );
+
+        final Future<bool?> pending = showWriteToCardSheet(
+          context,
+          type: TagType.mifare1k,
+          bytes: _withDataFill(classic1kFilled(), 0x66),
+          name: 'Office badge',
+        );
+        await pumpFrames(tester);
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text('Write'),
+          ),
+        );
+        // Ruling 22: pump a few frames while the fake device is mid-write
+        // (its replies land on a real timer) rather than `pumpAndSettle` on
+        // a running progress indicator, then tap Cancel and await.
+        await pumpFrames(tester, count: 3);
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text('Cancel'),
+          ),
+        );
+        await pumpFrames(tester, count: 40);
+
+        expect(
+          find.text('Write stopped. How much reached the card is unknown.'),
+          findsOneWidget,
+        );
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text('Close'),
+          ),
+        );
+        await pumpFrames(tester);
+        expect(await pending, isNull);
+      },
+    );
+
+    testWidgetsApp(
+      'a real read dump with trailers on names the sectors and writes once '
+      'more when confirmed',
+      (tester) async {
+        final (_, FakeMf1Card card) = await openWriterWithMf1Card(tester);
+        final BuildContext context = tester.element(
+          find.byType(SpectraAppShell),
+        );
+        final Uint8List dump = classic1kKeyAZeroed();
+
+        final Future<bool?> pending = showWriteToCardSheet(
+          context,
+          type: TagType.mifare1k,
+          bytes: dump,
+          name: 'Office badge',
+        );
+        await pumpFrames(tester);
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.byType(Switch),
+          ),
+        );
+        await pumpFrames(tester);
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text('Write'),
+          ),
+        );
+        await pumpFrames(tester);
+
+        // Every one of the 1K's 16 sectors carries a zeroed key A
+        // (`classic1kKeyAZeroed`'s doc), so the warning names all of them —
+        // the exact formatted list, not just that a warning appeared.
+        expect(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text(
+              'Sectors 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 and '
+              '15 have no recovered key; writing them puts zero keys on the '
+              'card.',
+            ),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text('Write anyway'),
+          ),
+        );
+        await pumpFrames(tester, count: 40);
+
+        expect(find.text('63 of 63 blocks written.'), findsOneWidget);
+        // Proof `write` ran exactly once more, with `confirmUnread: true`:
+        // the fake card's own bytes now match the dump byte for byte
+        // (trailers included), not just that the summary claims success.
+        expect(card.blocks, dump);
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text('Close'),
+          ),
+        );
+        await pumpFrames(tester);
+        expect(await pending, isTrue);
+      },
+    );
+
+    testWidgetsApp(
+      'the sector-trailers toggle reaches write(writeTrailers: true)',
+      (tester) async {
+        final (_, FakeMf1Card card) = await openWriterWithMf1Card(tester);
+        final BuildContext context = tester.element(
+          find.byType(SpectraAppShell),
+        );
+        final Uint8List dump = Uint8List.fromList(classic1kFilled());
+        // Sector 1's trailer, key B only (bytes 10-15): key A stays the
+        // default transport key so this dump never trips the
+        // unread-sectors warning, and only this trailer's bytes tell
+        // "written" apart from "untouched".
+        final int trailerStart = MifareGeometry.trailerOf(1) * 16;
+        dump.fillRange(trailerStart + 10, trailerStart + 16, 0xAB);
+
+        final Future<bool?> pending = showWriteToCardSheet(
+          context,
+          type: TagType.mifare1k,
+          bytes: dump,
+          name: 'Office badge',
+        );
+        await pumpFrames(tester);
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.byType(Switch),
+          ),
+        );
+        await pumpFrames(tester);
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text('Write'),
+          ),
+        );
+        await pumpFrames(tester, count: 40);
+
+        expect(
+          card.blocks.sublist(trailerStart, trailerStart + 16),
+          dump.sublist(trailerStart, trailerStart + 16),
+        );
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text('Close'),
+          ),
+        );
+        await pumpFrames(tester);
+        await pending;
+      },
+    );
+
+    testWidgetsApp('trailers stay off the card when the toggle is left off', (
+      tester,
+    ) async {
+      final (_, FakeMf1Card card) = await openWriterWithMf1Card(tester);
+      final BuildContext context = tester.element(find.byType(SpectraAppShell));
+      final Uint8List dump = Uint8List.fromList(classic1kFilled());
+      final int trailerStart = MifareGeometry.trailerOf(1) * 16;
+      dump.fillRange(trailerStart + 10, trailerStart + 16, 0xAB);
+      final Uint8List originalTrailer = Uint8List.fromList(
+        card.blocks.sublist(trailerStart, trailerStart + 16),
+      );
+
+      final Future<bool?> pending = showWriteToCardSheet(
+        context,
+        type: TagType.mifare1k,
+        bytes: dump,
+        name: 'Office badge',
+      );
+      await pumpFrames(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SpectraBottomSheet),
+          matching: find.text('Write'),
+        ),
+      );
+      await pumpFrames(tester, count: 40);
+
+      expect(
+        card.blocks.sublist(trailerStart, trailerStart + 16),
+        originalTrailer,
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SpectraBottomSheet),
+          matching: find.text('Close'),
+        ),
+      );
+      await pumpFrames(tester);
+      await pending;
+    });
+
+    testWidgetsApp(
+      'cannot be dismissed through the sheet while a write is in flight '
+      '(ruling 30)',
+      (tester) async {
+        await openSlowWriter(tester);
+        final BuildContext context = tester.element(
+          find.byType(SpectraAppShell),
+        );
+
+        final Future<bool?> pending = showWriteToCardSheet(
+          context,
+          type: TagType.mifare1k,
+          bytes: _withDataFill(classic1kFilled(), 0x66),
+          name: 'Office badge',
+        );
+        await pumpFrames(tester);
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text('Write'),
+          ),
+        );
+        await pumpFrames(tester, count: 3);
+
+        // The sheet's own close icon goes through `Navigator.maybePop`,
+        // which `PopScope(canPop: !state.busy)` refuses while busy.
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.byIcon(Icons.close),
+          ),
+        );
+        await pumpFrames(tester);
+        expect(find.byType(SpectraBottomSheet), findsOneWidget);
+
+        await pumpFrames(tester, count: 40);
+        expect(find.text('47 of 47 blocks written.'), findsOneWidget);
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.text('Close'),
+          ),
+        );
+        await pumpFrames(tester);
+        expect(await pending, isTrue);
+      },
+    );
   });
 }

@@ -1047,6 +1047,48 @@ void main() {
     expect(views[3].slot.hfType, TagType.mifare1k);
   });
 
+  testWidgetsApp('opens the write-to-card sheet from the detail page', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+    await connectToEmulator(tester);
+    keepAlive(tester, cardLibraryProvider);
+    await tester.tap(find.text('Cards').last);
+    await pumpFrames(tester);
+
+    final CardLibrary library = readProvider(
+      tester,
+      cardLibraryProvider.notifier,
+    );
+    final Future<String?> saving = library.add(
+      name: 'Office badge',
+      type: TagType.mifare1k,
+      bytes: classic1kFilled(),
+    );
+    await tester.pump(const Duration(milliseconds: 20));
+    await saving;
+    await pumpFrames(tester);
+
+    await tester.tap(find.text('Office badge'));
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Write to a card'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Write to a card'));
+    await pumpFrames(tester);
+
+    expect(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text(
+          'Hold a writable blank against the back of the Chameleon, then '
+          'write Office badge onto it.',
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
+
   test('trailerHighlights covers every MIFARE Classic trailer', () {
     final List<SpectraHexHighlight> highlights = trailerHighlights(
       TagType.mifare1k,
