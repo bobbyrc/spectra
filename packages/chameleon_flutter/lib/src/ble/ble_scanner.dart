@@ -58,6 +58,18 @@ final class BleScanner implements DeviceScanner {
     final found = <String, DiscoveredDevice>{};
     final controller = StreamController<List<DiscoveredDevice>>();
     StreamSubscription<BleScanEntry>? sub;
+    var stopped = false;
+
+    // Idempotent: `controller.close()` while a listener is still attached
+    // triggers `onCancel` itself (closing implies cancelling), so the error
+    // path below and this callback would otherwise call `close()` on each
+    // other and deadlock. The flag makes calling it twice a no-op.
+    Future<void> stopScanning() async {
+      if (stopped) return;
+      stopped = true;
+      await sub?.cancel();
+      await _adapter.stopScan();
+    }
 
     controller.onListen = () {
       sub = _adapter
@@ -86,17 +98,18 @@ final class BleScanner implements DeviceScanner {
               found[entry.deviceId] = device;
               controller.add(List<DiscoveredDevice>.unmodifiable(found.values));
             },
-            onError: (Object error, StackTrace stackTrace) {
+            onError: (Object error, StackTrace stackTrace) async {
+              // A typed adapter error ends the scan outright: stop the
+              // radio and close the stream rather than leaving it open for
+              // a caller that may never cancel.
+              await stopScanning();
               controller.addError(_mapError(error), stackTrace);
+              await controller.close();
             },
           );
     };
 
-    controller.onCancel = () async {
-      await sub?.cancel();
-      await _adapter.stopScan();
-      await controller.close();
-    };
+    controller.onCancel = stopScanning;
 
     return controller.stream;
   }

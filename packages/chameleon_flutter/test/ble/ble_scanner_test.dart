@@ -84,4 +84,16 @@ void main() {
       await adapter.dispose();
     },
   );
+
+  test('a typed adapter error closes the stream and stops the scan', () async {
+    final adapter = FakeBleAdapter()..failScanWith = BleFailure.adapterOff;
+    final scanner = BleScanner(adapter: adapter);
+
+    await expectLater(
+      scanner.scan(),
+      emitsInOrder(<Object>[emitsError(isA<AdapterOff>()), emitsDone]),
+    );
+    expect(adapter.scanStopped, isTrue);
+    await adapter.dispose();
+  });
 }
