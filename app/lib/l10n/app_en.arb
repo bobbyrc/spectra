@@ -175,6 +175,8 @@
   },
   "cardsSaveToLibrary": "Save to library",
   "@cardsSaveToLibrary": {"description": "Saves the card that was just read."},
+  "cardsEmulateThis": "Emulate this card",
+  "@cardsEmulateThis": {"description": "Loads the card that was just read straight into a slot."},
   "cardsSaveTitle": "Save this card",
   "@cardsSaveTitle": {"description": "Title of the save-to-library sheet."},
   "cardsSaveName": "Name",

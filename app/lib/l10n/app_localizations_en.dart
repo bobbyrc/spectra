@@ -295,6 +295,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsSaveToLibrary => 'Save to library';
 
   @override
+  String get cardsEmulateThis => 'Emulate this card';
+
+  @override
   String get cardsSaveTitle => 'Save this card';
 
   @override

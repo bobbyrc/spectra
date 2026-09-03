@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra/core/errors/problem_view.dart';
 import 'package:spectra/features/cards/cards.dart';
+import 'package:spectra/features/slots/slots.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../support/app_harness.dart';
@@ -144,5 +145,53 @@ void main() {
 
     await pumpFrames(tester, count: 60);
     expect(find.byType(SpectraProgressIndicator), findsNothing);
+  });
+
+  group('quick emulate', () {
+    testWidgetsApp('emulates a just-read card in one step', (tester) async {
+      useDesktopSurface(tester);
+      // No transport override: the production factory gives the emulated
+      // device its scripted cards (`core/emulator/demo_cards.dart`).
+      await pumpTestApp(tester);
+      await connectToEmulator(tester);
+      keepAlive(tester, slotViewsProvider);
+      await tester.tap(find.text('Cards').last);
+      await pumpFrames(tester);
+      await tester.tap(find.text('Read a card'));
+      await pumpFrames(tester);
+      await tester.tap(find.text('Scan high frequency'));
+      await pumpFrames(tester, count: 40);
+
+      await tester.tap(find.text('Emulate this card'));
+      await pumpFrames(tester);
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byType(SpectraBottomSheet),
+              matching: find.byType(SpectraSlotTile),
+            )
+            .at(1),
+      );
+      await pumpFrames(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SpectraBottomSheet),
+          matching: find.text('Load'),
+        ),
+      );
+      await pumpFrames(tester, count: 30);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SpectraBottomSheet),
+          matching: find.text('Close'),
+        ),
+      );
+      await pumpFrames(tester);
+
+      final List<SlotView> views = readProvider(tester, slotViewsProvider);
+      expect(views[1].slot.hfType, TagType.mifare1k);
+      expect(views[1].slot.hfEnabled, isTrue);
+      expect(views[1].isActive, isTrue);
+    });
   });
 }

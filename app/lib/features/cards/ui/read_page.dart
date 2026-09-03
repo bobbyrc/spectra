@@ -7,8 +7,11 @@ import '../../../core/errors/problem_view.dart';
 import '../../../core/format/tag_labels.dart';
 import '../../../core/routing/sub_page_scaffold.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../slots/slots.dart' show showSlotPicker;
 import '../state/read_controller.dart';
 import '../state/read_state.dart';
+import '../state/write_target.dart';
+import 'load_to_slot_sheet.dart';
 import 'save_card_sheet.dart';
 
 /// Spec 7.7 step 3. Layout only: every decision is in [CardReader].
@@ -146,6 +149,15 @@ class _Result extends StatelessWidget {
                 }
               : null,
         ),
+        if (slotLoadMethodFor(result.tagType) != SlotLoadMethod.unsupported &&
+            result.bytes.isNotEmpty) ...<Widget>[
+          const SizedBox(height: SpectraSpacing.md),
+          SpectraButton(
+            label: l10n.cardsEmulateThis,
+            variant: SpectraButtonVariant.secondary,
+            onPressed: () => _emulate(context, l10n),
+          ),
+        ],
         const SizedBox(height: SpectraSpacing.md),
         SpectraButton(
           label: l10n.cardsReadAgain,
@@ -153,6 +165,22 @@ class _Result extends StatelessWidget {
           onPressed: onReadAgain,
         ),
       ],
+    );
+  }
+
+  /// Spec 7.7 step 5, quick emulate: the card that was just read goes into a
+  /// slot without being saved first. It has no name of its own yet, so the
+  /// slot is named after its tag type — a name the user can change in the
+  /// slot editor, and one that is never empty.
+  Future<void> _emulate(BuildContext context, AppLocalizations l10n) async {
+    final int? slotIndex = await showSlotPicker(context);
+    if (slotIndex == null || !context.mounted) return;
+    await showLoadToSlotSheet(
+      context,
+      slotIndex: slotIndex,
+      type: result.tagType,
+      bytes: result.bytes,
+      name: tagTypeLabel(result.tagType, l10n),
     );
   }
 }

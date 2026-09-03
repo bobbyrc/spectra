@@ -562,6 +562,12 @@ abstract class AppLocalizations {
   /// **'Save to library'**
   String get cardsSaveToLibrary;
 
+  /// Loads the card that was just read straight into a slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Emulate this card'**
+  String get cardsEmulateThis;
+
   /// Title of the save-to-library sheet.
   ///
   /// In en, this message translates to:
