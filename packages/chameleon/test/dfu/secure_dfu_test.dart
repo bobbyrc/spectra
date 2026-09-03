@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:chameleon/src/dfu/dfu_opcodes.dart';
 import 'package:chameleon/src/dfu/dfu_package.dart';
 import 'package:chameleon/src/dfu/dfu_types.dart';
 import 'package:chameleon/src/dfu/fake_bootloader.dart';
@@ -51,6 +52,65 @@ void main() {
     expect(bl.flashed, bin);
     expect(bl.completed, isTrue);
     expect(bl.executedDataObjects, 2, reason: 'the first object is skipped');
+  });
+
+  test('resumes from a partly received object at the last boundary', () async {
+    final img = image(bin);
+    final bl = FakeBootloader(maxObjectSize: 4096)
+      ..preload(
+        commandObject: img.dat,
+        data: Uint8List.sublistView(bin, 0, 5000),
+      );
+    await SecureDfu(FakeDfuChannel(bl)).run(img);
+    expect(bl.flashed, bin, reason: 'no duplicated bytes');
+    expect(bl.completed, isTrue);
+    expect(bl.executedDataObjects, 2);
+    expect(
+      bl.bytesReceived,
+      bin.length - 4096,
+      reason: 'only the partial object and what follows it is resent',
+    );
+  });
+
+  test('executes an object the device received but never executed', () async {
+    final img = image(bin);
+    final bl = FakeBootloader(maxObjectSize: 4096)
+      ..preload(commandObject: img.dat, data: Uint8List(0))
+      ..preloadUncommitted(Uint8List.sublistView(bin, 0, 4096));
+    await SecureDfu(FakeDfuChannel(bl)).run(img);
+    expect(bl.flashed, bin);
+    expect(bl.completed, isTrue);
+    expect(bl.executedDataObjects, 3, reason: 'the pending object is executed');
+    expect(bl.bytesReceived, bin.length - 4096);
+  });
+
+  test(
+    'executes an init packet the device received but never executed',
+    () async {
+      final img = image(bin);
+      final bl = FakeBootloader(maxObjectSize: 4096)
+        ..preloadUncommitted(img.dat, type: DfuOp.typeCommand);
+      expect(bl.init, isNull);
+      await SecureDfu(FakeDfuChannel(bl)).run(img);
+      expect(bl.init, isNotNull, reason: 'the pending init packet is executed');
+      expect(bl.flashed, bin);
+      expect(
+        bl.bytesReceived,
+        bin.length,
+        reason: 'the init packet is not resent',
+      );
+    },
+  );
+
+  test('discards a prefix of a different image and starts over', () async {
+    final img = image(bin);
+    final other = Uint8List.fromList(List.generate(4096, (i) => 0xA5));
+    final bl = FakeBootloader(maxObjectSize: 4096)
+      ..preload(commandObject: img.dat, data: other);
+    await SecureDfu(FakeDfuChannel(bl)).run(img);
+    expect(bl.flashed, bin, reason: 'the foreign prefix is gone');
+    expect(bl.completed, isTrue);
+    expect(bl.executedDataObjects, 3);
   });
 
   test('bootloader rejecting the hardware version is a DfuError', () async {
@@ -146,6 +206,41 @@ void main() {
       throwsA(isA<DfuError>()),
     );
     expect(bl.init, isNull);
+  });
+
+  test('an empty firmware image is refused', () async {
+    final empty = Uint8List(0);
+    final img = DfuImage(
+      kind: DfuImageKind.application,
+      bin: empty,
+      dat: buildInitPacket(bin: empty),
+    );
+    final bl = FakeBootloader();
+    await expectLater(
+      SecureDfu(FakeDfuChannel(bl)).run(img),
+      throwsA(
+        isA<DfuError>().having((e) => e.message, 'message', contains('empty')),
+      ),
+    );
+    expect(bl.init, isNull);
+  });
+
+  test('the fake bootloader refuses a truncated request', () {
+    final bl = FakeBootloader();
+    expect(bl.handleControl(Uint8List.fromList([DfuOp.select])), [
+      DfuOp.response,
+      DfuOp.select,
+      DfuOp.resultInvalidParameter,
+    ]);
+    expect(
+      bl.handleControl(Uint8List.fromList([DfuOp.create, DfuOp.typeData, 0])),
+      [DfuOp.response, DfuOp.create, DfuOp.resultInvalidParameter],
+    );
+    expect(bl.handleControl(Uint8List(0)), [
+      DfuOp.response,
+      0,
+      DfuOp.resultInvalidParameter,
+    ]);
   });
 
   test('an unexpected response opcode is a DfuError', () async {

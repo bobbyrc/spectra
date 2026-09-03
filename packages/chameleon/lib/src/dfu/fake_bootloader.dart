@@ -9,8 +9,10 @@ import 'dfu_package.dart';
 ///
 /// It keeps two buffers, one per object type, exactly as a real bootloader
 /// does: the command buffer holds the init packet, the data buffer the
-/// firmware written so far. Creating an object rolls its buffer back to the
-/// last executed boundary, so a resent object never duplicates bytes.
+/// firmware written so far. Data always *appends* to what is already there —
+/// the only way to go back is to create an object, which rolls the buffer back
+/// to the last executed boundary, or to execute a new command object, which
+/// discards the firmware progress entirely.
 final class FakeBootloader {
   FakeBootloader({this.maxObjectSize = 4096, this.expectedHwVersion = 0});
 
@@ -31,8 +33,13 @@ final class FakeBootloader {
   /// Bytes of [_data] that survived an execute; a create rolls back to here.
   int _committed = 0;
   int _selected = DfuOp.typeCommand;
+
+  /// The created-but-not-yet-executed object, if any.
+  bool _pendingCreated = false;
+  int _pendingType = DfuOp.typeCommand;
   int _pendingSize = 0;
   int _pendingReceived = 0;
+
   bool _failNextCreate = false;
   int _corruptCrc = 0;
   int _corruptSkip = 0;
@@ -41,6 +48,10 @@ final class FakeBootloader {
 
   /// Data objects the client executed (the resume path executes fewer).
   int executedDataObjects = 0;
+
+  /// Bytes accepted on the data endpoint, of either object type. Proves a
+  /// resumed transfer did not resend what the bootloader already had.
+  int bytesReceived = 0;
 
   /// True once the whole firmware named by the init packet is written.
   bool completed = false;
@@ -61,8 +72,11 @@ final class FakeBootloader {
   }
 
   /// Puts the bootloader in the state an interrupted transfer leaves behind:
-  /// [commandObject] already executed and [data] already flashed, so the
-  /// client can resume at the next object.
+  /// [commandObject] executed and [data] received.
+  ///
+  /// Objects commit in whole [maxObjectSize] units, so any remainder of [data]
+  /// past the last object boundary is modelled as a created-but-unexecuted
+  /// object — exactly what a device that lost power mid-object holds.
   void preload({required Uint8List commandObject, required Uint8List data}) {
     _command
       ..clear()
@@ -71,13 +85,33 @@ final class FakeBootloader {
     _data
       ..clear()
       ..addAll(data);
-    _committed = _data.length;
+    _committed = data.length - data.length % maxObjectSize;
+    _pendingCreated = _committed != data.length;
+    _pendingType = DfuOp.typeData;
+    _pendingSize = data.length - _committed;
+    _pendingReceived = _pendingSize;
+  }
+
+  /// Adds an object the device received but never executed, on top of whatever
+  /// [preload] left committed.
+  void preloadUncommitted(Uint8List bytes, {int type = DfuOp.typeData}) {
+    if (type == DfuOp.typeCommand) {
+      _command
+        ..clear()
+        ..addAll(bytes);
+    } else {
+      _data.addAll(bytes);
+    }
+    _pendingCreated = true;
+    _pendingType = type;
+    _pendingSize = bytes.length;
+    _pendingReceived = bytes.length;
   }
 
   List<int> get _buffer => _selected == DfuOp.typeCommand ? _command : _data;
 
   Uint8List handleControl(Uint8List req) {
-    final op = req[0];
+    final op = req.isEmpty ? 0 : req[0];
     Uint8List ok([List<int> payload = const []]) => Uint8List.fromList([
       DfuOp.response,
       op,
@@ -86,6 +120,18 @@ final class FakeBootloader {
     ]);
     Uint8List fail(int result) =>
         Uint8List.fromList([DfuOp.response, op, result]);
+    // Every request carries its opcode; select and set-PRN carry one more
+    // argument, create carries a type and a 32-bit size.
+    const sizes = {
+      DfuOp.select: 2,
+      DfuOp.setPrn: 3,
+      DfuOp.create: 6,
+      DfuOp.calcCrc: 1,
+      DfuOp.execute: 1,
+    };
+    if (req.length < (sizes[op] ?? 1)) {
+      return fail(DfuOp.resultInvalidParameter);
+    }
 
     switch (op) {
       case DfuOp.select:
@@ -103,16 +149,19 @@ final class FakeBootloader {
           return fail(DfuOp.resultInsufficientResources);
         }
         _selected = req[1];
-        _pendingSize = req[2] | (req[3] << 8) | (req[4] << 16) | (req[5] << 24);
+        final size = req[2] | (req[3] << 8) | (req[4] << 16) | (req[5] << 24);
         final max = _selected == DfuOp.typeCommand
             ? maxCommandSize
             : maxObjectSize;
-        if (_pendingSize > max) {
-          return fail(DfuOp.resultInsufficientResources);
-        }
+        if (size > max) return fail(DfuOp.resultInsufficientResources);
+        _pendingCreated = true;
+        _pendingType = _selected;
+        _pendingSize = size;
         _pendingReceived = 0;
         if (_selected == DfuOp.typeCommand) {
+          // A new init packet invalidates the one in force.
           _command.clear();
+          _init = null;
         } else {
           _data.removeRange(_committed, _data.length);
         }
@@ -128,6 +177,10 @@ final class FakeBootloader {
         }
         return ok([..._le(bytes.length), ..._le(crc)]);
       case DfuOp.execute:
+        // Nothing of this type is waiting: executing an object that is
+        // already executed is a no-op, which is what lets a resuming client
+        // execute unconditionally.
+        if (!_pendingCreated || _pendingType != _selected) return ok();
         if (_pendingReceived != _pendingSize) {
           return fail(DfuOp.resultInvalidObject);
         }
@@ -137,6 +190,7 @@ final class FakeBootloader {
             return fail(DfuOp.resultNotPermitted);
           }
           _init = parsed;
+          // A fresh init packet resets the firmware progress.
           _data.clear();
           _committed = 0;
         } else {
@@ -146,6 +200,7 @@ final class FakeBootloader {
             completed = true;
           }
         }
+        _pendingCreated = false;
         return ok();
       default:
         return fail(DfuOp.resultOpcodeNotSupported);
@@ -155,6 +210,7 @@ final class FakeBootloader {
   void handleData(Uint8List bytes) {
     _buffer.addAll(bytes);
     _pendingReceived += bytes.length;
+    bytesReceived += bytes.length;
   }
 
   static List<int> _le(int v) => [

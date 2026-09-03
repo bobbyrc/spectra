@@ -10,6 +10,11 @@ import 'dfu_package.dart';
 import 'dfu_types.dart';
 import 'response_queue.dart';
 
+/// Where a transfer picks up, once the bootloader has reported what it already
+/// holds: [offset] bytes with running CRC [crc], and whether the object ending
+/// there still needs an Execute.
+typedef _Resume = ({int offset, int crc, bool execute});
+
 /// Nordic Secure DFU protocol v1 over an abstract [DfuChannel] (spec 4.5).
 ///
 /// One implementation for every platform; only the channel differs. For each
@@ -18,6 +23,11 @@ import 'response_queue.dart';
 /// selected, created, streamed in [DfuChannel.maxDataWrite] packets, checked
 /// with a CRC and executed. An object whose CRC does not match is resent once
 /// before the transfer fails.
+///
+/// A bootloader that already holds part of the image resumes: the transfer
+/// restarts at the last object boundary the device's data matches, never at 0
+/// while the device would keep appending. A device holding part of a
+/// *different* image is reset by re-running the command object.
 ///
 /// [run] never closes the channel: the orchestrator owns it, because after the
 /// last execute the device reboots and the channel has to be torn down in a
@@ -42,6 +52,7 @@ final class SecureDfu {
     void Function(DfuProgress)? onProgress,
     CancelToken? cancel,
   }) async {
+    if (image.bin.isEmpty) throw DfuError('firmware image is empty');
     if (!image.hashMatches) {
       throw DfuError('image hash does not match init packet');
     }
@@ -57,19 +68,39 @@ final class SecureDfu {
     try {
       await _request(responses, DfuOp.setPrn, const [0, 0]);
       report(DfuStage.init, 0);
-      await _sendObject(
+      await _transfer(
         responses,
         type: DfuOp.typeCommand,
         data: image.dat,
         cancel: cancel,
       );
-      await _sendObject(
+      final foreign = await _transfer(
         responses,
         type: DfuOp.typeData,
         data: image.bin,
         cancel: cancel,
         onOffset: (o) => report(DfuStage.firmware, o),
       );
+      if (foreign) {
+        // The bootloader holds part of some other image and would append to
+        // it. Re-running the command object is what resets its firmware
+        // progress; then the image goes up from the start.
+        await _transfer(
+          responses,
+          type: DfuOp.typeCommand,
+          data: image.dat,
+          cancel: cancel,
+          force: true,
+        );
+        await _transfer(
+          responses,
+          type: DfuOp.typeData,
+          data: image.bin,
+          cancel: cancel,
+          force: true,
+          onOffset: (o) => report(DfuStage.firmware, o),
+        );
+      }
       report(DfuStage.done, total);
     } finally {
       await responses.cancel();
@@ -78,27 +109,55 @@ final class SecureDfu {
 
   /// Transfers [data] as one or more objects of [type], resuming from whatever
   /// prefix the bootloader already holds.
-  Future<void> _sendObject(
+  ///
+  /// Returns true when the device holds a prefix of a different image, which
+  /// only the caller can clear (by re-running the command object). Nothing is
+  /// written in that case. With [force] the device is required to hold
+  /// nothing, and the whole of [data] is sent.
+  Future<bool> _transfer(
     ResponseQueue<Uint8List> responses, {
     required int type,
     required Uint8List data,
     void Function(int offset)? onOffset,
     CancelToken? cancel,
+    bool force = false,
   }) async {
-    final select = await _request(responses, DfuOp.select, [type]);
-    if (select.length < 12) {
-      throw DfuError('short select response for object type $type');
-    }
+    final select = await _select(responses, type);
     final maxSize = _u32le(select, 0);
     if (maxSize <= 0) {
       throw DfuError('bootloader reports max object size $maxSize');
     }
     var offset = 0;
     var crc = 0;
-    final resumeOffset = _u32le(select, 4);
-    if (_isResumable(data, resumeOffset, _u32le(select, 8), maxSize)) {
-      offset = resumeOffset;
-      crc = _u32le(select, 8);
+    if (force) {
+      // Only the firmware progress is reset by re-running the command object;
+      // the command buffer still holds the old init packet, and creating the
+      // object discards it.
+      if (type == DfuOp.typeData && _u32le(select, 4) != 0) {
+        throw DfuError(
+          'bootloader still holds ${_u32le(select, 4)} bytes of object type '
+          '$type after being reset',
+        );
+      }
+    } else {
+      final resume = await _resume(
+        responses,
+        type: type,
+        data: data,
+        maxSize: maxSize,
+        devOffset: _u32le(select, 4),
+        devCrc: _u32le(select, 8),
+      );
+      // A command object can always be restarted: creating it discards
+      // whatever the bootloader held. A data object cannot.
+      if (resume == null && type == DfuOp.typeData) return true;
+      if (resume != null) {
+        offset = resume.offset;
+        crc = resume.crc;
+        // The object ending at this offset was received but may never have
+        // been executed. Executing an already-executed object is a no-op.
+        if (resume.execute) await _request(responses, DfuOp.execute, const []);
+      }
     }
     onOffset?.call(offset);
     while (offset < data.length) {
@@ -106,10 +165,7 @@ final class SecureDfu {
       final objEnd = offset + (data.length - offset).clamp(0, maxSize);
       final objCrc = crc32(Uint8List.sublistView(data, offset, objEnd), crc);
       for (var attempt = 0; ; attempt++) {
-        await _request(responses, DfuOp.create, [
-          type,
-          ..._le32(objEnd - offset),
-        ]);
+        await _create(responses, type, objEnd - offset);
         var pos = offset;
         while (pos < objEnd) {
           _checkCancel(cancel);
@@ -136,16 +192,67 @@ final class SecureDfu {
       crc = objCrc;
       onOffset?.call(offset);
     }
+    return false;
   }
 
-  /// True when the bootloader already holds exactly the first [offset] bytes
-  /// of [data] and stopped on an object boundary, so those objects can be
-  /// skipped. A partial object is always resent from its start.
-  static bool _isResumable(Uint8List data, int offset, int crc, int maxSize) {
-    if (offset <= 0 || offset > data.length) return false;
-    if (offset % maxSize != 0 && offset != data.length) return false;
-    return crc32(Uint8List.sublistView(data, 0, offset)) == crc;
+  /// Works out where to pick up, given what the bootloader says it holds.
+  ///
+  /// Returns null when none of the device's data is ours. A partially received
+  /// object is never continued mid-object: the transfer restarts at the last
+  /// object boundary, because a Create there is what makes the bootloader
+  /// discard the partial object instead of appending to it.
+  Future<_Resume?> _resume(
+    ResponseQueue<Uint8List> responses, {
+    required int type,
+    required Uint8List data,
+    required int maxSize,
+    required int devOffset,
+    required int devCrc,
+  }) async {
+    if (devOffset <= 0) return (offset: 0, crc: 0, execute: false);
+    if (devOffset <= data.length && _prefixCrc(data, devOffset) == devCrc) {
+      if (devOffset == data.length || devOffset % maxSize == 0) {
+        return (offset: devOffset, crc: devCrc, execute: true);
+      }
+      final boundary = devOffset - devOffset % maxSize;
+      return (
+        offset: boundary,
+        crc: _prefixCrc(data, boundary),
+        execute: false,
+      );
+    }
+    // The prefix as a whole is not ours, but the partial object on top of it
+    // might be the only difference. Create at the boundary to make the device
+    // drop that object, then ask again.
+    final boundary = devOffset - devOffset % maxSize;
+    if (boundary <= 0 || boundary >= data.length) return null;
+    await _create(responses, type, (data.length - boundary).clamp(0, maxSize));
+    final select = await _select(responses, type);
+    if (_u32le(select, 4) != boundary) return null;
+    if (_u32le(select, 8) != _prefixCrc(data, boundary)) return null;
+    return (offset: boundary, crc: _u32le(select, 8), execute: false);
   }
+
+  static int _prefixCrc(Uint8List data, int end) =>
+      crc32(Uint8List.sublistView(data, 0, end));
+
+  /// Selects an object type; the reply is max object size, offset and CRC.
+  Future<Uint8List> _select(
+    ResponseQueue<Uint8List> responses,
+    int type,
+  ) async {
+    final select = await _request(responses, DfuOp.select, [type]);
+    if (select.length < 12) {
+      throw DfuError('short select response for object type $type');
+    }
+    return select;
+  }
+
+  Future<void> _create(
+    ResponseQueue<Uint8List> responses,
+    int type,
+    int size,
+  ) => _request(responses, DfuOp.create, [type, ..._le32(size)]);
 
   /// Writes one control request and awaits its matching response.
   Future<Uint8List> _request(
@@ -156,7 +263,7 @@ final class SecureDfu {
     await _channel.writeControl(Uint8List.fromList([opcode, ...payload]));
     final Uint8List r;
     try {
-      r = await responses.next.timeout(responseTimeout);
+      r = await responses.nextWithin(responseTimeout);
     } on TimeoutException {
       throw DfuError(
         'opcode 0x${opcode.toRadixString(16)} timed out after '
