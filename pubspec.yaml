@@ -8,6 +8,7 @@ environment:
 workspace:
   - packages/chameleon
   - packages/chameleon_flutter
+  - packages/chameleon_flutter/example
   - packages/spectra_ui
   - packages/spectra_ui/example
   - app

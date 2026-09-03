@@ -1,0 +1,24 @@
+name: serial_probe
+description: "Spike A probe: enumerate serial ports via libserialport_plus."
+publish_to: none
+resolution: workspace
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  libserialport_plus: ^1.0.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
