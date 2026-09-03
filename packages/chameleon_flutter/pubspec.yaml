@@ -1,7 +1,6 @@
 name: chameleon_flutter
-description: "A new Flutter package project."
+description: "Platform transports and DFU channels for the chameleon SDK."
 version: 0.1.0
-homepage:
 publish_to: none
 resolution: workspace
 

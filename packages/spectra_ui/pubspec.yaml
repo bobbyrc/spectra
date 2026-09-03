@@ -1,7 +1,6 @@
 name: spectra_ui
-description: "A new Flutter package project."
+description: "Spectra design system: tokens, theme and core components."
 version: 0.1.0
-homepage:
 publish_to: none
 resolution: workspace
 
