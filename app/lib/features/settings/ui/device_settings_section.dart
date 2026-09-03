@@ -148,7 +148,9 @@ class DeviceSettingsSection extends ConsumerWidget {
                 variant: SpectraButtonVariant.secondary,
                 onPressed: busy
                     ? null
-                    : () => unawaited(_deleteBonds(context, controller, l10n)),
+                    : () => unawaited(
+                        _deleteBonds(context, ref, controller, l10n),
+                      ),
               ),
             ],
           ),
@@ -163,7 +165,7 @@ class DeviceSettingsSection extends ConsumerWidget {
           busy: busy,
           onPressed: busy
               ? null
-              : () => unawaited(_save(context, controller, l10n)),
+              : () => unawaited(_save(context, ref, controller, l10n)),
         ),
         const SizedBox(height: SpectraSpacing.sm),
         SpectraButton(
@@ -231,17 +233,20 @@ Future<void> _pickSleep(
 
 Future<void> _save(
   BuildContext context,
+  WidgetRef ref,
   DeviceSettingsController controller,
   AppLocalizations l10n,
 ) async {
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
   await controller.saveToDevice();
   if (!context.mounted) return;
+  if (ref.read(deviceSettingsControllerProvider).error != null) return;
   messenger.showSnackBar(SnackBar(content: Text(l10n.settingsSaved)));
 }
 
 Future<void> _deleteBonds(
   BuildContext context,
+  WidgetRef ref,
   DeviceSettingsController controller,
   AppLocalizations l10n,
 ) async {
@@ -265,6 +270,7 @@ Future<void> _deleteBonds(
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
   await controller.deleteBonds();
   if (!context.mounted) return;
+  if (ref.read(deviceSettingsControllerProvider).error != null) return;
   messenger.showSnackBar(SnackBar(content: Text(l10n.settingsBondsDeleted)));
 }
 

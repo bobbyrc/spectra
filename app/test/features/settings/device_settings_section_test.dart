@@ -123,4 +123,47 @@ void main() {
 
     expect(find.byType(ProblemView), findsOneWidget);
   });
+
+  testWidgetsApp('a failed save shows no "settings saved" snackbar', (
+    tester,
+  ) async {
+    final FakeDevice device = FakeDevice();
+    useDesktopSurface(tester);
+    await pumpTestApp(tester, transport: (_) => device);
+    await connectToEmulator(tester);
+    await tester.tap(find.text('Settings').last);
+    await pumpFrames(tester);
+
+    device.failNextWrite();
+    await tester.tap(find.text('Save to device'));
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+
+    expect(find.byType(ProblemView), findsOneWidget);
+    expect(find.text('Settings saved to the device.'), findsNothing);
+  });
+
+  testWidgetsApp('a failed forget-bonds shows no "bonds deleted" snackbar', (
+    tester,
+  ) async {
+    final FakeDevice device = FakeDevice();
+    useDesktopSurface(tester);
+    await pumpTestApp(tester, transport: (_) => device);
+    await connectToEmulator(tester);
+    await tester.tap(find.text('Settings').last);
+    await pumpFrames(tester);
+
+    await tester.tap(find.text('Forget paired hosts'));
+    await pumpFrames(tester);
+    device.failNextWrite();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraDialog),
+        matching: find.text('Forget paired hosts'),
+      ),
+    );
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+
+    expect(find.byType(ProblemView), findsOneWidget);
+    expect(find.text('The device forgot its paired hosts.'), findsNothing);
+  });
 }
