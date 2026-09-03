@@ -3,9 +3,12 @@ import 'dart:typed_data';
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectra/core/format/hex.dart';
 import 'package:spectra/features/cards/state/read_controller.dart';
 import 'package:spectra/features/cards/state/read_state.dart';
 import 'package:spectra/features/cards/state/write_target.dart';
+import 'package:spectra/features/dictionaries/dictionaries.dart';
+import 'package:spectra/features/dictionaries/state/dictionaries_provider.dart';
 
 import '../../support/app_harness.dart';
 
@@ -88,6 +91,79 @@ void main() {
     expect(result.keysFound, 15);
     expect(result.isPartial, isTrue);
   });
+
+  testWidgetsApp(
+    'the read takes its candidate keys from the selected dictionary',
+    (tester) async {
+      final CardReader reader = await connected(tester, deviceWith());
+      keepAlive(tester, dictionaryLibraryProvider);
+      keepAlive(tester, selectedDictionaryProvider);
+      keepAlive(tester, candidateMifareKeysProvider);
+      await pumpFrames(tester);
+      final DictionaryLibrary library = readProvider(
+        tester,
+        dictionaryLibraryProvider.notifier,
+      );
+
+      // A one-key dictionary that does not include the demo card's real
+      // key (FF FF FF FF FF FF — `deviceWith`'s `FakeMf1Card.classic1k`
+      // default): nothing authenticates, so the read comes back fully
+      // partial rather than complete.
+      final Future<String?> created = library.create(
+        'Wrong key',
+        keys: <Uint8List>[parseMifareKey('714C5C886E97')!],
+      );
+      await pumpFrames(tester, count: 3);
+      final String wrongKeyDictId = (await created)!;
+      await pumpFrames(tester, count: 3);
+      await readProvider(
+        tester,
+        selectedDictionaryIdProvider.notifier,
+      ).select(wrongKeyDictId);
+      await pumpFrames(tester, count: 3);
+
+      final Future<void> partialRun = reader.readHf();
+      await pumpFrames(
+        tester,
+        count: 40,
+        step: const Duration(milliseconds: 50),
+      );
+      await partialRun;
+
+      final CardReadResult partial = readProvider(
+        tester,
+        cardReaderProvider,
+      ).result!;
+      expect(partial.isPartial, isTrue);
+      expect(partial.keysFound, 0);
+
+      // Selecting the built-in list again makes the same read come back
+      // complete — proof the keys really came from the selected
+      // dictionary and not some cached default.
+      await readProvider(
+        tester,
+        selectedDictionaryIdProvider.notifier,
+      ).select(builtInDictionaryId);
+      await pumpFrames(tester, count: 3);
+      reader.reset();
+      await pumpFrames(tester);
+
+      final Future<void> fullRun = reader.readHf();
+      await pumpFrames(
+        tester,
+        count: 40,
+        step: const Duration(milliseconds: 50),
+      );
+      await fullRun;
+
+      final CardReadResult full = readProvider(
+        tester,
+        cardReaderProvider,
+      ).result!;
+      expect(full.isPartial, isFalse);
+      expect(full.keysFound, 16);
+    },
+  );
 
   testWidgetsApp('a full read patches the recovered keys into every trailer', (
     tester,

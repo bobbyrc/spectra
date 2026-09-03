@@ -111,7 +111,15 @@ void main() {
       matching: find.text('Import'),
     );
     await tester.tap(confirm);
-    await tester.tap(confirm);
+    // The first tap's own pointer-up animation still has an `IgnorePointer`
+    // over the sheet at this exact offset, so a second `tap()` here would
+    // otherwise print an unexplained hit-test warning. `warnIfMissed: false`
+    // makes that a documented, expected no-op instead of console noise —
+    // the assertions below are what actually prove the double tap did
+    // nothing: `_ImportFormState._submitting` (set before `_import`'s first
+    // `await`, so no pump is needed for it to take effect) drops it before
+    // it would reach `DictionaryLibrary.importText` at all.
+    await tester.tap(confirm, warnIfMissed: false);
     await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
 
     expect(find.byType(SpectraBottomSheet), findsNothing);
