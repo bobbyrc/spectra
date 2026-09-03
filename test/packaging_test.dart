@@ -58,4 +58,39 @@ void main() {
       }
     });
   });
+
+  group('Windows installer', () {
+    late String ps1;
+    late String iss;
+    setUpAll(() {
+      ps1 = _read('tool/package/windows_installer.ps1');
+      iss = _read('tool/package/windows/spectra.iss');
+    });
+
+    test('stops on the first error', () {
+      expect(ps1, contains(r"$ErrorActionPreference = 'Stop'"));
+    });
+
+    test('produces both an installer and a portable zip', () {
+      expect(ps1, contains('ISCC'));
+      expect(ps1, contains('Compress-Archive'));
+      expect(ps1, contains('-windows-setup.exe'));
+      expect(ps1, contains('-windows.zip'));
+    });
+
+    test('signing degrades when the certificate is absent', () {
+      expect(ps1, contains('WINDOWS_CERT_PFX'));
+      expect(ps1, contains('WINDOWS_CERT_PASSWORD'));
+      expect(ps1, contains('signtool'));
+      expect(ps1, contains('skipping code signing'));
+    });
+
+    test('the Inno script names the landed app identity', () {
+      expect(iss, contains('AppName=Spectra'));
+      expect(iss, contains('dev.spectra.spectra'));
+      expect(iss, contains('spectra.exe'));
+      expect(iss, contains('{#AppVersion}'));
+      expect(iss, contains('ArchitecturesInstallIn64BitMode=x64compatible'));
+    });
+  });
 }
