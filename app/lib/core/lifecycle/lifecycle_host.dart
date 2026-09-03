@@ -7,7 +7,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../data/data.dart';
 import '../discovery/discovery_provider.dart';
+import '../platform/host_platform_provider.dart';
 import '../session/active_device.dart';
+import '../session/session_streams.dart';
 import '../session/sessions.dart';
 import 'lifecycle_controller.dart';
 import 'wakelock.dart';
@@ -67,11 +69,25 @@ Future<DiscoveredDevice?> awaitDiscoveredDevice(
   return completer.future;
 }
 
+/// Whether backgrounding the app right now should close the session after
+/// the grace period (spec 7.4, R24).
+///
+/// Only on mobile: a desktop app that loses focus is not being put away —
+/// its window is still there and its cable is still plugged in — so closing
+/// the session behind the user's back would be a surprise, not a courtesy.
+/// And never while the device is being flashed: a [SessionUpdating] session
+/// dropped halfway through leaves a bricked device, which is the one
+/// outcome worth holding a link open across any amount of backgrounding.
+bool canGraceCloseNow(Ref ref) =>
+    isMobile(ref.read(hostPlatformProvider)) &&
+    ref.read(connectionStatusProvider) is! SessionUpdating;
+
 @Riverpod(keepAlive: true)
 LifecycleController lifecycleController(Ref ref) {
   final controller = LifecycleController(
     closeSessions: () => ref.read(sessionsProvider.notifier).disconnectAll(),
     hasSession: () => ref.read(sessionsProvider).sessions.isNotEmpty,
+    canGraceClose: () => canGraceCloseNow(ref),
     reconnectLast: () async {
       final known = await ref.read(knownDevicesRepositoryProvider).lastSeen();
       if (known == null) return;

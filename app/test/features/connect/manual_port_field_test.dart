@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:spectra/core/platform/host_platform_provider.dart';
 import 'package:spectra/features/connect/connect.dart';
 import 'package:spectra/l10n/app_localizations.dart';
 import 'package:spectra_ui/spectra_ui.dart';

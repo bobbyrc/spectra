@@ -19,32 +19,46 @@ final class LifecycleController {
     required Future<void> Function() closeSessions,
     required Future<void> Function() reconnectLast,
     required bool Function() hasSession,
+    bool Function() canGraceClose = _alwaysCloses,
     this.grace = defaultGrace,
   }) : _closeSessions = closeSessions,
        _reconnectLast = reconnectLast,
-       _hasSession = hasSession;
+       _hasSession = hasSession,
+       _canGraceClose = canGraceClose;
+
+  static bool _alwaysCloses() => true;
 
   static const Duration defaultGrace = Duration(seconds: 30);
 
   final Future<void> Function() _closeSessions;
   final Future<void> Function() _reconnectLast;
   final bool Function() _hasSession;
+
+  /// Whether a pause right now should arm the grace close at all (R24).
+  /// Injected as an effect so this class stays plain: the rule — mobile
+  /// only, and never mid-update — is `canGraceCloseNow` in
+  /// `lifecycle_host.dart`, where the providers that answer it live.
+  final bool Function() _canGraceClose;
+
   final Duration grace;
 
   Timer? _timer;
   bool _closedWhilePaused = false;
   bool _reconnecting = false;
 
-  /// A no-op when there is nothing to hold open: no session means nothing
-  /// backgrounding could drop, so no timer is armed and
-  /// [_closedWhilePaused] is left untouched. Called again while a timer is
+  /// A no-op when there is nothing to hold open, or when the grace close
+  /// does not apply to this pause at all ([_canGraceClose]): no session
+  /// means nothing backgrounding could drop, and a desktop window or a
+  /// device mid-update must not be dropped for backgrounding either — so no
+  /// timer is armed and [_closedWhilePaused] is left untouched, which also
+  /// means the next resume attempts no reconnect. Called again while a timer is
   /// already running (the app is paused, resumed to inactive, then paused
   /// again without a full resume, for instance) restarts the grace period
   /// from zero rather than stacking a second timer.
   void onPaused() {
     _timer?.cancel();
     _timer = null;
-    if (!_hasSession()) return;
+    if (!_hasSession() || !_canGraceClose()) return;
     _timer = Timer(grace, () async {
       try {
         await _closeSessions();

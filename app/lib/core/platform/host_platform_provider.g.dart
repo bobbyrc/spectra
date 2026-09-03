@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'manual_port_field.dart';
+part of 'host_platform_provider.dart';
 
 // **************************************************************************
 // RiverpodGenerator
@@ -10,39 +10,39 @@ part of 'manual_port_field.dart';
 // ignore_for_file: type=lint, type=warning
 /// Injection seam for `currentHostPlatform()` (`chameleon_flutter` reads the
 /// real OS directly and takes no parameter, so there is nothing to override
-/// there). [ManualPortField] is the only widget that needs to know the host
-/// platform, so the seam lives beside it rather than in
-/// `core/discovery/scanners.dart`'s `scannerPlatformProvider` family, which
-/// feeds `ChameleonTransports.defaultScanners` a different parameter
-/// (`HostPlatform?`, `null` meaning "ask the OS") for an unrelated purpose.
-/// A test overrides this provider directly to exercise both branches of
-/// [ManualPortField.build] without depending on the host the suite runs on.
+/// there). A test overrides this provider to exercise a platform's branch
+/// without depending on the host the suite runs on.
+///
+/// Distinct from `core/discovery/scanners.dart`'s `scannerPlatformProvider`
+/// family, which feeds `ChameleonTransports.defaultScanners` a different
+/// parameter (`HostPlatform?`, `null` meaning "ask the OS") for an unrelated
+/// purpose.
 
 @ProviderFor(hostPlatform)
 final hostPlatformProvider = HostPlatformProvider._();
 
 /// Injection seam for `currentHostPlatform()` (`chameleon_flutter` reads the
 /// real OS directly and takes no parameter, so there is nothing to override
-/// there). [ManualPortField] is the only widget that needs to know the host
-/// platform, so the seam lives beside it rather than in
-/// `core/discovery/scanners.dart`'s `scannerPlatformProvider` family, which
-/// feeds `ChameleonTransports.defaultScanners` a different parameter
-/// (`HostPlatform?`, `null` meaning "ask the OS") for an unrelated purpose.
-/// A test overrides this provider directly to exercise both branches of
-/// [ManualPortField.build] without depending on the host the suite runs on.
+/// there). A test overrides this provider to exercise a platform's branch
+/// without depending on the host the suite runs on.
+///
+/// Distinct from `core/discovery/scanners.dart`'s `scannerPlatformProvider`
+/// family, which feeds `ChameleonTransports.defaultScanners` a different
+/// parameter (`HostPlatform?`, `null` meaning "ask the OS") for an unrelated
+/// purpose.
 
 final class HostPlatformProvider
     extends $FunctionalProvider<HostPlatform, HostPlatform, HostPlatform>
     with $Provider<HostPlatform> {
   /// Injection seam for `currentHostPlatform()` (`chameleon_flutter` reads the
   /// real OS directly and takes no parameter, so there is nothing to override
-  /// there). [ManualPortField] is the only widget that needs to know the host
-  /// platform, so the seam lives beside it rather than in
-  /// `core/discovery/scanners.dart`'s `scannerPlatformProvider` family, which
-  /// feeds `ChameleonTransports.defaultScanners` a different parameter
-  /// (`HostPlatform?`, `null` meaning "ask the OS") for an unrelated purpose.
-  /// A test overrides this provider directly to exercise both branches of
-  /// [ManualPortField.build] without depending on the host the suite runs on.
+  /// there). A test overrides this provider to exercise a platform's branch
+  /// without depending on the host the suite runs on.
+  ///
+  /// Distinct from `core/discovery/scanners.dart`'s `scannerPlatformProvider`
+  /// family, which feeds `ChameleonTransports.defaultScanners` a different
+  /// parameter (`HostPlatform?`, `null` meaning "ask the OS") for an unrelated
+  /// purpose.
   HostPlatformProvider._()
     : super(
         from: null,

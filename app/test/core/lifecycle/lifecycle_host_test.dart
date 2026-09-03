@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:chameleon/chameleon.dart';
-import 'package:flutter/widgets.dart';
+import 'package:chameleon_flutter/chameleon_flutter.dart';
+import 'package:flutter/widgets.dart' hide ConnectionState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/core/discovery/scanners.dart';
 import 'package:spectra/core/lifecycle/lifecycle_controller.dart';
 import 'package:spectra/core/lifecycle/lifecycle_host.dart';
+import 'package:spectra/core/platform/host_platform_provider.dart';
+import 'package:spectra/core/session/session_streams.dart';
 
 const usbUltra = DiscoveredDevice(
   name: 'ChameleonUltra',
@@ -26,7 +29,68 @@ final class ScriptedScanner implements DeviceScanner {
   Stream<List<DiscoveredDevice>> scan() => controller.stream;
 }
 
+/// Pins [connectionStatusProvider] to a fixed state, so a test can say "a
+/// firmware update is in flight" without a session.
+final class _FixedStatus extends ConnectionStatus {
+  _FixedStatus(this._state);
+  final ConnectionState _state;
+  @override
+  ConnectionState build() => _state;
+}
+
 void main() {
+  group('canGraceCloseNow', () {
+    /// A controller whose `canGraceClose` is the real production rule, run
+    /// against [platform] and [status]. `grace` is zero, so "armed" is
+    /// observable one event-loop turn later.
+    ({LifecycleController controller, List<int> closes}) controllerFor(
+      HostPlatform platform,
+      ConnectionState status,
+    ) {
+      final container = ProviderContainer(
+        overrides: [
+          hostPlatformProvider.overrideWithValue(platform),
+          connectionStatusProvider.overrideWith(() => _FixedStatus(status)),
+        ],
+      );
+      addTearDown(container.dispose);
+      late final Ref ref;
+      container.read(Provider<void>((r) => ref = r));
+
+      final closes = <int>[];
+      final controller = LifecycleController(
+        closeSessions: () async => closes.add(1),
+        reconnectLast: () async {},
+        hasSession: () => true,
+        canGraceClose: () => canGraceCloseNow(ref),
+        grace: Duration.zero,
+      );
+      addTearDown(controller.dispose);
+      return (controller: controller, closes: closes);
+    }
+
+    test('a desktop pause arms no grace close', () async {
+      final h = controllerFor(HostPlatform.macos, const SessionConnecting());
+      h.controller.onPaused();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.closes, isEmpty);
+    });
+
+    test('a mobile pause arms the grace close', () async {
+      final h = controllerFor(HostPlatform.android, const SessionConnecting());
+      h.controller.onPaused();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.closes, hasLength(1));
+    });
+
+    test('a mobile pause mid-update arms no grace close', () async {
+      final h = controllerFor(HostPlatform.ios, const SessionUpdating());
+      h.controller.onPaused();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.closes, isEmpty);
+    });
+  });
+
   group('AppLifecycleHost', () {
     testWidgets(
       'forwards paused/resumed to the controller, not inactive/hidden, and '

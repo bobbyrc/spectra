@@ -178,4 +178,25 @@ void main() {
       controller.dispose();
     });
   });
+
+  test('pausing arms nothing when the grace close does not apply', () {
+    fakeAsync((async) {
+      var closed = 0;
+      final controller = LifecycleController(
+        closeSessions: () async => closed++,
+        reconnectLast: () async {},
+        hasSession: () => true,
+        // Desktop, or a firmware update in flight: the caller says this
+        // pause must not close anything (spec 7.4, R24).
+        canGraceClose: () => false,
+        grace: const Duration(seconds: 30),
+      );
+
+      controller.onPaused();
+      async.elapse(const Duration(minutes: 5));
+
+      expect(closed, 0);
+      controller.dispose();
+    });
+  });
 }
