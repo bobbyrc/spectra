@@ -3,8 +3,10 @@
 # the committed generated files differ.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-# Locally, commands go through mise. On CI mise is absent: set MISE_X="".
-MISE_X="${MISE_X-mise x --}"
+# Commands use whatever `dart`/`flutter` is on PATH (the AGENTS.md convention
+# puts Flutter 3.47.2 first). Set MISE_X="mise x --" to route through mise
+# instead; note `mise x` picks up fvm's older Dart on this Mac.
+MISE_X="${MISE_X-}"
 for pkg in packages/chameleon packages/chameleon_flutter packages/chameleon_flutter/example packages/spectra_ui packages/spectra_ui/example app; do
   if grep -q "build_runner" "$pkg/pubspec.yaml" 2>/dev/null; then
     echo "codegen: $pkg"
