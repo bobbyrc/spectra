@@ -73,29 +73,20 @@ abstract class _$EmulatorMode extends $Notifier<bool> {
   }
 }
 
-/// Seams for [scannersProvider]'s platform and adapter inputs to
-/// [ChameleonTransports.defaultScanners]. Production leaves all three
-/// `null`, which is [defaultScanners]'s own "use the real one" default;
-/// tests override them so a scan never touches `UniversalBleAdapter` or
-/// libserialport.
+/// See the file header. `null` is [ChameleonTransports.defaultScanners]'s
+/// own "use the real platform" default.
 
 @ProviderFor(scannerPlatform)
 final scannerPlatformProvider = ScannerPlatformProvider._();
 
-/// Seams for [scannersProvider]'s platform and adapter inputs to
-/// [ChameleonTransports.defaultScanners]. Production leaves all three
-/// `null`, which is [defaultScanners]'s own "use the real one" default;
-/// tests override them so a scan never touches `UniversalBleAdapter` or
-/// libserialport.
+/// See the file header. `null` is [ChameleonTransports.defaultScanners]'s
+/// own "use the real platform" default.
 
 final class ScannerPlatformProvider
     extends $FunctionalProvider<HostPlatform?, HostPlatform?, HostPlatform?>
     with $Provider<HostPlatform?> {
-  /// Seams for [scannersProvider]'s platform and adapter inputs to
-  /// [ChameleonTransports.defaultScanners]. Production leaves all three
-  /// `null`, which is [defaultScanners]'s own "use the real one" default;
-  /// tests override them so a scan never touches `UniversalBleAdapter` or
-  /// libserialport.
+  /// See the file header. `null` is [ChameleonTransports.defaultScanners]'s
+  /// own "use the real platform" default.
   ScannerPlatformProvider._()
     : super(
         from: null,

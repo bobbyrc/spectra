@@ -1,3 +1,22 @@
+/// Emulator mode and the platform scanner list (spec 4.2, spec 7.5).
+///
+/// [scannerPlatformProvider], [scannerBleAdapterProvider] and
+/// [scannerSerialAdapterProvider] are [scannersProvider]'s injection seams
+/// for [ChameleonTransports.defaultScanners]'s `platform`, `bleAdapter` and
+/// `serialAdapter` parameters. Production overrides none of them, so
+/// `defaultScanners` gets `null` for all three and falls back to its own
+/// real-platform defaults (`currentHostPlatform()`, `UniversalBleAdapter()`,
+/// `defaultSerialPortAdapter()`). Tests override them with stand-ins that
+/// implement `BleAdapter`/`SerialPortAdapter` but are never asked to do
+/// anything — `BleScanner`/`SerialScanner` only store the adapter they are
+/// given at construction and call it once `scan()` runs — so a test that
+/// only reads [scannersProvider]'s list (never calls `scan()` on anything in
+/// it) can use a stub whose methods all throw `UnimplementedError`. Kept
+/// even though only two tests exercise them today: they are the seam the
+/// app (and any future settings screen that lets a user pin a platform or
+/// adapter) hangs off.
+library;
+
 import 'package:chameleon/chameleon.dart';
 import 'package:chameleon_flutter/chameleon_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -15,11 +34,8 @@ class EmulatorMode extends _$EmulatorMode {
   void setEnabled(bool enabled) => state = enabled;
 }
 
-/// Seams for [scannersProvider]'s platform and adapter inputs to
-/// [ChameleonTransports.defaultScanners]. Production leaves all three
-/// `null`, which is [defaultScanners]'s own "use the real one" default;
-/// tests override them so a scan never touches `UniversalBleAdapter` or
-/// libserialport.
+/// See the file header. `null` is [ChameleonTransports.defaultScanners]'s
+/// own "use the real platform" default.
 @Riverpod(keepAlive: true)
 HostPlatform? scannerPlatform(Ref ref) => null;
 

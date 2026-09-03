@@ -9,19 +9,25 @@ part of 'discovery_provider.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 /// Runs every scanner at once via [mergedScan] (spec 4.2) and folds in the
-/// [manualPortsProvider] entries (spec 5.2) as ordinary usb rows. A
-/// scanner's error, forwarded by [mergedScan] with [Stream.addError],
+/// [manualPortsProvider] entries (spec 5.2) as ordinary usb rows, unioned
+/// with the scanned devices by [DiscoveredDevice] equality (kind +
+/// transportId) — a manual port a scanner also finds is one row, not two.
+/// A scanner's error, forwarded by [mergedScan] with [Stream.addError],
 /// becomes [DiscoveryState.error] instead of ending the stream — the other
-/// scanners' devices stay listed.
+/// scanners' devices stay listed. See [DiscoveryState.error]'s doc for why
+/// it is never cleared here.
 
 @ProviderFor(discovery)
 final discoveryProvider = DiscoveryProvider._();
 
 /// Runs every scanner at once via [mergedScan] (spec 4.2) and folds in the
-/// [manualPortsProvider] entries (spec 5.2) as ordinary usb rows. A
-/// scanner's error, forwarded by [mergedScan] with [Stream.addError],
+/// [manualPortsProvider] entries (spec 5.2) as ordinary usb rows, unioned
+/// with the scanned devices by [DiscoveredDevice] equality (kind +
+/// transportId) — a manual port a scanner also finds is one row, not two.
+/// A scanner's error, forwarded by [mergedScan] with [Stream.addError],
 /// becomes [DiscoveryState.error] instead of ending the stream — the other
-/// scanners' devices stay listed.
+/// scanners' devices stay listed. See [DiscoveryState.error]'s doc for why
+/// it is never cleared here.
 
 final class DiscoveryProvider
     extends
@@ -32,10 +38,13 @@ final class DiscoveryProvider
         >
     with $FutureModifier<DiscoveryState>, $StreamProvider<DiscoveryState> {
   /// Runs every scanner at once via [mergedScan] (spec 4.2) and folds in the
-  /// [manualPortsProvider] entries (spec 5.2) as ordinary usb rows. A
-  /// scanner's error, forwarded by [mergedScan] with [Stream.addError],
+  /// [manualPortsProvider] entries (spec 5.2) as ordinary usb rows, unioned
+  /// with the scanned devices by [DiscoveredDevice] equality (kind +
+  /// transportId) — a manual port a scanner also finds is one row, not two.
+  /// A scanner's error, forwarded by [mergedScan] with [Stream.addError],
   /// becomes [DiscoveryState.error] instead of ending the stream — the other
-  /// scanners' devices stay listed.
+  /// scanners' devices stay listed. See [DiscoveryState.error]'s doc for why
+  /// it is never cleared here.
   DiscoveryProvider._()
     : super(
         from: null,
@@ -62,7 +71,7 @@ final class DiscoveryProvider
   }
 }
 
-String _$discoveryHash() => r'193bf170a7a2fdd23872ff8f528d983d8f6f5fe5';
+String _$discoveryHash() => r'e41ce2e50d1f4190fe9a7e050a8cadf68cc07aee';
 
 /// Ports the user typed in by hand on desktop, for when enumeration finds
 /// nothing (spec 5.2). They join [discoveryProvider]'s list as ordinary usb

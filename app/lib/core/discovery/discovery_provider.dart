@@ -17,16 +17,29 @@ final class DiscoveryState {
 
   /// The last failure any scanner reported: a denied permission, an
   /// adapter that is off (spec 5.1). Kept as the raw error so the error
-  /// catalog decides the wording. `null` once every scanner has reported
-  /// cleanly again.
+  /// catalog decides the wording.
+  ///
+  /// Sticky, not self-clearing: a scanner that reports an error is done —
+  /// `mergedScan` (its own doc comment) ends that scanner's stream on
+  /// error, so it cannot recover on its own, and a later data event from a
+  /// *different*, still-running scanner is not evidence anything changed
+  /// for the failed one. Silently clearing it on the next unrelated update
+  /// would hide a dead scanner behind a list that still looks like it is
+  /// working. The only way [error] moves is a new error overwriting it, or
+  /// the whole provider being rebuilt — `ref.invalidate(discoveryProvider)`,
+  /// which is what the connect screen's "Try again" does (spec 5.1) and
+  /// gives every scanner, including the one that failed, a fresh `scan()`.
   final Object? error;
 }
 
 /// Runs every scanner at once via [mergedScan] (spec 4.2) and folds in the
-/// [manualPortsProvider] entries (spec 5.2) as ordinary usb rows. A
-/// scanner's error, forwarded by [mergedScan] with [Stream.addError],
+/// [manualPortsProvider] entries (spec 5.2) as ordinary usb rows, unioned
+/// with the scanned devices by [DiscoveredDevice] equality (kind +
+/// transportId) — a manual port a scanner also finds is one row, not two.
+/// A scanner's error, forwarded by [mergedScan] with [Stream.addError],
 /// becomes [DiscoveryState.error] instead of ending the stream — the other
-/// scanners' devices stay listed.
+/// scanners' devices stay listed. See [DiscoveryState.error]'s doc for why
+/// it is never cleared here.
 @riverpod
 Stream<DiscoveryState> discovery(Ref ref) {
   final scanners = ref.watch(scannersProvider);
@@ -40,21 +53,16 @@ Stream<DiscoveryState> discovery(Ref ref) {
   void emit() {
     if (controller.isClosed) return;
     controller.add(
-      DiscoveryState(
-        devices: <DiscoveredDevice>[...latest, ...manual],
-        error: lastError,
-      ),
+      DiscoveryState(devices: _union(latest, manual), error: lastError),
     );
   }
 
   controller.onListen = () {
     sub = mergedScan(scanners).listen(
       (devices) {
-        // Not cleared here: [mergedScan] emits the recomputed union right
-        // after an error too (with the failed scanner's rows dropped), and
-        // that is not a recovery. [DiscoveryState.error] is the *last*
-        // failure any scanner reported (its doc comment) — it only moves
-        // when a new one arrives, not when an unrelated list updates.
+        // Not cleared here: see [DiscoveryState.error]'s doc comment. A
+        // healthy scanner reporting fresh devices is not the failed
+        // scanner recovering.
         latest = devices;
         emit();
       },
@@ -72,6 +80,24 @@ Stream<DiscoveryState> discovery(Ref ref) {
     if (!controller.isClosed) unawaited(controller.close());
   });
   return controller.stream;
+}
+
+/// The union of [scanned] and [manual], keyed by [DiscoveredDevice]
+/// equality. A manual port a scanner also reports is one row: the
+/// scanner's own entry wins (it may know more — a bootloader flag, a
+/// friendlier name — than the placeholder [ManualPorts.add] created).
+List<DiscoveredDevice> _union(
+  List<DiscoveredDevice> scanned,
+  List<DiscoveredDevice> manual,
+) {
+  final merged = <DiscoveredDevice, DiscoveredDevice>{};
+  for (final d in manual) {
+    merged[d] = d;
+  }
+  for (final d in scanned) {
+    merged[d] = d;
+  }
+  return List<DiscoveredDevice>.unmodifiable(merged.values);
 }
 
 /// Ports the user typed in by hand on desktop, for when enumeration finds
