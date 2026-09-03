@@ -187,12 +187,26 @@ class CardWriter extends _$CardWriter {
     _cancel = cancel;
     state = const CardWriteState(busy: true);
     try {
+      // Spec 8.1: the app supplies the keys. `candidateMifareKeysProvider`
+      // resolves the user's selected dictionary (Phase 9), falling back to
+      // the built-in list, and never an empty one — resolved once here,
+      // before any device I/O, the same way `read_controller.dart` does.
+      // `_inFlight`/`state.busy` are set above, before this first `await`,
+      // so a provider torn down mid-write (ruling: "outlives its
+      // provider") is caught by the `ref.mounted` check below rather than
+      // throwing out of a still-synchronous `ref.read`.
+      final List<Uint8List> keys = method == CardWriteMethod.mifareClassicBlocks
+          ? await ref.read(candidateMifareKeysProvider.future)
+          : const <Uint8List>[];
+      if (!ref.mounted) return;
+
       final (int written, int attempted) = switch (method) {
         CardWriteMethod.mifareClassicBlocks => await _writeClassic(
           active.session.reader,
           type,
           bytes,
           writeTrailers,
+          keys,
           cancel,
         ),
         CardWriteMethod.em410xT55xx => await _writeEm410x(
@@ -237,12 +251,13 @@ class CardWriter extends _$CardWriter {
     TagType type,
     Uint8List bytes,
     bool writeTrailers,
+    List<Uint8List> candidateKeys,
     CancelToken cancel,
   ) async {
     final Mf1DumpWriteResult result = await reader.mf1WriteDump(
       type: type,
       blocks: bytes,
-      candidateKeys: defaultMifareKeys(),
+      candidateKeys: candidateKeys,
       writeTrailers: writeTrailers,
       onProgress: (int done, int total) {
         if (!ref.mounted) return;

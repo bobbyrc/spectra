@@ -8,8 +8,11 @@ import 'package:spectra/app.dart';
 import 'package:spectra/core/emulator/demo_cards.dart';
 import 'package:spectra/core/errors/app_failures.dart';
 import 'package:spectra/core/errors/problem_view.dart';
+import 'package:spectra/core/format/hex.dart';
 import 'package:spectra/features/cards/state/write_card_controller.dart';
 import 'package:spectra/features/cards/ui/write_card_sheet.dart';
+import 'package:spectra/features/dictionaries/dictionaries.dart';
+import 'package:spectra/features/dictionaries/state/dictionaries_provider.dart';
 import 'package:spectra/features/tools/ui/update_page.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
@@ -131,6 +134,92 @@ void main() {
     // whole-card comparison, not just the data blocks.
     expect(card.blocks, dump);
   });
+
+  testWidgetsApp(
+    'the write takes its candidate keys from the selected dictionary '
+    '(Phase 9 carry item M5)',
+    (tester) async {
+      final (CardWriter writer, FakeMf1Card card) = await openWriterWithMf1Card(
+        tester,
+      );
+      keepAlive(tester, dictionaryLibraryProvider);
+      keepAlive(tester, selectedDictionaryProvider);
+      keepAlive(tester, candidateMifareKeysProvider);
+      await pumpFrames(tester);
+      final DictionaryLibrary library = readProvider(
+        tester,
+        dictionaryLibraryProvider.notifier,
+      );
+
+      // A one-key dictionary that does not include the card's real key
+      // (FF FF FF FF FF FF — `FakeMf1Card.classic1k`'s default): every
+      // data block is still attempted (`_writeDump` marks a block attempted
+      // before trying it), but none authenticate, so nothing actually
+      // lands — a fully partial write, not a thrown error.
+      final Future<String?> created = library.create(
+        'Wrong key',
+        keys: <Uint8List>[parseMifareKey('714C5C886E97')!],
+      );
+      await pumpFrames(tester, count: 3);
+      final String wrongKeyDictId = (await created)!;
+      await pumpFrames(tester, count: 3);
+      await readProvider(
+        tester,
+        selectedDictionaryIdProvider.notifier,
+      ).select(wrongKeyDictId);
+      await pumpFrames(tester, count: 3);
+
+      final Uint8List dump = _withDataFill(classic1kFilled(), 0x7E);
+      final Future<void> failedWrite = writer.write(
+        type: TagType.mifare1k,
+        bytes: dump,
+      );
+      await pumpFrames(tester, count: 40);
+      await failedWrite;
+      await pumpFrames(tester);
+
+      final CardWriteState failedState = readProvider(
+        tester,
+        cardWriterProvider,
+      );
+      expect(failedState.error, isNull);
+      expect(failedState.cancelled, isFalse);
+      expect(failedState.attempted, 47);
+      expect(failedState.written, 0);
+      expect(failedState.isPartial, isTrue);
+      // Nothing landed on the card: the wrong key never authenticated a
+      // single sector.
+      expect(card.blocks, isNot(dump));
+
+      // Selecting the built-in list again makes the same write succeed —
+      // proof the keys really came from the selected dictionary and not
+      // some cached default.
+      await readProvider(
+        tester,
+        selectedDictionaryIdProvider.notifier,
+      ).select(builtInDictionaryId);
+      await pumpFrames(tester, count: 3);
+      readProvider(tester, cardWriterProvider.notifier).reset();
+      await pumpFrames(tester);
+
+      final Future<void> succeededWrite = writer.write(
+        type: TagType.mifare1k,
+        bytes: dump,
+      );
+      await pumpFrames(tester, count: 40);
+      await succeededWrite;
+      await pumpFrames(tester);
+
+      final CardWriteState succeededState = readProvider(
+        tester,
+        cardWriterProvider,
+      );
+      expect(succeededState.error, isNull);
+      expect(succeededState.attempted, 47);
+      expect(succeededState.written, 47);
+      expect(card.blocks, dump);
+    },
+  );
 
   testWidgetsApp('trailers are skipped by default', (tester) async {
     final CardWriter writer = await openWriter(tester);
