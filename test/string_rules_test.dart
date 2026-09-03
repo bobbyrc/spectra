@@ -113,6 +113,30 @@ void main() {
       );
     });
 
+    test('flags subtitle:', () {
+      expect(rulesFor("final t = SpectraListTile(title: t, subtitle: 'x');"), [
+        'no-literal-text',
+      ]);
+    });
+
+    test('flags errorText:', () {
+      expect(
+        rulesFor(
+          'final f = TextField(decoration: InputDecoration(errorText: "x"));',
+        ),
+        ['no-literal-text'],
+      );
+    });
+
+    test('flags labelText:', () {
+      expect(
+        rulesFor(
+          'final f = TextField(decoration: InputDecoration(labelText: "x"));',
+        ),
+        ['no-literal-text'],
+      );
+    });
+
     test('honours the l10n-exempt marker', () {
       expect(
         rulesFor("Widget b() => Text('0x00'); // l10n-exempt: hex sample"),

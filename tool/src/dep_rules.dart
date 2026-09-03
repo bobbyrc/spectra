@@ -183,7 +183,10 @@ List<Violation> _checkApp(String path, String imp, String pkg) {
         'no-material-in-features',
         path,
         imp,
-        'use spectra_ui components instead of raw Material',
+        'import package:material_ui/material_ui.dart (or '
+            'package:flutter/widgets.dart), never the SDK Material library: '
+            'the two define the same names and importing both does not '
+            'compile',
       ),
     );
   }

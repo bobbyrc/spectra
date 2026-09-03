@@ -42,8 +42,9 @@ final RegExp _textCall = RegExp(r'\bText\(\s*(?:const\s+)?' + _literalPattern);
 /// Named arguments whose value is user-facing copy when given a bare
 /// string literal.
 final RegExp _namedArg = RegExp(
-  r'\b(?:label|title|hintText|helperText|semanticsLabel|tooltip):\s*' +
-      _literalPattern,
+  r'\b(?:label|labelText|title|subtitle|hintText|helperText|errorText'
+  r'|semanticsLabel|tooltip):\s*'
+  '$_literalPattern',
 );
 
 final RegExp _featureUi = RegExp(r'^lib/features/[^/]+/ui/');
