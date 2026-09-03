@@ -83,6 +83,14 @@ the `dfuOverBleEnabled` flag until the user reports the checks passed.
   object boundary it picks up from.
 - LICENSE files in every package are still the template TODO — the user has
   to choose a license before release.
+- `usb_serial` 0.5.2 is overridden to a patched vendor copy at
+  `third_party/usb_serial/` (root `pubspec.yaml` `dependency_overrides`):
+  upstream's `android/build.gradle` calls the now-removed `jcenter()` and
+  never applies the Kotlin Gradle Plugin itself, which broke `flutter build
+  apk` under Flutter 3.47.2/Gradle 9.3.1/AGP 9.1's Kotlin-injection shim.
+  See `docs/research/DECISIONS.md`, Phase 3, for the two things that were
+  tried and ruled out first and why. Re-check for a fixed upstream release
+  before shipping and drop the override then.
 
 ## Decisions already made (do not re-ask)
 

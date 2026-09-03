@@ -18,6 +18,16 @@ dev_dependencies:
   melos: ^8.0.0
   test: ^1.25.0
 
+# usb_serial 0.5.2's android/build.gradle is incompatible with our Gradle
+# 9.3.1 wrapper (jcenter() was removed) and, separately, with Flutter's
+# AGP-9-compatibility Kotlin-plugin injection (it never applies
+# kotlin-android itself). No maintained fork fixes both. See
+# docs/research/DECISIONS.md, Phase 3, and third_party/usb_serial/android/
+# build.gradle for the patch.
+dependency_overrides:
+  usb_serial:
+    path: third_party/usb_serial
+
 melos:
   scripts:
     analyze:

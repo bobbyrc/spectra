@@ -221,5 +221,58 @@ dump formats and DFU. Rulings taken while executing
   generated freezed implementation classes: a new device operation is a
   facade method, not a command built in app code.
 
+## Phase 3 decisions (2026-09-03)
+
+- **`normalizeUuid` (spec 5, `packages/chameleon_flutter/lib/src/ble/ble_uuids.dart`)
+  expands only exact 4- or 8-hex-digit short forms** (16- and 32-bit
+  Bluetooth SIG aliases, e.g. `FE59` and `0000FE59`) to the full 128-bit
+  UUID, so it matches whatever CoreBluetooth/BlueZ/Windows/`universal_ble`
+  hand back regardless of form. Anything else — wrong digit count,
+  non-hex, empty — is lowercased and brace-stripped only, never expanded
+  and never rejected: it is a best-effort comparator for transports, not a
+  UUID validator, so there is no `ArgumentError` path to keep in sync with
+  every caller.
+- **`TransportGuidance` (same package, `lib/src/guidance.dart`) carries two
+  more values than spec 5's table**: `applePermissionSettings` (iOS/macOS
+  Bluetooth permission denied — direct the user to Settings/System
+  Settings, distinct from `applePairingPrompt`'s OS-driven prompt) and
+  `portBusyOther` (a serial port held by another process on a platform
+  with no more specific hint than that, so `linuxModemManager` and
+  `windowsPortAccessDenied` stay platform-specific). Every value is scoped
+  to the platform(s) that can actually produce it — no platform is ever
+  handed another platform's instructions.
+- **`usb_serial` 0.5.2 is vendored, patched, under `third_party/usb_serial/`,
+  overridden in the root workspace `pubspec.yaml`
+  (`dependency_overrides: usb_serial: {path: third_party/usb_serial}`).**
+  Upstream (github.com/altera2015/usbserial, last released 2024-07-12) is
+  unmaintained on two counts that Flutter 3.47.2 / Gradle 9.3.1 / AGP 9.1.0
+  exposed together:
+  1. its `android/build.gradle` calls `jcenter()`, a repository shorthand
+     Gradle 9 removed outright (not an AGP-version question — this fails
+     identically at every AGP major we tried, 8.11.1 through 9.1.0);
+  2. it never applies the Kotlin Gradle Plugin itself, which under
+     Flutter's AGP-9-compatibility shim (`android.builtInKotlin=false`,
+     already set in `app/android/gradle.properties` by the Flutter
+     template) makes Flutter try to apply `kotlin-android` to the
+     `:usb_serial` subproject on Flutter's own initiative, before that
+     subproject's own `apply plugin: 'com.android.library'` has taken
+     effect — Flutter's plugin-declaration check is a source-text regex,
+     not a build-graph query, so it can't see that AGP isn't applied yet.
+  Both `app/android/gradle.properties`'s existing AGP-9 opt-outs and
+  pinning AGP down to Flutter 3.47's minimum supported version (8.11.1, in
+  `app/android/settings.gradle.kts`) were tried first and ruled out: the
+  `jcenter()` failure is a Gradle-wrapper-version problem, not an
+  AGP-version problem, so it reproduced identically at 8.11.1. No GitHub
+  fork found (searched forks of `altera2015/usbserial` and rewrites)
+  fixes both; the closest, `zbm2/usbserial` (2025-11-04, BSD-3-Clause),
+  fixes only the `jcenter()` call. The vendored copy in
+  `third_party/usb_serial/` is the unmodified 0.5.2 release (BSD-3-Clause,
+  `third_party/usb_serial/LICENSE`) with `android/build.gradle` patched to
+  use `mavenCentral()` and to `apply plugin: 'kotlin-android'` explicitly,
+  right after `com.android.library`, pre-empting Flutter's own
+  late-and-unordered attempt. No Dart or native source was changed.
+  Re-check whether a maintained `usb_serial` release fixes this before
+  Phase 3 tags this the "expert path" release, and drop the override then.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).
