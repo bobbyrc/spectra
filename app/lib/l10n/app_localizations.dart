@@ -477,6 +477,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Device'**
   String get dashboardTitle;
+
+  /// One-line explanation under the connect heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a Chameleon to connect to.'**
+  String get connectSubtitle;
+
+  /// Shown while the first scan is running.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking for devices…'**
+  String get connectScanning;
+
+  /// Empty-scan hint covering the device's sleep behaviour (spec 5.1).
+  ///
+  /// In en, this message translates to:
+  /// **'No devices found. Over Bluetooth, press a button on the device to wake it — it sleeps eight seconds after losing a connection.'**
+  String get connectNothingFound;
+
+  /// Button that reopens the most recently used device.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect to last device'**
+  String get connectReconnectLast;
+
+  /// Progress label while a session is opening.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get connectConnecting;
+
+  /// Action on a device sitting in its bootloader.
+  ///
+  /// In en, this message translates to:
+  /// **'Recover'**
+  String get connectRecover;
+
+  /// Marks a device that is in DFU mode.
+  ///
+  /// In en, this message translates to:
+  /// **'In bootloader'**
+  String get connectBootloaderBadge;
+
+  /// Transport badge for a USB connection.
+  ///
+  /// In en, this message translates to:
+  /// **'USB'**
+  String get connectKindUsb;
+
+  /// Transport badge for a Bluetooth connection.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth'**
+  String get connectKindBle;
+
+  /// Transport badge for the emulated device.
+  ///
+  /// In en, this message translates to:
+  /// **'Emulated'**
+  String get connectKindFake;
+
+  /// Heading of the manual port entry on desktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a serial port'**
+  String get connectManualPortTitle;
+
+  /// Label of the manual serial port field.
+  ///
+  /// In en, this message translates to:
+  /// **'Port path'**
+  String get connectManualPortLabel;
+
+  /// Example serial port path.
+  ///
+  /// In en, this message translates to:
+  /// **'/dev/cu.usbmodem1'**
+  String get connectManualPortHint;
+
+  /// Confirms a manually typed port.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get connectManualPortAdd;
+
+  /// Retries the failed action.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get commonRetry;
+
+  /// Sends the user to system settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get commonOpenSettings;
+
+  /// Reveals the raw error line.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get commonDetails;
+
+  /// Opens the firmware update screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Update firmware'**
+  String get commonUpdateFirmware;
 }
 
 class _AppLocalizationsDelegate

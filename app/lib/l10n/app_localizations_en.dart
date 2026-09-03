@@ -226,4 +226,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardTitle => 'Device';
+
+  @override
+  String get connectSubtitle => 'Choose a Chameleon to connect to.';
+
+  @override
+  String get connectScanning => 'Looking for devices…';
+
+  @override
+  String get connectNothingFound =>
+      'No devices found. Over Bluetooth, press a button on the device to wake it — it sleeps eight seconds after losing a connection.';
+
+  @override
+  String get connectReconnectLast => 'Reconnect to last device';
+
+  @override
+  String get connectConnecting => 'Connecting…';
+
+  @override
+  String get connectRecover => 'Recover';
+
+  @override
+  String get connectBootloaderBadge => 'In bootloader';
+
+  @override
+  String get connectKindUsb => 'USB';
+
+  @override
+  String get connectKindBle => 'Bluetooth';
+
+  @override
+  String get connectKindFake => 'Emulated';
+
+  @override
+  String get connectManualPortTitle => 'Add a serial port';
+
+  @override
+  String get connectManualPortLabel => 'Port path';
+
+  @override
+  String get connectManualPortHint => '/dev/cu.usbmodem1';
+
+  @override
+  String get connectManualPortAdd => 'Add';
+
+  @override
+  String get commonRetry => 'Try again';
+
+  @override
+  String get commonOpenSettings => 'Open settings';
+
+  @override
+  String get commonDetails => 'Details';
+
+  @override
+  String get commonUpdateFirmware => 'Update firmware';
 }

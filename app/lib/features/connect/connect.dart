@@ -6,3 +6,6 @@ export 'state/connect_controller.dart';
 export 'state/connect_row.dart';
 export 'state/connect_rows_provider.dart';
 export 'ui/connect_page.dart';
+export 'ui/connect_problem_view.dart';
+export 'ui/connect_row_tile.dart';
+export 'ui/manual_port_field.dart';

@@ -23,7 +23,12 @@ String? redirectFor({
       return allowed ? null : AppRoutes.device;
     case SessionConnecting():
     case SessionDisconnected():
-      return location == AppRoutes.connect ? null : AppRoutes.connect;
+      // The recovery entry is reachable with nothing connected: a device
+      // left in its bootloader has no session and must still be
+      // recoverable (spec 5.6).
+      final allowed =
+          location == AppRoutes.connect || location == AppRoutes.update;
+      return allowed ? null : AppRoutes.connect;
     case SessionReady():
       return location == AppRoutes.connect ? AppRoutes.device : null;
   }
