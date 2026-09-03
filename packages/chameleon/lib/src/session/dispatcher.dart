@@ -20,20 +20,35 @@ final class _Pending {
   final Completer<Frame?> completer = Completer();
   Timer? timer;
 
+  /// Releases this command's [CancelToken] registration, so a long-lived
+  /// token does not accumulate a closure per command.
+  void Function()? releaseCancel;
+
   /// Assigned when the request actually goes on the wire, not when it is
   /// queued: only the newest dispatch may claim a response.
   int generation = 0;
 
-  void fail(Object error) {
-    timer?.cancel();
-    timer = null;
-    if (!completer.isCompleted) completer.completeError(error);
+  void fail(Object error, [StackTrace? stackTrace]) {
+    _settle();
+    if (!completer.isCompleted) {
+      if (stackTrace == null) {
+        completer.completeError(error);
+      } else {
+        completer.completeError(error, stackTrace);
+      }
+    }
   }
 
   void succeed(Frame? f) {
+    _settle();
+    if (!completer.isCompleted) completer.complete(f);
+  }
+
+  void _settle() {
     timer?.cancel();
     timer = null;
-    if (!completer.isCompleted) completer.complete(f);
+    releaseCancel?.call();
+    releaseCancel = null;
   }
 }
 
@@ -65,6 +80,7 @@ final class CommandDispatcher {
        // ignore: prefer_initializing_formals
        _log = log,
        _decoder = FrameDecoder(onDiagnostic: onDiagnostic) {
+    _closed = _transport.currentState is TransportClosed;
     _incomingSub = _transport.incoming.listen(_onBytes);
     _stateSub = _transport.state.listen(_onState);
   }
@@ -79,7 +95,13 @@ final class CommandDispatcher {
   _Pending? _inFlight;
   _Drain? _draining;
   int _generation = 0;
+
+  /// The transport is unusable: not open yet, or closed. Cleared if the
+  /// transport opens again.
   bool _closed = false;
+
+  /// [dispose] was called; permanent, unlike [_closed].
+  bool _disposed = false;
 
   bool get isIdle => _inFlight == null && _draining == null && _queue.isEmpty;
 
@@ -93,10 +115,13 @@ final class CommandDispatcher {
     bool expectsResponse = true,
     CancelToken? cancel,
   }) {
+    if (_disposed) {
+      return Future.error(const Disconnected('dispatcher disposed'));
+    }
     if (_closed) return Future.error(const Disconnected());
     final p = _Pending(request, timeout, expectsResponse, cancel);
     _queue.addLast(p);
-    cancel?.onCancel(() => _cancel(p));
+    p.releaseCancel = cancel?.onCancel(() => _cancel(p));
     _pump();
     return p.completer.future;
   }
@@ -104,6 +129,7 @@ final class CommandDispatcher {
   /// Fails everything outstanding, closes the streams this dispatcher owns
   /// and drops its transport subscriptions. Later sends fail immediately.
   Future<void> dispose() async {
+    _disposed = true;
     _closed = true;
     _failAll(const Disconnected('dispatcher disposed'));
     await _incomingSub.cancel();
@@ -122,25 +148,27 @@ final class CommandDispatcher {
       _inFlight = p;
       p.generation = ++_generation;
       _log?.add(FrameDirection.sent, p.request);
+      // The deadline covers the write too: a transport whose write never
+      // completes (a stalled BLE write that reports no state change) must not
+      // wedge the dispatcher forever.
+      p.timer = Timer(p.timeout, () => _timeout(p));
       unawaited(
         _transport
             .write(p.request.encode())
             .then(
               (_) {
+                // The timeout may have fired while the write was outstanding.
                 if (_inFlight != p) return;
                 if (!p.expectsResponse) {
                   _inFlight = null;
                   p.succeed(null);
                   _pump();
-                  return;
                 }
-                p.timer = Timer(p.timeout, () => _timeout(p));
               },
-              onError: (Object e) {
-                if (_inFlight == p) _inFlight = null;
-                p.fail(
-                  e is ChameleonException ? e : Disconnected(e.toString()),
-                );
+              onError: (Object e, StackTrace st) {
+                if (_inFlight != p) return;
+                _inFlight = null;
+                p.fail(e, st);
                 _pump();
               },
             ),
@@ -187,6 +215,9 @@ final class CommandDispatcher {
     for (final frame in _decoder.feed(chunk)) {
       _log?.add(FrameDirection.received, frame);
       final p = _inFlight;
+      // The generation check asserts the one-in-flight invariant: only the
+      // newest dispatch may claim a response. Discarding stale responses is
+      // the drain's job, below.
       if (p != null &&
           p.generation == _generation &&
           frame.command == p.request.command) {
@@ -205,6 +236,10 @@ final class CommandDispatcher {
   }
 
   void _onState(TransportState s) {
+    if (s is TransportOpen) {
+      if (!_disposed) _closed = false;
+      return;
+    }
     if (s is TransportClosed) {
       _closed = true;
       _failAll(

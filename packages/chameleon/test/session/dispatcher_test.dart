@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:chameleon/src/codec/frame.dart';
 import 'package:chameleon/src/commands/device.dart';
 import 'package:chameleon/src/fake/fake_device.dart';
@@ -5,6 +8,7 @@ import 'package:chameleon/src/protocol/errors.dart';
 import 'package:chameleon/src/session/cancel_token.dart';
 import 'package:chameleon/src/session/dispatcher.dart';
 import 'package:chameleon/src/transport/frame_log.dart';
+import 'package:chameleon/src/transport/transport.dart';
 import 'package:test/test.dart';
 
 const short = Duration(milliseconds: 40);
@@ -219,4 +223,117 @@ void main() {
       throwsA(isA<Disconnected>()),
     );
   });
+
+  test(
+    'a write that never completes still times out, then dispatch resumes',
+    () async {
+      final t = _StubTransport();
+      final d = CommandDispatcher(t);
+      await expectLater(
+        d.send(const GetAppVersion().toFrame(), timeout: short),
+        throwsA(isA<CommandTimeout>()),
+      );
+      // The drain window elapses and the queue moves on even though the first
+      // write never resolved.
+      await expectLater(
+        d.send(const GetActiveSlot().toFrame(), timeout: short),
+        throwsA(isA<CommandTimeout>()),
+      );
+      expect(t.writes.length, 2);
+      await d.dispose();
+    },
+  );
+
+  test('a write error is forwarded unwrapped', () async {
+    final t = _StubTransport(error: StateError('write refused'));
+    final d = CommandDispatcher(t);
+    Object? err;
+    StackTrace? st;
+    try {
+      await d.send(const GetAppVersion().toFrame(), timeout: patient);
+    } catch (e, s) {
+      err = e;
+      st = s;
+    }
+    expect(err, isA<StateError>());
+    expect(st, isNotNull);
+    await d.dispose();
+  });
+
+  test('an unopened transport fails sends until it opens', () async {
+    final fresh = FakeDevice();
+    final d = CommandDispatcher(fresh);
+    await expectLater(
+      d.send(const GetAppVersion().toFrame(), timeout: short),
+      throwsA(isA<TransportError>()),
+    );
+    await fresh.open();
+    await Future<void>.delayed(Duration.zero);
+    final f = await d.send(const GetAppVersion().toFrame(), timeout: patient);
+    expect(f!.command, 1000);
+    await d.dispose();
+  });
+
+  test('completed commands release their cancel registrations', () async {
+    final token = CancelToken();
+    for (var i = 0; i < 3; i++) {
+      await dispatcher.send(
+        const GetAppVersion().toFrame(),
+        timeout: short,
+        cancel: token,
+      );
+    }
+    expect(token.listenerCount, 0);
+    device.dropNextResponse();
+    await expectLater(
+      dispatcher.send(
+        const GetActiveSlot().toFrame(),
+        timeout: short,
+        cancel: token,
+      ),
+      throwsA(isA<CommandTimeout>()),
+    );
+    expect(token.listenerCount, 0);
+  });
+}
+
+/// A transport that is always open and whose write either never completes or
+/// fails, for the paths [FakeDevice] cannot reach.
+final class _StubTransport implements Transport {
+  _StubTransport({this.error});
+
+  final Object? error;
+  final List<Uint8List> writes = [];
+  final StreamController<Uint8List> _incoming = StreamController.broadcast();
+  final StreamController<TransportState> _state = StreamController.broadcast();
+
+  @override
+  TransportKind get kind => TransportKind.fake;
+
+  @override
+  Stream<Uint8List> get incoming => _incoming.stream;
+
+  @override
+  Stream<TransportState> get state => _state.stream;
+
+  @override
+  TransportState get currentState => const TransportOpen();
+
+  @override
+  Future<void> open() async {}
+
+  @override
+  Future<void> close() async {
+    await _incoming.close();
+    await _state.close();
+  }
+
+  @override
+  Future<void> write(Uint8List bytes) {
+    writes.add(bytes);
+    final e = error;
+    if (e != null) return Future.error(e, StackTrace.current);
+    // Never completes.
+    return Completer<void>().future;
+  }
 }
