@@ -17,7 +17,9 @@ for pkg in packages/chameleon packages/chameleon_flutter packages/chameleon_flut
 done
 # Newly generated files are untracked, so a plain `git diff` misses them.
 # Stage their intent so untracked-but-generated files count as stale too.
-git add --intent-to-add -- '*.g.dart' '*.freezed.dart' '*.drift.dart' '*_localizations*.dart' 2>/dev/null || true
+for pat in '*.g.dart' '*.freezed.dart' '*.drift.dart' '*_localizations*.dart'; do
+  git add --intent-to-add -- "$pat" 2>/dev/null || true
+done
 if ! git diff --quiet -- '*.g.dart' '*.freezed.dart' '*.drift.dart' '*_localizations*.dart'; then
   echo "codegen: committed generated files are stale:" >&2
   git --no-pager diff --stat -- '*.g.dart' '*.freezed.dart' '*.drift.dart' '*_localizations*.dart' >&2
