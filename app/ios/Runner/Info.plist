@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Spectra uses Bluetooth to connect to your Chameleon device.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Spectra uses Bluetooth to connect to your Chameleon device.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

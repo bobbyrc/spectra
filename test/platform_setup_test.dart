@@ -45,9 +45,10 @@ void main() {
     });
   });
 
-  test('iOS declares the Bluetooth usage string', () {
+  test('iOS declares the Bluetooth usage strings', () {
     final plist = read('app/ios/Runner/Info.plist');
     expect(plist, contains('NSBluetoothAlwaysUsageDescription'));
+    expect(plist, contains('NSBluetoothPeripheralUsageDescription'));
   });
 
   test('macOS entitles Bluetooth and serial in both configurations', () {
@@ -73,9 +74,8 @@ void main() {
       expect(ents, contains('com.apple.security.device.bluetooth'));
       expect(ents, contains('com.apple.security.device.serial'));
     }
-    expect(
-      read('$base/Info.plist'),
-      contains('NSBluetoothAlwaysUsageDescription'),
-    );
+    final examplePlist = read('$base/Info.plist');
+    expect(examplePlist, contains('NSBluetoothAlwaysUsageDescription'));
+    expect(examplePlist, contains('NSBluetoothPeripheralUsageDescription'));
   });
 }
