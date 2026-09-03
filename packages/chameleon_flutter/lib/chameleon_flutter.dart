@@ -5,7 +5,9 @@
 library;
 
 export 'src/ble/ble_adapter.dart';
-export 'src/ble/ble_chunking.dart';
+// src/ble/ble_chunking.dart is deliberately not exported: `chunked` and
+// `mtuWriteLength` are BleTransport's and BleDfuChannel's own arithmetic,
+// used nowhere outside this package.
 export 'src/ble/ble_failure.dart' show BleAdapterException, BleFailure;
 export 'src/ble/ble_scanner.dart';
 export 'src/ble/ble_transport.dart';

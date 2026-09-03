@@ -2,8 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:chameleon/chameleon.dart';
-import 'package:chameleon_flutter/src/dfu/slip.dart';
-import 'package:chameleon_flutter/src/dfu/slip_serial_dfu_channel.dart';
+import 'package:chameleon_flutter/chameleon_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A byte pipe standing in for an open serial link.

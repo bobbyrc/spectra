@@ -18,6 +18,7 @@ Set up the shell once, on whichever machine the item runs on:
 ```bash
 cd /path/to/spectra
 export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+flutter pub get
 ```
 
 The example's emulator row (`Emulated Chameleon Ultra`) is off by default;
@@ -79,6 +80,13 @@ run with no device attached, never for H1 itself.
       access USB device" prompt naming the Chameleon, and whether the
       `device_filter.xml` (VID `0x6868`/`0x1915`, PID `0x8686`/`0x521F`)
       correctly matches it and excludes unrelated USB devices.
+- [ ] pending: **Android control lines.** `usb_serial` has no CTS/DSR
+      hardware flow-control API, so `UsbSerialAdapter.open` only asserts DTR
+      and (in `hardwareFlowControl`) RTS — the `hardware-validate` note in
+      `usb_serial_adapter.dart`. On the same Android run, try the app-bar
+      dropdown in both modes and report which one reaches
+      `connection state: ready`, and whether it agrees with the desktop
+      answer above.
 
 **BLE**
 
@@ -113,6 +121,32 @@ run with no device attached, never for H1 itself.
       (Windows/Linux/Android) is available, repeat there and report the
       guidance value it maps to; compare against
       `universal_ble_adapter.dart`'s `bleFailureFromCode`.
+- [ ] pending: **connection changes for a device that is not connected
+      yet.** `BleTransport.open` and `BleDfuChannel.open` subscribe to
+      `connectionChanges(deviceId)` *before* calling `connect`, so a drop
+      during the handshake is never missed; both carry a
+      `hardware-validate` note that universal_ble must deliver events for a
+      device it has not connected yet. Tap a BLE row and then immediately
+      move the device out of range (or press its power button) while the
+      page still says connecting. Report whether the page reports a failure
+      promptly with a `failed:` line, or hangs until a timeout — a hang
+      means the events are not delivered before the first connect.
+- [ ] pending: **a second `pair()` after a Windows pre-pair.** Windows only:
+      `BleTransport._subscribeWithPairing` pre-pairs, and if the subscribe
+      still reports insufficient authentication it calls
+      `BleAdapter.pair` a second time, which is *assumed* to be harmless for
+      an already-bonded device (`hardware-validate` in `ble_transport.dart`).
+      On Windows, connect once so the device is bonded, then remove the app's
+      pairing in Windows Settings while leaving the device paired, reconnect,
+      and report whether the second `pair()` succeeds, prompts again, or
+      errors.
+- [ ] pending: **BLE scanner ageing.** `BleScanner.staleAfter` drops a
+      device that has not advertised for ten seconds, sized to the roughly
+      eight-second sleep the Chameleon takes after a disconnect (spec 5.1).
+      With a BLE row showing, power the device off (or carry it out of
+      range) and report how long the row takes to disappear; then wake it
+      and report how quickly it comes back. If a device that is still in
+      range blinks off the list, the default is too short.
 
 ## H1 — wire format (verify with a device attached)
 
@@ -211,6 +245,14 @@ Written in Phase 8.
       `SLIP_MTU = 2051`, which by nrfutil's `(mtu - 1) // 2 - 1` is 1024 —
       sixteen times the current chunk. `SecureDfu` has no GetSerialMTU
       request yet.
+- [ ] pending: the BLE DFU write size. `BleDfuChannel` uses 20 bytes on iOS
+      and macOS — CoreBluetooth does not reliably report a
+      write-without-response limit — and the negotiated MTU minus three
+      elsewhere, floored at 20 (`hardware-validate` in
+      `ble_dfu_channel.dart`). Report what `BleAdapter.requestMtu` returns
+      for the *bootloader* (it is a different GATT server from the
+      application) on macOS and on one non-Apple platform, and whether a
+      larger write than 20 bytes actually succeeds there.
 - [ ] pending: executing an already-executed object is a no-op on the real
       bootloader. The resume path in `SecureDfu` sends an unconditional
       Execute at the boundary it picks up from; `FakeBootloader` models it as
