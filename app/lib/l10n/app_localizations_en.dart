@@ -224,6 +224,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get slotEnabled => 'Enabled';
 
   @override
+  String get slotNameLabel => 'Name';
+
+  @override
+  String get slotSaveName => 'Save name';
+
+  @override
   String get comingSoonCards => 'The card library arrives in Phase 6.';
 
   @override

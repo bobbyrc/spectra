@@ -121,4 +121,78 @@ void main() {
 
     expect(find.text('That slot does not exist.'), findsOneWidget);
   });
+
+  testWidgetsApp('the name field is seeded from the device', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+    await openSlot(tester, 1);
+
+    expect(find.widgetWithText(SpectraTextField, 'Fake 1K'), findsOneWidget);
+  });
+
+  testWidgetsApp('renaming a slot writes through and shows on the grid', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+    await openSlot(tester, 2);
+
+    await tester.enterText(find.byType(SpectraTextField).first, 'Office');
+    await tester.pump();
+    await tester.tap(find.text('Save name').first);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    await tester.tap(find.byType(BackButton));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Office'), findsOneWidget);
+  });
+
+  testWidgetsApp('a name over 32 bytes is refused before it is sent', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final FakeDevice device = FakeDevice();
+    await tester.pumpWidget(testApp(transport: (_) => device));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+    await openSlot(tester, 2);
+
+    final int before = device.received
+        .where((Frame frame) => frame.command == 1007)
+        .length;
+    await tester.enterText(find.byType(SpectraTextField).first, 'x' * 33);
+    await tester.pump();
+
+    expect(find.text('Names are limited to 32 bytes.'), findsOneWidget);
+    // The save action is disabled, so nothing reached the wire.
+    expect(
+      tester
+          .widget<SpectraButton>(
+            find.widgetWithText(SpectraButton, 'Save name').first,
+          )
+          .onPressed,
+      isNull,
+    );
+    final int after = device.received
+        .where((Frame frame) => frame.command == 1007)
+        .length;
+    expect(after, before);
+  });
 }

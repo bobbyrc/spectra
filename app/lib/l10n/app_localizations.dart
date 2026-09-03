@@ -466,6 +466,18 @@ abstract class AppLocalizations {
   /// **'Enabled'**
   String get slotEnabled;
 
+  /// Label of the slot nickname field.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get slotNameLabel;
+
+  /// Sends the edited slot nickname to the device.
+  ///
+  /// In en, this message translates to:
+  /// **'Save name'**
+  String get slotSaveName;
+
   /// Placeholder body of the Cards tab.
   ///
   /// In en, this message translates to:

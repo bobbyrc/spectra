@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
@@ -6,6 +8,7 @@ import 'package:spectra_ui/spectra_ui.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/slot_editor_controller.dart';
 import '../state/slot_labels.dart';
+import '../state/slot_nickname.dart';
 import '../state/slot_view.dart';
 
 /// One side of a slot: its tag type, its enable switch, its name and the
@@ -35,6 +38,10 @@ class SlotSenseSection extends ConsumerStatefulWidget {
 }
 
 class _SlotSenseSectionState extends ConsumerState<SlotSenseSection> {
+  late final TextEditingController _name = TextEditingController(
+    text: _deviceNick,
+  );
+
   TagType get _type => widget.sense == Sense.lf
       ? widget.view.slot.lfType
       : widget.view.slot.hfType;
@@ -43,15 +50,26 @@ class _SlotSenseSectionState extends ConsumerState<SlotSenseSection> {
       ? widget.view.slot.lfEnabled
       : widget.view.slot.hfEnabled;
 
-  // Task 7 wires this into the name field's initial value; kept here now
-  // per ruling 12 so that task is an additive edit, not a rewrite.
-  // ignore: unused_element
-  String? get _deviceNick => widget.sense == Sense.lf
+  String get _deviceNick => widget.sense == Sense.lf
       ? widget.view.slot.lfNick
       : widget.view.slot.hfNick;
 
   @override
+  void didUpdateWidget(SlotSenseSection old) {
+    super.didUpdateWidget(old);
+    // The device's own nickname changed (a save landed, or a refresh): pick
+    // it up, unless the user is part-way through typing a different one.
+    final String previous = old.sense == Sense.lf
+        ? old.view.slot.lfNick
+        : old.view.slot.hfNick;
+    if (previous != _deviceNick && _name.text == previous) {
+      _name.text = _deviceNick;
+    }
+  }
+
+  @override
   void dispose() {
+    _name.dispose();
     super.dispose();
   }
 
@@ -61,6 +79,9 @@ class _SlotSenseSectionState extends ConsumerState<SlotSenseSection> {
     final SlotEditor editor = ref.read(
       slotEditorProvider(widget.view.index).notifier,
     );
+    final SlotNicknameError? nameError = validateSlotNickname(_name.text);
+    final bool canSave =
+        !widget.busy && nameError == null && _name.text != _deviceNick;
 
     return SpectraCard(
       child: Column(
@@ -76,6 +97,25 @@ class _SlotSenseSectionState extends ConsumerState<SlotSenseSection> {
                   ? null
                   : (bool next) => editor.setEnabled(widget.sense, next),
             ),
+          ),
+          const SizedBox(height: SpectraSpacing.md),
+          SpectraTextField(
+            label: l10n.slotNameLabel,
+            controller: _name,
+            enabled: !widget.busy,
+            errorText: switch (nameError) {
+              SlotNicknameError.tooLong => l10n.slotNicknameTooLong,
+              null => null,
+            },
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: SpectraSpacing.md),
+          SpectraButton(
+            label: l10n.slotSaveName,
+            variant: SpectraButtonVariant.secondary,
+            onPressed: canSave
+                ? () => unawaited(editor.rename(widget.sense, _name.text))
+                : null,
           ),
         ],
       ),
