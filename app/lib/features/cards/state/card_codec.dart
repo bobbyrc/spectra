@@ -38,6 +38,12 @@ CardDump? parseSavedCard(SavedCard card) {
   }
 }
 
+/// Every `DumpFormat.describe()`'s own field label carrying the raw enum
+/// name (e.g. "mifare1k"), dropped by [describeSavedCard]: the detail
+/// screen already shows the product name via `tagTypeLabel`, so this field
+/// would repeat the same fact under a second, unlocalized label.
+const String _typeFieldLabel = 'Type';
+
 /// The dump's headline fields, for the detail screen. Empty when the type
 /// has no format.
 ///
@@ -51,7 +57,10 @@ List<DumpField> describeSavedCard(SavedCard card) {
   final DumpFormat<CardDump>? format = DumpFormats.forType(type);
   final CardDump? dump = parseSavedCard(card);
   if (format == null || dump == null) return const <DumpField>[];
-  return format.describe(dump);
+  return format
+      .describe(dump)
+      .where((DumpField field) => field.label != _typeFieldLabel)
+      .toList();
 }
 
 /// Problems with the stored bytes, empty when the card is valid.

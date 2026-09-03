@@ -19,18 +19,27 @@ part 'card_editor_controller.g.dart';
 /// so the detail page keeps rendering the card and only disables its
 /// controls on [busy], rather than blanking to a spinner and losing the
 /// app-bar title mid-save.
+///
+/// [error] is set when the last [CardEditor.save] failed. This is
+/// deliberately not an `AsyncError` state (Phase 6 ruling 29 item 1): the
+/// working copy — [bytes], [dirty] — is kept exactly as it was, so the
+/// detail page can show `ProblemView` above the editor with the edits
+/// still on screen, and its "Try again" action re-invokes [CardEditor.save]
+/// rather than losing them through [CardEditor.discard].
 final class CardEditState {
   const CardEditState({
     required this.card,
     required this.bytes,
     required this.dirty,
     this.busy = false,
+    this.error,
   });
 
   final SavedCard card;
   final Uint8List bytes;
   final bool dirty;
   final bool busy;
+  final Object? error;
 
   TagType get tagType => tagTypeFromName(card.tagType);
 
@@ -44,6 +53,20 @@ final class CardEditState {
   /// notifier's back.
   Uint8List chunk(int index) => Uint8List.fromList(
     bytes.sublist(index * chunkSize, index * chunkSize + chunkSize),
+  );
+
+  /// [card] with [bytes] substituted for its stored bytes: what a
+  /// [CardEditor.save] would write, and what [validateSavedCard] checks
+  /// (Phase 6 ruling 29 item 2) both here and in the detail page's problems
+  /// banner — the working copy, not the stored row.
+  SavedCard get workingCard => SavedCard(
+    id: card.id,
+    name: card.name,
+    tagType: card.tagType,
+    bytes: bytes,
+    updatedAt: card.updatedAt,
+    folder: card.folder,
+    color: card.color,
   );
 }
 
@@ -81,7 +104,9 @@ class CardEditor extends _$CardEditor {
   /// nothing reaches the database until [save].
   ///
   /// Called from `CardHexEditor`'s "Apply", after it has already validated
-  /// the typed hex against [CardEditState.chunkSize].
+  /// the typed hex against [CardEditState.chunkSize]. Clears a stale
+  /// [CardEditState.error] from a previous failed [save]: the working copy
+  /// just changed, so that failure was about bytes that no longer exist.
   void replaceChunk(int index, Uint8List chunk) {
     final CardEditState? current = state.value;
     if (current == null) return;
@@ -99,9 +124,19 @@ class CardEditor extends _$CardEditor {
   }
 
   /// Writes the working copy back to the library.
+  ///
+  /// [Ruling 29 item 2]: refuses when [validateSavedCard] finds problems in
+  /// [CardEditState.workingCard] — those already render inline via the
+  /// detail page's problems banner (which validates the same working copy),
+  /// so there is nothing more useful to say by attempting the write.
+  ///
+  /// [Ruling 29 item 1]: a failed write keeps the working copy exactly as
+  /// it was — [CardEditState.error] carries the failure, `busy` clears —
+  /// rather than moving to `AsyncError` and losing the edits.
   Future<void> save() async {
     final CardEditState? current = state.value;
     if (current == null || _inFlight) return;
+    if (validateSavedCard(current.workingCard).isNotEmpty) return;
     _inFlight = true;
     state = AsyncData<CardEditState?>(
       CardEditState(
@@ -131,18 +166,20 @@ class CardEditor extends _$CardEditor {
       return;
     }
     final Object? error = written.error;
-    state = error != null
-        ? AsyncError<CardEditState?>(
-            error,
-            written.stackTrace ?? StackTrace.current,
-          )
-        : AsyncData<CardEditState?>(
-            CardEditState(
+    state = AsyncData<CardEditState?>(
+      error != null
+          ? CardEditState(
+              card: current.card,
+              bytes: current.bytes,
+              dirty: current.dirty,
+              error: error,
+            )
+          : CardEditState(
               card: current.card,
               bytes: current.bytes,
               dirty: false,
             ),
-          );
+    );
     _inFlight = false;
   }
 
@@ -153,22 +190,24 @@ class CardEditor extends _$CardEditor {
   /// directly — `build` is not how a family notifier reloads outside
   /// Riverpod's own lifecycle, and calling it by hand would let a Discard
   /// landing mid-[save] clobber the state the save is about to set.
+  ///
+  /// A no-op when there is no working copy to discard (`state.value` is
+  /// null — the not-found screen, which offers no Discard button anyway):
+  /// with [save] keeping the working copy on a failed write (ruling 29 item
+  /// 1), that is the only remaining way to reach this method with nothing
+  /// to preserve while reloading.
   Future<void> discard() async {
-    if (_inFlight) return;
     final CardEditState? current = state.value;
+    if (current == null || _inFlight) return;
     _inFlight = true;
-    if (current != null) {
-      state = AsyncData<CardEditState?>(
-        CardEditState(
-          card: current.card,
-          bytes: current.bytes,
-          dirty: current.dirty,
-          busy: true,
-        ),
-      );
-    } else {
-      state = const AsyncLoading<CardEditState?>();
-    }
+    state = AsyncData<CardEditState?>(
+      CardEditState(
+        card: current.card,
+        bytes: current.bytes,
+        dirty: current.dirty,
+        busy: true,
+      ),
+    );
     final SavedCard? card = await ref
         .read(savedCardsRepositoryProvider)
         .byId(id);
@@ -192,9 +231,25 @@ class CardEditor extends _$CardEditor {
   /// `cardLibraryProvider.notifier` — that provider is autoDispose and
   /// nothing is watching it from here, so reading its notifier just to
   /// mutate it would create it, use it, and let it be disposed mid-write.
+  ///
+  /// [Ruling 29 item 3]: sets/clears [CardEditState.busy] like every other
+  /// mutator, so a screen that is still mounted while this is in flight
+  /// (the detail page navigates away first, but a test can call this
+  /// directly) sees the same disabled-controls behaviour.
   Future<void> deleteCard() async {
+    final CardEditState? current = state.value;
     if (_inFlight) return;
     _inFlight = true;
+    if (current != null) {
+      state = AsyncData<CardEditState?>(
+        CardEditState(
+          card: current.card,
+          bytes: current.bytes,
+          dirty: current.dirty,
+          busy: true,
+        ),
+      );
+    }
     await ref.read(savedCardsRepositoryProvider).delete(id);
     if (!ref.mounted) {
       _inFlight = false;

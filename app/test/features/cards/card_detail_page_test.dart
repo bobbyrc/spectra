@@ -2,11 +2,16 @@ import 'dart:convert';
 
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
+import 'package:spectra/app.dart';
+import 'package:spectra/core/errors/problem_view.dart';
 import 'package:spectra/core/routing/routes.dart';
 import 'package:spectra/data/data.dart';
+import 'package:spectra/data/memory/in_memory_repositories.dart';
 import 'package:spectra/features/cards/cards.dart';
 import 'package:spectra/features/cards/state/card_editor_controller.dart';
 import 'package:spectra/features/cards/state/saved_cards_provider.dart';
@@ -21,9 +26,55 @@ Uint8List classic1kBytes() {
   return blocks;
 }
 
-Future<String> seedAndOpen(WidgetTester tester) async {
+/// Delegates to another [SavedCardsRepository], but [save] throws once
+/// while [failNextSave] is true — for exercising [CardEditor.save]'s
+/// failure path (ruling 29 item 1) without a fake device that can fail a
+/// write.
+final class _FlakySavedCardsRepository implements SavedCardsRepository {
+  _FlakySavedCardsRepository(this._delegate);
+  final SavedCardsRepository _delegate;
+  bool failNextSave = false;
+
+  @override
+  Future<List<SavedCard>> all() => _delegate.all();
+
+  @override
+  Future<SavedCard?> byId(String id) => _delegate.byId(id);
+
+  @override
+  Future<void> save(SavedCard card) async {
+    if (failNextSave) {
+      failNextSave = false;
+      throw const SessionNotReady('boom');
+    }
+    return _delegate.save(card);
+  }
+
+  @override
+  Future<void> delete(String id) => _delegate.delete(id);
+
+  @override
+  Stream<List<SavedCard>> watchAll() => _delegate.watchAll();
+}
+
+Future<String> seedAndOpen(
+  WidgetTester tester, {
+  List<Override> extraOverrides = const <Override>[],
+}) async {
   useDesktopSurface(tester);
-  await pumpTestApp(tester, transport: (_) => FakeDevice());
+  if (extraOverrides.isEmpty) {
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+  } else {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          ...appOverrides(transport: (_) => FakeDevice()),
+          ...extraOverrides,
+        ],
+        child: const SpectraRoot(),
+      ),
+    );
+  }
   await connectToEmulator(tester);
   keepAlive(tester, cardLibraryProvider);
   final CardLibrary library = readProvider(
@@ -178,6 +229,9 @@ void main() {
       14,
       15,
     ]);
+    // Only block 1 was edited; block 0 (the UID and its BCC) reaches the
+    // repository untouched.
+    expect(stored.bytes.sublist(0, 5), <int>[0xDE, 0xAD, 0xBE, 0xEF, 0x22]);
     expect(readProvider(tester, cardEditorProvider(id)).value!.dirty, isFalse);
   });
 
@@ -268,6 +322,184 @@ void main() {
     ).value!;
     expect(reverted.dirty, isFalse);
     expect(reverted.chunk(1), everyElement(0));
+  });
+
+  testWidgetsApp('an out-of-range block number is refused', (tester) async {
+    await seedAndOpen(tester);
+    await tester.enterText(find.byKey(const Key('cardEditIndex')), '64');
+    await tester.enterText(
+      find.byKey(const Key('cardEditValue')),
+      '000102030405060708090A0B0C0D0E0F',
+    );
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Apply'));
+    await pumpFrames(tester);
+    // A 1K card has 64 blocks, indices 0-63.
+    expect(find.text('Choose a number between 0 and 63.'), findsOneWidget);
+  });
+
+  testWidgetsApp('leaving the screen with unsaved edits asks first', (
+    tester,
+  ) async {
+    await seedAndOpen(tester);
+    await tester.enterText(find.byKey(const Key('cardEditIndex')), '1');
+    await tester.enterText(
+      find.byKey(const Key('cardEditValue')),
+      '000102030405060708090A0B0C0D0E0F',
+    );
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Apply'));
+    await pumpFrames(tester);
+
+    await tester.tap(find.byType(BackButton));
+    await pumpFrames(tester);
+    expect(find.byType(SpectraDialog), findsOneWidget);
+    expect(find.text('Leave without saving?'), findsOneWidget);
+    // Still on the detail screen: the pop was intercepted, not let
+    // through.
+    expect(find.byType(CardDetailPage), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraDialog),
+        matching: find.text('Discard changes'),
+      ),
+    );
+    await pumpFrames(tester);
+    expect(find.byType(CardsPage), findsOneWidget);
+  });
+
+  testWidgetsApp('a validation problem in the working copy blocks Save', (
+    tester,
+  ) async {
+    final String id = await seedAndOpen(tester);
+    // Change the UID in block 0 without updating its BCC (byte 4):
+    // `validateSavedCard` rejects a MIFARE Classic dump whose BCC does
+    // not match its UID.
+    await tester.enterText(find.byKey(const Key('cardEditIndex')), '0');
+    await tester.enterText(
+      find.byKey(const Key('cardEditValue')),
+      'AABBCCDD22'.padRight(32, '0'),
+    );
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Apply'));
+    await pumpFrames(tester);
+
+    expect(find.textContaining('does not match UID'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Save changes'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Save changes'));
+    await pumpFrames(tester, count: 20);
+
+    final SavedCardsRepository repo = readProvider(
+      tester,
+      savedCardsRepositoryProvider,
+    );
+    final SavedCard stored = (await repo.byId(id))!;
+    // The stored bytes are untouched — the write never happened.
+    expect(stored.bytes.sublist(0, 5), <int>[0xDE, 0xAD, 0xBE, 0xEF, 0x22]);
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    expect(readProvider(tester, cardEditorProvider(id)).value!.dirty, isTrue);
+  });
+
+  testWidgetsApp('a failed save keeps the edits, and Try again saves them', (
+    tester,
+  ) async {
+    final _FlakySavedCardsRepository repo = _FlakySavedCardsRepository(
+      InMemorySavedCardsRepository(),
+    );
+    final String id = await seedAndOpen(
+      tester,
+      extraOverrides: <Override>[
+        savedCardsRepositoryProvider.overrideWithValue(repo),
+      ],
+    );
+    // Only the edit's own save should fail, not the seed's.
+    repo.failNextSave = true;
+
+    await tester.enterText(find.byKey(const Key('cardEditIndex')), '1');
+    await tester.enterText(
+      find.byKey(const Key('cardEditValue')),
+      '000102030405060708090A0B0C0D0E0F',
+    );
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Apply'));
+    await pumpFrames(tester);
+
+    await tester.ensureVisible(find.text('Save changes'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Save changes'));
+    await pumpFrames(tester, count: 20);
+
+    // The write failed: ProblemView is up, and the edits are still on
+    // the working copy — not lost, not written.
+    expect(find.byType(ProblemView), findsOneWidget);
+    final SavedCard unwritten = (await repo.byId(id))!;
+    expect(unwritten.bytes.sublist(16, 32), everyElement(0));
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    final CardEditState afterFailure = readProvider(
+      tester,
+      cardEditorProvider(id),
+    ).value!;
+    expect(afterFailure.dirty, isTrue);
+    expect(afterFailure.chunk(1), <int>[
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+    ]);
+
+    // "Try again" re-invokes save, not discard: the repository now
+    // succeeds, so the edits land.
+    await tester.ensureVisible(find.text('Try again'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Try again'));
+    await pumpFrames(tester, count: 20);
+
+    expect(find.byType(ProblemView), findsNothing);
+    final SavedCard stored = (await repo.byId(id))!;
+    expect(stored.bytes.sublist(16, 32), <int>[
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+    ]);
+    expect(readProvider(tester, cardEditorProvider(id)).value!.dirty, isFalse);
   });
 
   testWidgetsApp('copies the card as JSON and confirms it', (tester) async {

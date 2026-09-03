@@ -89,7 +89,7 @@ final class CardEditorProvider
   }
 }
 
-String _$cardEditorHash() => r'2a62b62a83379be570ca28ae72f945dfcd28cfc2';
+String _$cardEditorHash() => r'68fa83f73c34c0b3f788a65af4a2a2ae8615f6f8';
 
 /// The detail screen's state, one notifier per card id, so a failure on one
 /// card does not grey out another (the `SlotEditor` shape).

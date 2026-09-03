@@ -79,6 +79,7 @@ class CardDetailPage extends ConsumerWidget {
         state: value,
         loading: value.busy,
         onDelete: () => _confirmDelete(context, editor),
+        onRetrySave: () => unawaited(editor.save()),
       ),
       AsyncError<CardEditState?>(:final Object error) => ProblemView(
         error: error,
@@ -162,6 +163,7 @@ class _Detail extends StatelessWidget {
     required this.state,
     required this.loading,
     required this.onDelete,
+    required this.onRetrySave,
   });
 
   final String id;
@@ -172,6 +174,12 @@ class _Detail extends StatelessWidget {
   /// controls disable.
   final bool loading;
   final VoidCallback onDelete;
+
+  /// [ProblemView]'s action when [CardEditState.error] is set (Phase 6
+  /// ruling 29 item 1): re-invokes `CardEditor.save`, not `discard` — the
+  /// edits are still on screen and "Try again" means try the same write
+  /// again, not throw the edits away.
+  final VoidCallback onRetrySave;
 
   Future<void> _export(BuildContext context, SavedCard card) async {
     final AppLocalizations l10n = AppLocalizations.of(context);
@@ -185,7 +193,10 @@ class _Detail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
-    final List<String> problems = validateSavedCard(state.card);
+    // Ruling 29 item 2: the working copy, not the stored row — an edit that
+    // has not been saved yet must show its own problems, not the last
+    // saved dump's.
+    final List<String> problems = validateSavedCard(state.workingCard);
     final String? folder = state.card.folder;
     final int? colorValue = state.card.color;
     return Column(
@@ -206,12 +217,8 @@ class _Detail extends StatelessWidget {
                 ),
               ),
               if (folder != null) SpectraListTile(title: folder),
-              // The SDK's own 'Type' field is the enum name ("mifare1k");
-              // tagTypeLabel above already gives the product name, so this
-              // one is dropped rather than shown twice under two labels.
               for (final DumpField field in describeSavedCard(state.card))
-                if (field.label != 'Type')
-                  SpectraListTile(title: field.label, subtitle: field.value),
+                SpectraListTile(title: field.label, subtitle: field.value),
               SpectraListTile(title: l10n.cardsDetailBytes(state.bytes.length)),
               if (problems.isNotEmpty)
                 Padding(
@@ -236,6 +243,14 @@ class _Detail extends StatelessWidget {
           ),
         ),
         const SizedBox(height: SpectraSpacing.lg),
+        if (state.error != null) ...<Widget>[
+          ProblemView(
+            error: state.error!,
+            variant: SpectraButtonVariant.secondary,
+            onAction: onRetrySave,
+          ),
+          const SizedBox(height: SpectraSpacing.lg),
+        ],
         CardHexEditor(id: id, state: state),
         const SizedBox(height: SpectraSpacing.lg),
         // Spec 7.3's export: the clipboard, not a file dialog — see
