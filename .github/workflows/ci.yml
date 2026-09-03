@@ -23,7 +23,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
+      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsqlite3-dev
       - run: flutter pub get
       - run: dart format --set-exit-if-changed packages app tool test
       - run: dart analyze --fatal-infos packages app tool test

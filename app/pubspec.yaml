@@ -35,6 +35,16 @@ dependencies:
   chameleon: ^0.1.0
   chameleon_flutter: ^0.1.0
   spectra_ui: ^0.1.0
+  flutter_riverpod: ^3.4.2
+  riverpod_annotation: ^4.0.6
+  go_router: ^18.0.1
+  drift: ^2.34.4
+  drift_flutter: ^0.3.1
+  wakelock_plus: ^1.8.0
+  material_ui: ^1.1.1
+  intl: ^0.20.3
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:
@@ -46,6 +56,13 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  riverpod_generator: ^4.0.8
+  build_runner: ^2.16.1
+  freezed: ^4.0.1
+  json_serializable: ^6.14.1
+  drift_dev: ^2.34.6
+  integration_test:
+    sdk: flutter
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -53,6 +70,7 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   uses-material-design: true
+  generate: true
 
   # To add assets to your application, add an assets section, like this:
   # assets:

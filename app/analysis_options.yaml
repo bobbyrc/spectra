@@ -6,4 +6,8 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    - lib/**/*.g.dart
+    - lib/**/*.freezed.dart
+    - lib/l10n/app_localizations*.dart
+    - test/generated_migrations/**
 include: ../analysis_options.yaml

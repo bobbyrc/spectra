@@ -1,0 +1,5 @@
+{
+  "@@locale": "en",
+  "appTitle": "Spectra",
+  "@appTitle": {"description": "The application name, shown as the window title."}
+}
