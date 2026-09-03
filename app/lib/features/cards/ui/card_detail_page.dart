@@ -13,10 +13,12 @@ import '../../../core/routing/routes.dart';
 import '../../../core/routing/sub_page_scaffold.dart';
 import '../../../data/data.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../slots/slots.dart' show showSlotPicker;
 import '../state/card_codec.dart';
 import '../state/card_editor_controller.dart';
 import '../state/card_import.dart';
 import 'card_hex_editor.dart';
+import 'load_to_slot_sheet.dart';
 import 'save_card_sheet.dart';
 
 /// The sector trailers of a MIFARE Classic, so the keys and access bits are
@@ -81,6 +83,7 @@ class CardDetailPage extends ConsumerWidget {
         loading: value.busy,
         onDelete: () => _confirmDelete(context, editor),
         onEditDetails: () => _editDetails(context, ref, editor),
+        onLoadToSlot: () => _loadToSlot(context, value),
         // The retry runs the operation that failed, not always `save`
         // (R-2): retrying a failed discard by saving would write the very
         // bytes the user was throwing away.
@@ -166,6 +169,32 @@ class CardDetailPage extends ConsumerWidget {
     await editor.refreshDetails();
   }
 
+  /// Spec 7.7 step 5: which slot, then load it.
+  ///
+  /// `showSlotPicker` is the Slots feature's published API
+  /// (`features/slots/slots.dart`); it resolves to a **wire index** 0..7, or
+  /// null when the sheet was dismissed, and it changes nothing on the device
+  /// — choosing a slot is a choice, the write is this screen's. No
+  /// `isSelectable` filter is passed: the load resets the slot to the card's
+  /// own type first, so every slot is a legal target.
+  Future<void> _loadToSlot(BuildContext context, CardEditState state) async {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final int? slotIndex = await showSlotPicker(context);
+    if (slotIndex == null || !context.mounted) return;
+    final bool? loaded = await showLoadToSlotSheet(
+      context,
+      slotIndex: slotIndex,
+      type: state.tagType,
+      bytes: state.bytes,
+      name: state.card.name,
+    );
+    if (loaded != true || !context.mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.cardsLoadedToSlot(slotIndex + 1))),
+    );
+  }
+
   Future<void> _confirmDelete(BuildContext context, CardEditor editor) async {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final GoRouter router = GoRouter.of(context);
@@ -202,6 +231,7 @@ class _Detail extends StatelessWidget {
     required this.loading,
     required this.onDelete,
     required this.onEditDetails,
+    required this.onLoadToSlot,
     required this.onRetry,
   });
 
@@ -216,6 +246,9 @@ class _Detail extends StatelessWidget {
 
   /// Opens the name/folder/colour sheet (R34).
   final VoidCallback onEditDetails;
+
+  /// Spec 7.7 step 5: opens the slot picker, then [showLoadToSlotSheet].
+  final VoidCallback onLoadToSlot;
 
   /// [ProblemView]'s action when [CardEditState.error] is set (Phase 6
   /// ruling 29 item 1, R-2): re-runs [CardEditState.failedOp] — the edits
@@ -318,6 +351,12 @@ class _Detail extends StatelessWidget {
           label: l10n.cardsDetailEdit,
           variant: SpectraButtonVariant.secondary,
           onPressed: loading ? null : onEditDetails,
+        ),
+        const SizedBox(height: SpectraSpacing.md),
+        SpectraButton(
+          label: l10n.cardsLoadToSlot,
+          variant: SpectraButtonVariant.secondary,
+          onPressed: loading ? null : onLoadToSlot,
         ),
         const SizedBox(height: SpectraSpacing.md),
         SpectraButton(

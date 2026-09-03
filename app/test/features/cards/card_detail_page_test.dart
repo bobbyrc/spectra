@@ -18,9 +18,11 @@ import 'package:spectra/features/cards/state/saved_cards_provider.dart';
 // `trailerHighlights` is this file's own unit under test, not part of the
 // feature's published surface, so it comes from the module directly.
 import 'package:spectra/features/cards/ui/card_detail_page.dart';
+import 'package:spectra/features/slots/slots.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../support/app_harness.dart';
+import 'card_fixtures.dart';
 
 Uint8List classic1kBytes() {
   final Uint8List blocks = Uint8List(64 * 16);
@@ -976,6 +978,73 @@ void main() {
       savedCardsRepositoryProvider,
     );
     expect((await repo.byId(id))!.bytes[16], 0);
+  });
+
+  testWidgetsApp('loads a saved card into a slot from the detail page', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+    await connectToEmulator(tester);
+    keepAlive(tester, cardLibraryProvider);
+    keepAlive(tester, slotViewsProvider);
+    await tester.tap(find.text('Cards').last);
+    await pumpFrames(tester);
+
+    final CardLibrary library = readProvider(
+      tester,
+      cardLibraryProvider.notifier,
+    );
+    // `classic1kFilled` (ruling 8): every trailer carries the default
+    // transport key, so this dump has no unread sector to warn about —
+    // the confirm card, not the unread-sectors warning, is what "Load"
+    // is tapped on below.
+    final Future<String?> saving = library.add(
+      name: 'Office badge',
+      type: TagType.mifare1k,
+      bytes: classic1kFilled(),
+    );
+    await tester.pump(const Duration(milliseconds: 20));
+    await saving;
+    await pumpFrames(tester);
+
+    await tester.tap(find.text('Office badge'));
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Load into a slot'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Load into a slot'));
+    await pumpFrames(tester);
+
+    // The slot picker: slot 4 is the fourth tile.
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(SpectraBottomSheet),
+            matching: find.byType(SpectraSlotTile),
+          )
+          .at(3),
+    );
+    await pumpFrames(tester);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text('Load'),
+      ),
+    );
+    await pumpFrames(tester, count: 30);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text('Close'),
+      ),
+    );
+    await pumpFrames(tester);
+
+    expect(find.text('Loaded into slot 4.'), findsOneWidget);
+    final List<SlotView> views = readProvider(tester, slotViewsProvider);
+    expect(views[3].slot.hfNick, 'Office badge');
+    expect(views[3].slot.hfType, TagType.mifare1k);
   });
 
   test('trailerHighlights covers every MIFARE Classic trailer', () {
