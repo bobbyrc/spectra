@@ -1,6 +1,7 @@
 /// Spectra design system: tokens, theme and core components.
 library;
 
+export 'l10n/spectra_ui_localizations.dart';
 export 'src/tokens/color_scheme.dart';
 export 'src/tokens/colors.dart';
 export 'src/tokens/motion.dart';

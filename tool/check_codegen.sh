@@ -10,13 +10,17 @@ for pkg in packages/chameleon packages/chameleon_flutter packages/chameleon_flut
     echo "codegen: $pkg"
     (cd "$pkg" && $MISE_X dart run build_runner build --delete-conflicting-outputs >/dev/null)
   fi
+  if [ -f "$pkg/l10n.yaml" ]; then
+    echo "l10n: $pkg"
+    (cd "$pkg" && $MISE_X flutter gen-l10n >/dev/null)
+  fi
 done
 # Newly generated files are untracked, so a plain `git diff` misses them.
 # Stage their intent so untracked-but-generated files count as stale too.
-git add --intent-to-add -- '*.g.dart' '*.freezed.dart' '*.drift.dart' 2>/dev/null || true
-if ! git diff --quiet -- '*.g.dart' '*.freezed.dart' '*.drift.dart'; then
+git add --intent-to-add -- '*.g.dart' '*.freezed.dart' '*.drift.dart' '*_localizations*.dart' 2>/dev/null || true
+if ! git diff --quiet -- '*.g.dart' '*.freezed.dart' '*.drift.dart' '*_localizations*.dart'; then
   echo "codegen: committed generated files are stale:" >&2
-  git --no-pager diff --stat -- '*.g.dart' '*.freezed.dart' '*.drift.dart' >&2
+  git --no-pager diff --stat -- '*.g.dart' '*.freezed.dart' '*.drift.dart' '*_localizations*.dart' >&2
   exit 1
 fi
 echo "codegen: ok"

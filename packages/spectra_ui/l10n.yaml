@@ -1,0 +1,6 @@
+arb-dir: lib/l10n
+template-arb-file: spectra_ui_en.arb
+output-dir: lib/l10n
+output-localization-file: spectra_ui_localizations.dart
+output-class: SpectraUiLocalizations
+nullable-getter: false
