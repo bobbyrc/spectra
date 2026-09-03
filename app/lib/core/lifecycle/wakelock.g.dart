@@ -106,4 +106,4 @@ final class WakelockProvider
   }
 }
 
-String _$wakelockHash() => r'7d856c635714d1cd009c12152b242594caa17fb7';
+String _$wakelockHash() => r'7e751aed6b47eea24a27bdc2a16362715cfb5ed5';
