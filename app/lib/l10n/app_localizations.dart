@@ -1096,12 +1096,6 @@ abstract class AppLocalizations {
   /// **'Settings arrive in Phase 9.'**
   String get comingSoonSettings;
 
-  /// Placeholder body of the update screen.
-  ///
-  /// In en, this message translates to:
-  /// **'Firmware update arrives in Phase 8.'**
-  String get comingSoonUpdate;
-
   /// Heading of the Tools tab.
   ///
   /// In en, this message translates to:
@@ -1173,6 +1167,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Bluetooth firmware update is pending hardware validation and is switched off in this build.'**
   String get updateBleNotice;
+
+  /// Heading of the package-picking section.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware package'**
+  String get updatePackageSection;
+
+  /// Label of the field taking a path to a DFU zip.
+  ///
+  /// In en, this message translates to:
+  /// **'Package file'**
+  String get updatePackagePathLabel;
+
+  /// Placeholder in the package path field.
+  ///
+  /// In en, this message translates to:
+  /// **'/path/to/ultra-dfu-app.zip'**
+  String get updatePackagePathHint;
+
+  /// Reads and validates the package at the typed path.
+  ///
+  /// In en, this message translates to:
+  /// **'Load package'**
+  String get updateLoadPackage;
+
+  /// Where release zips come from; v1 has no in-app download.
+  ///
+  /// In en, this message translates to:
+  /// **'Download a release package from {url}, then load it here.'**
+  String updateReleasesHint(String url);
+
+  /// Summary of the loaded package.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} · {images, plural, =1{1 image} other{{images} images}} · {bytes} bytes'**
+  String updatePackageSummary(String name, int images, int bytes);
+
+  /// Package hardware version 0.
+  ///
+  /// In en, this message translates to:
+  /// **'Built for the Chameleon Ultra.'**
+  String get updatePackageForUltra;
+
+  /// Package hardware version 1.
+  ///
+  /// In en, this message translates to:
+  /// **'Built for the Chameleon Lite.'**
+  String get updatePackageForLite;
+
+  /// Package hardware version is neither 0 nor 1.
+  ///
+  /// In en, this message translates to:
+  /// **'This package does not name a known model; the bootloader will decide.'**
+  String get updatePackageForUnknown;
+
+  /// Starts the update.
+  ///
+  /// In en, this message translates to:
+  /// **'Install firmware'**
+  String get updateStart;
+
+  /// Shown when there is nothing to update.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a device, or choose a device in the bootloader on the connect screen.'**
+  String get updateNoTarget;
+
+  /// Names the connected device the update will flash.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating {name}.'**
+  String updateTargetConnected(String name);
+
+  /// DfuPhase.checking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking the package'**
+  String get updateStepChecking;
+
+  /// DfuPhase.enteringBootloader.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebooting into the bootloader'**
+  String get updateStepBootloader;
+
+  /// DfuPhase.findingBootloader.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding the bootloader'**
+  String get updateStepFindingBootloader;
+
+  /// DfuPhase.transferring.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing the firmware'**
+  String get updateStepTransferring;
+
+  /// DfuPhase.findingDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the device'**
+  String get updateStepFindingDevice;
+
+  /// DfuPhase.done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get updateStepDone;
+
+  /// Label of the progress bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating firmware'**
+  String get updateProgressLabel;
+
+  /// Byte counter under the progress bar.
+  ///
+  /// In en, this message translates to:
+  /// **'{sent} of {total} bytes'**
+  String updateProgressDetail(int sent, int total);
+
+  /// The update finished.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware installed.'**
+  String get updateSucceeded;
+
+  /// Shown while a flash is running.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the device connected and powered until this finishes.'**
+  String get updateDoNotDisconnect;
+
+  /// A BLE bootloader was chosen while dfuOverBleEnabled is off.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth updates are switched off in this build. Update over USB.'**
+  String get updateBleDisabled;
 
   /// Heading of the device dashboard.
   ///

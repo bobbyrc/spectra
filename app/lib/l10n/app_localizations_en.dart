@@ -648,9 +648,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get comingSoonSettings => 'Settings arrive in Phase 9.';
 
   @override
-  String get comingSoonUpdate => 'Firmware update arrives in Phase 8.';
-
-  @override
   String get toolsTitle => 'Tools';
 
   @override
@@ -691,6 +688,93 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get updateBleNotice =>
       'Bluetooth firmware update is pending hardware validation and is switched off in this build.';
+
+  @override
+  String get updatePackageSection => 'Firmware package';
+
+  @override
+  String get updatePackagePathLabel => 'Package file';
+
+  @override
+  String get updatePackagePathHint => '/path/to/ultra-dfu-app.zip';
+
+  @override
+  String get updateLoadPackage => 'Load package';
+
+  @override
+  String updateReleasesHint(String url) {
+    return 'Download a release package from $url, then load it here.';
+  }
+
+  @override
+  String updatePackageSummary(String name, int images, int bytes) {
+    String _temp0 = intl.Intl.pluralLogic(
+      images,
+      locale: localeName,
+      other: '$images images',
+      one: '1 image',
+    );
+    return '$name · $_temp0 · $bytes bytes';
+  }
+
+  @override
+  String get updatePackageForUltra => 'Built for the Chameleon Ultra.';
+
+  @override
+  String get updatePackageForLite => 'Built for the Chameleon Lite.';
+
+  @override
+  String get updatePackageForUnknown =>
+      'This package does not name a known model; the bootloader will decide.';
+
+  @override
+  String get updateStart => 'Install firmware';
+
+  @override
+  String get updateNoTarget =>
+      'Connect a device, or choose a device in the bootloader on the connect screen.';
+
+  @override
+  String updateTargetConnected(String name) {
+    return 'Updating $name.';
+  }
+
+  @override
+  String get updateStepChecking => 'Checking the package';
+
+  @override
+  String get updateStepBootloader => 'Rebooting into the bootloader';
+
+  @override
+  String get updateStepFindingBootloader => 'Finding the bootloader';
+
+  @override
+  String get updateStepTransferring => 'Writing the firmware';
+
+  @override
+  String get updateStepFindingDevice => 'Waiting for the device';
+
+  @override
+  String get updateStepDone => 'Done';
+
+  @override
+  String get updateProgressLabel => 'Updating firmware';
+
+  @override
+  String updateProgressDetail(int sent, int total) {
+    return '$sent of $total bytes';
+  }
+
+  @override
+  String get updateSucceeded => 'Firmware installed.';
+
+  @override
+  String get updateDoNotDisconnect =>
+      'Keep the device connected and powered until this finishes.';
+
+  @override
+  String get updateBleDisabled =>
+      'Bluetooth updates are switched off in this build. Update over USB.';
 
   @override
   String get dashboardTitle => 'Device';

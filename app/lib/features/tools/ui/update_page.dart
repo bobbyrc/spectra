@@ -36,7 +36,7 @@ class UpdatePage extends ConsumerWidget {
           if (!flags.dfuOverBleEnabled)
             SpectraCard(child: Text(l10n.updateBleNotice)),
           const SizedBox(height: SpectraSpacing.md),
-          SpectraCard(child: Text(l10n.comingSoonUpdate)),
+          SpectraCard(child: Text(l10n.updateNoTarget)),
         ],
       ),
     );
