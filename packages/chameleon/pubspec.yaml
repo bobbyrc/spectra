@@ -1,0 +1,15 @@
+name: chameleon
+description: Clean-room Dart SDK for the Chameleon Ultra and Chameleon Lite.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  collection: ^1.19.0
+  meta: ^1.16.0
+
+dev_dependencies:
+  test: ^1.25.0
