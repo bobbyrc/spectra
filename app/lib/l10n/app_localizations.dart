@@ -1054,6 +1054,12 @@ abstract class AppLocalizations {
   /// **'Write'**
   String get cardsWriteConfirm;
 
+  /// Notes the fixed T55xx password an EM410x write sets on a previously unprotected blank.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing sets the card\'s password to 20206666; other tools will need it.'**
+  String get cardsWriteT55xxPassword;
+
   /// Progress label while a card is being written.
   ///
   /// In en, this message translates to:
@@ -1101,12 +1107,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Write anyway'**
   String get cardsWriteUnreadSectorsConfirm;
-
-  /// Placeholder body of the Settings tab.
-  ///
-  /// In en, this message translates to:
-  /// **'Settings arrive in Phase 9.'**
-  String get comingSoonSettings;
 
   /// Heading of the Tools tab.
   ///
@@ -1851,6 +1851,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'List copied to the clipboard.'**
   String get dictExported;
+
+  /// Section header above the connected device's settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get settingsDeviceTitle;
+
+  /// Shown in place of device settings with nothing connected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a device to change its settings.'**
+  String get settingsNoDevice;
+
+  /// The LED animation the device plays when it wakes.
+  ///
+  /// In en, this message translates to:
+  /// **'Start-up animation'**
+  String get settingsAnimation;
+
+  /// Animation mode: full.
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get settingsAnimationFull;
+
+  /// Animation mode: minimal.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimal'**
+  String get settingsAnimationMinimal;
+
+  /// Animation mode: none.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get settingsAnimationNone;
+
+  /// Animation mode: symmetric.
+  ///
+  /// In en, this message translates to:
+  /// **'Symmetric'**
+  String get settingsAnimationSymmetric;
+
+  /// Short press of button A.
+  ///
+  /// In en, this message translates to:
+  /// **'Button A'**
+  String get settingsButtonA;
+
+  /// Short press of button B.
+  ///
+  /// In en, this message translates to:
+  /// **'Button B'**
+  String get settingsButtonB;
+
+  /// Long press of button A.
+  ///
+  /// In en, this message translates to:
+  /// **'Button A, held'**
+  String get settingsLongButtonA;
+
+  /// Long press of button B.
+  ///
+  /// In en, this message translates to:
+  /// **'Button B, held'**
+  String get settingsLongButtonB;
+
+  /// Button function: none.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing'**
+  String get settingsButtonNone;
+
+  /// Button function: next slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Next slot'**
+  String get settingsButtonNextSlot;
+
+  /// Button function: previous slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous slot'**
+  String get settingsButtonPrevSlot;
+
+  /// Button function: clone the UID of a card in the field.
+  ///
+  /// In en, this message translates to:
+  /// **'Clone UID'**
+  String get settingsButtonCloneUid;
+
+  /// Button function: show the battery level.
+  ///
+  /// In en, this message translates to:
+  /// **'Show battery'**
+  String get settingsButtonBattery;
+
+  /// Button function: NFC field generator/detector.
+  ///
+  /// In en, this message translates to:
+  /// **'NFC field detector'**
+  String get settingsButtonField;
+
+  /// How long the device waits before sleeping.
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep after'**
+  String get settingsSleep;
+
+  /// A sleep timeout in seconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} seconds'**
+  String settingsSleepSeconds(int seconds);
+
+  /// Shown when a sleep timeout outside the firmware's accepted range was requested.
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep timeout must be between 5 and 60 seconds.'**
+  String get settingsSleepOutOfRange;
+
+  /// Whether the device demands pairing before it talks.
+  ///
+  /// In en, this message translates to:
+  /// **'Require Bluetooth pairing'**
+  String get settingsBlePairing;
+
+  /// Spec 5.1 warning about enabling pairing.
+  ///
+  /// In en, this message translates to:
+  /// **'With pairing on, the device only advertises to hosts it has already bonded with. Forget the paired hosts to make it visible again.'**
+  String get settingsBlePairingWarning;
+
+  /// The six-digit passkey the device displays.
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing passkey'**
+  String get settingsBlePairingKey;
+
+  /// Validation message for the passkey field.
+  ///
+  /// In en, this message translates to:
+  /// **'The passkey is six digits.'**
+  String get settingsBlePairingKeyInvalid;
+
+  /// Clears the device's BLE bonds.
+  ///
+  /// In en, this message translates to:
+  /// **'Forget paired hosts'**
+  String get settingsDeleteBonds;
+
+  /// Confirms the bonds were cleared.
+  ///
+  /// In en, this message translates to:
+  /// **'The device forgot its paired hosts.'**
+  String get settingsBondsDeleted;
+
+  /// Writes the settings to the device's flash.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to device'**
+  String get settingsSave;
+
+  /// Shown while a change is in RAM but not in flash.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsaved. Save these settings to the device so they survive a reboot.'**
+  String get settingsUnsaved;
+
+  /// Confirms SAVE_SETTINGS.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings saved to the device.'**
+  String get settingsSaved;
+
+  /// Runs RESET_SETTINGS on the device.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore device defaults'**
+  String get settingsResetDevice;
+
+  /// Title of the reset confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore the device\'s defaults?'**
+  String get settingsResetTitle;
+
+  /// No description provided for @settingsResetBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Animation, buttons, sleep and pairing all go back to the firmware defaults. Slots and cards are untouched.'**
+  String get settingsResetBody;
 }
 
 class _AppLocalizationsDelegate

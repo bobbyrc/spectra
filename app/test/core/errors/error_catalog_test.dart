@@ -145,6 +145,14 @@ void main() {
     expect(p.detail, contains('the emulated blocks'));
   });
 
+  test('a sleep timeout outside the firmware range gets its own words', () {
+    final l10n = AppLocalizationsEn();
+    final p = catalog.describe(const SleepTimeoutOutOfRange(3));
+    expect(p.message, l10n.settingsSleepOutOfRange);
+    expect(p.recovery, ErrorRecovery.none);
+    expect(p.detail, contains('SleepTimeoutOutOfRange'));
+  });
+
   test('a wrong-length dump gets its own words naming both lengths', () {
     final l10n = AppLocalizationsEn();
     const error = CardDumpLengthMismatch(

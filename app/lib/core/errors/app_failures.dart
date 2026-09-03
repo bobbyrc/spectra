@@ -64,7 +64,6 @@ final class UpdateBleDisabled implements Exception {
 /// validates first with `isValidSleepTimeout`
 /// (`features/settings/state/settings_labels.dart`) and raises this typed
 /// failure instead, so the catalog has an arm for it.
-// TODO(phase-9 Task 11): dedicated copy instead of reusing errorParameter.
 final class SleepTimeoutOutOfRange implements Exception {
   const SleepTimeoutOutOfRange(this.seconds);
 

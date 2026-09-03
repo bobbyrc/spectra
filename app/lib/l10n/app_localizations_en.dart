@@ -614,6 +614,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsWriteConfirm => 'Write';
 
   @override
+  String get cardsWriteT55xxPassword =>
+      'Writing sets the card\'s password to 20206666; other tools will need it.';
+
+  @override
   String get cardsWriteProgress => 'Writing to the card…';
 
   @override
@@ -651,9 +655,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cardsWriteUnreadSectorsConfirm => 'Write anyway';
-
-  @override
-  String get comingSoonSettings => 'Settings arrive in Phase 9.';
 
   @override
   String get toolsTitle => 'Tools';
@@ -1078,4 +1079,106 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dictExported => 'List copied to the clipboard.';
+
+  @override
+  String get settingsDeviceTitle => 'Device';
+
+  @override
+  String get settingsNoDevice => 'Connect a device to change its settings.';
+
+  @override
+  String get settingsAnimation => 'Start-up animation';
+
+  @override
+  String get settingsAnimationFull => 'Full';
+
+  @override
+  String get settingsAnimationMinimal => 'Minimal';
+
+  @override
+  String get settingsAnimationNone => 'None';
+
+  @override
+  String get settingsAnimationSymmetric => 'Symmetric';
+
+  @override
+  String get settingsButtonA => 'Button A';
+
+  @override
+  String get settingsButtonB => 'Button B';
+
+  @override
+  String get settingsLongButtonA => 'Button A, held';
+
+  @override
+  String get settingsLongButtonB => 'Button B, held';
+
+  @override
+  String get settingsButtonNone => 'Nothing';
+
+  @override
+  String get settingsButtonNextSlot => 'Next slot';
+
+  @override
+  String get settingsButtonPrevSlot => 'Previous slot';
+
+  @override
+  String get settingsButtonCloneUid => 'Clone UID';
+
+  @override
+  String get settingsButtonBattery => 'Show battery';
+
+  @override
+  String get settingsButtonField => 'NFC field detector';
+
+  @override
+  String get settingsSleep => 'Sleep after';
+
+  @override
+  String settingsSleepSeconds(int seconds) {
+    return '$seconds seconds';
+  }
+
+  @override
+  String get settingsSleepOutOfRange =>
+      'Sleep timeout must be between 5 and 60 seconds.';
+
+  @override
+  String get settingsBlePairing => 'Require Bluetooth pairing';
+
+  @override
+  String get settingsBlePairingWarning =>
+      'With pairing on, the device only advertises to hosts it has already bonded with. Forget the paired hosts to make it visible again.';
+
+  @override
+  String get settingsBlePairingKey => 'Pairing passkey';
+
+  @override
+  String get settingsBlePairingKeyInvalid => 'The passkey is six digits.';
+
+  @override
+  String get settingsDeleteBonds => 'Forget paired hosts';
+
+  @override
+  String get settingsBondsDeleted => 'The device forgot its paired hosts.';
+
+  @override
+  String get settingsSave => 'Save to device';
+
+  @override
+  String get settingsUnsaved =>
+      'Unsaved. Save these settings to the device so they survive a reboot.';
+
+  @override
+  String get settingsSaved => 'Settings saved to the device.';
+
+  @override
+  String get settingsResetDevice => 'Restore device defaults';
+
+  @override
+  String get settingsResetTitle => 'Restore the device\'s defaults?';
+
+  @override
+  String get settingsResetBody =>
+      'Animation, buttons, sleep and pairing all go back to the firmware defaults. Slots and cards are untouched.';
 }
