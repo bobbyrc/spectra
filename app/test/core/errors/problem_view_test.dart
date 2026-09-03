@@ -30,6 +30,8 @@ void main() {
     Object error, {
     SpectraButtonVariant? variant,
     String? instructions,
+    VoidCallback? onAction,
+    VoidCallback? onUpdate,
   }) async {
     await tester.pumpWidget(
       _localizedApp(
@@ -37,7 +39,8 @@ void main() {
           error: error,
           instructions: instructions,
           variant: variant,
-          onAction: () {},
+          onAction: onAction ?? () {},
+          onUpdate: onUpdate,
         ),
       ),
     );
@@ -49,6 +52,27 @@ void main() {
   ) async {
     await pumpProblem(tester, const NotImplemented());
     expect(find.text('Update firmware'), findsOneWidget);
+  });
+
+  testWidgetsApp('the update recovery runs onUpdate, never onAction', (
+    tester,
+  ) async {
+    int actions = 0;
+    int updates = 0;
+    await pumpProblem(
+      tester,
+      const InvalidCommand(),
+      onAction: () => actions++,
+      onUpdate: () => updates++,
+    );
+
+    await tester.tap(find.text('Update firmware'));
+    await tester.pump();
+
+    // The button said "Update firmware" and did a reset before this — a
+    // dead end on the one recovery that names where to go (review I2).
+    expect(updates, 1);
+    expect(actions, 0);
   });
 
   testWidgetsApp('a permission failure sends the user to settings', (

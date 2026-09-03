@@ -1,7 +1,9 @@
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../routing/routes.dart';
 import 'error_catalog.dart';
 import 'error_presentation.dart';
 
@@ -24,6 +26,15 @@ import 'error_presentation.dart';
 /// when it has any) so a catalog value that fills that field is not
 /// silently dropped because the caller passed nothing.
 ///
+/// `ErrorRecovery.update` is the one recovery that names a destination, so
+/// it does not go through [onAction]: the button opens the update screen,
+/// either by calling [onUpdate] (what a bottom sheet passes, so it can close
+/// itself on the way) or, when that is null, by routing there directly. It
+/// used to share [onAction] with the rest, which on both card sheets meant
+/// a button reading "Update firmware" that reset the sheet and went nowhere
+/// — reachable, since a Chameleon Lite answers `MF1_WRITE_ONE_BLOCK` with
+/// `InvalidCommand` (review I2).
+///
 /// [variant] is the button's weight: the connect screen's retry is the
 /// primary action on an otherwise idle screen, while a failed slot change
 /// is a dismissal sitting above the controls that are still on offer, so it
@@ -32,6 +43,7 @@ class ProblemView extends StatelessWidget {
   const ProblemView({
     required this.error,
     required this.onAction,
+    this.onUpdate,
     this.instructions,
     this.variant,
     super.key,
@@ -42,6 +54,12 @@ class ProblemView extends StatelessWidget {
   /// Runs the recovery the button offers — retry, dismiss, whatever the
   /// screen means by "that failed, move on".
   final VoidCallback onAction;
+
+  /// Opens the update screen for `ErrorRecovery.update`. Null routes there
+  /// directly, which is right for a full-page problem card; a sheet passes
+  /// one that pops itself first, since `go` under a modal route would leave
+  /// the sheet sitting on top of the screen it just opened.
+  final VoidCallback? onUpdate;
 
   final String? instructions;
 
@@ -79,7 +97,10 @@ class ProblemView extends StatelessWidget {
                 ErrorRecovery.none => l10n.commonRetry,
               },
               variant: variant ?? SpectraButtonVariant.primary,
-              onPressed: onAction,
+              onPressed: p.recovery == ErrorRecovery.update
+                  ? (onUpdate ??
+                        () => GoRouter.of(context).go(AppRoutes.update))
+                  : onAction,
             ),
           ],
         ],

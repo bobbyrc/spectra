@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
@@ -10,6 +11,7 @@ import '../../../core/errors/app_failures.dart';
 import '../../../core/errors/error_catalog.dart';
 import '../../../core/errors/problem_view.dart';
 import '../../../core/format/tag_labels.dart';
+import '../../../core/routing/routes.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../slots/slots.dart' show SlotView, slotViewsProvider;
 import '../state/load_to_slot_controller.dart';
@@ -131,6 +133,13 @@ class _LoadToSlotBodyState extends ConsumerState<_LoadToSlotBody> {
       return ProblemView(
         error: error,
         onAction: loader.reset,
+        // The sheet is a modal route over the shell, so it closes itself
+        // before routing: `go` alone would open the update screen behind a
+        // sheet still sitting on top of it (review I2).
+        onUpdate: () {
+          Navigator.of(context).pop();
+          GoRouter.of(context).go(AppRoutes.update);
+        },
         variant: SpectraButtonVariant.secondary,
       );
     }

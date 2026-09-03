@@ -10,6 +10,7 @@ import 'package:spectra/core/errors/app_failures.dart';
 import 'package:spectra/core/errors/problem_view.dart';
 import 'package:spectra/features/cards/state/write_card_controller.dart';
 import 'package:spectra/features/cards/ui/write_card_sheet.dart';
+import 'package:spectra/features/tools/ui/update_page.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../support/app_harness.dart';
@@ -97,6 +98,9 @@ Future<(CardWriter, FakeLfCard)> openWriterWithLfCard(
   await pumpFrames(tester);
   return (readProvider(tester, cardWriterProvider.notifier), card);
 }
+
+Finder _inSheet(Finder matching) =>
+    find.descendant(of: find.byType(SpectraBottomSheet), matching: matching);
 
 void main() {
   testWidgetsApp('writes a MIFARE Classic dump onto the card in the field', (
@@ -485,6 +489,25 @@ void main() {
     );
   });
 
+  testWidgetsApp('a write with no active session is a typed error', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    // No `connectToEmulator`: nothing is registered in the session
+    // registry, which is the state the sheet can still be reached in
+    // through a route the redirect has not caught up with yet.
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+    await tester.pump();
+    keepAlive(tester, cardWriterProvider);
+    final CardWriter writer = readProvider(tester, cardWriterProvider.notifier);
+
+    await writer.write(type: TagType.mifare1k, bytes: classic1kFilled());
+
+    final CardWriteState state = readProvider(tester, cardWriterProvider);
+    expect(state.error, isA<SessionNotReady>());
+    expect(state.busy, isFalse);
+  });
+
   testWidgetsApp('reset clears a failure', (tester) async {
     final CardWriter writer = await openWriter(tester);
     writer.debugFail(const LfTagNotFound());
@@ -845,6 +868,35 @@ void main() {
       await pumpFrames(tester);
       await pending;
     });
+
+    testWidgetsApp(
+      'a firmware-level failure opens the update screen, not a reset',
+      (tester) async {
+        final CardWriter writer = await openSlowWriter(tester);
+        final BuildContext context = tester.element(
+          find.byType(SpectraAppShell),
+        );
+
+        final Future<bool?> pending = showWriteToCardSheet(
+          context,
+          type: TagType.mifare1k,
+          bytes: classic1kFilled(),
+          name: 'Office badge',
+        );
+        await pumpFrames(tester);
+        // What a Chameleon Lite answers MF1_WRITE_ONE_BLOCK with; its
+        // recovery is `ErrorRecovery.update`.
+        writer.debugFail(const InvalidCommand());
+        await pumpFrames(tester);
+
+        await tester.tap(_inSheet(find.text('Update firmware')));
+        await pumpFrames(tester);
+
+        expect(find.byType(SpectraBottomSheet), findsNothing);
+        expect(find.byType(UpdatePage), findsOneWidget);
+        expect(await pending, isNull);
+      },
+    );
 
     testWidgetsApp(
       'cannot be dismissed through the sheet while a write is in flight '

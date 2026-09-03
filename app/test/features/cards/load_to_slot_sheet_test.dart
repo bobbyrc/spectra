@@ -8,6 +8,7 @@ import 'package:spectra/core/errors/problem_view.dart';
 import 'package:spectra/features/cards/state/load_to_slot_controller.dart';
 import 'package:spectra/features/cards/ui/load_to_slot_sheet.dart';
 import 'package:spectra/features/slots/slots.dart';
+import 'package:spectra/features/tools/ui/update_page.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../support/app_harness.dart';
@@ -278,6 +279,34 @@ void main() {
     await pumpFrames(tester);
     expect(await second, isNull);
   });
+
+  testWidgetsApp(
+    'a firmware-level failure opens the update screen, not a reset',
+    (tester) async {
+      final SlotLoader loader = await openLoader(tester);
+      final BuildContext context = tester.element(find.byType(SpectraAppShell));
+
+      final Future<bool?> pending = showLoadToSlotSheet(
+        context,
+        slotIndex: 0,
+        type: TagType.mifare1k,
+        bytes: classic1kFilled(),
+        name: 'Office badge',
+      );
+      await pumpFrames(tester);
+      // A device that does not carry the command at all; its recovery is
+      // `ErrorRecovery.update`, which must go somewhere (review I2).
+      loader.debugFail(const NotImplemented());
+      await pumpFrames(tester);
+
+      await tester.tap(_inSheet(find.text('Update firmware')));
+      await pumpFrames(tester);
+
+      expect(find.byType(SpectraBottomSheet), findsNothing);
+      expect(find.byType(UpdatePage), findsOneWidget);
+      expect(await pending, isNull);
+    },
+  );
 
   testWidgetsApp(
     'cannot be dismissed through the sheet while a load is in flight '
