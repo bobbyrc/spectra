@@ -17,7 +17,8 @@ final class SlotsFacade {
   int? get active => _s.activeSlot.value;
 
   /// Re-reads every slot from the device (types, enabled flags, nicknames).
-  Future<List<Slot>> refresh() => _s.refreshSlots();
+  /// Several commands, so it runs as one busy operation.
+  Future<List<Slot>> refresh() => _s.busy(_s.refreshSlots);
 
   Future<void> setActive(int index) async {
     await _s.send(SetActiveSlot(index));

@@ -17,7 +17,7 @@ final class SettingsFacade {
 
   Future<DeviceSettings> refresh() async {
     final v = await _s.send(const GetDeviceSettings());
-    _s.settingsState.set(v);
+    _s.settingsState.setIfChanged(v);
     return v;
   }
 
@@ -77,6 +77,6 @@ final class SettingsFacade {
 
   void _update(DeviceSettings Function(DeviceSettings) f) {
     final c = current;
-    if (c != null) _s.settingsState.set(f(c));
+    if (c != null) _s.settingsState.setIfChanged(f(c));
   }
 }

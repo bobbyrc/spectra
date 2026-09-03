@@ -28,11 +28,16 @@ final class DeviceFacade {
     return m;
   }
 
-  /// Switches the device between emulator and reader mode.
+  /// Switches the device between emulator and reader mode. This is the manual
+  /// switch behind the mode toggle in the UI.
   ///
-  /// Reader work should take a lease with [DeviceSession.withReaderMode]
-  /// instead: this is the manual switch behind the mode toggle in the UI.
+  /// Refused while a reader lease is held: the lease owns the mode and would
+  /// restore the wrong one on release. Reader work takes a lease with
+  /// [DeviceSession.withReaderMode] instead.
   Future<void> setMode(DeviceMode m) async {
+    if (_s.readerLeaseCount > 0) {
+      throw StateError('mode is held by a reader lease; use withReaderMode');
+    }
     await _s.send(ChangeDeviceMode(m));
     _s.mode.setIfChanged(m);
   }
@@ -40,7 +45,9 @@ final class DeviceFacade {
   Future<DeviceIdentity> readIdentity() async {
     final id = DeviceIdentity(await _s.send(const GetDeviceChipId()));
     final current = info;
-    if (current != null) _s.deviceInfo.set(current.copyWith(identity: id));
+    if (current != null) {
+      _s.deviceInfo.setIfChanged(current.copyWith(identity: id));
+    }
     return id;
   }
 }

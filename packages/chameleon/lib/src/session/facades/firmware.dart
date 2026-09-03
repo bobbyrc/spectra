@@ -23,7 +23,19 @@ final class FirmwareFacade {
     if (state is! SessionReady && state is! SessionLimited) {
       throw StateError('cannot enter bootloader from ${state.runtimeType}');
     }
-    _s.connectionState.set(const SessionUpdating());
-    await _s.send(const EnterBootloader(), allowLimited: true);
+    const updating = SessionUpdating();
+    _s.connectionState.set(updating);
+    try {
+      await _s.send(const EnterBootloader(), allowLimited: true);
+    } on Object {
+      // The command never left, so the device is not rebooting: a session
+      // left in [SessionUpdating] over a live link would refuse everything
+      // and wait for a close that is never coming. Restore what it was,
+      // unless the link died meanwhile and something else already moved it.
+      if (identical(_s.connectionState.value, updating)) {
+        _s.connectionState.set(state);
+      }
+      rethrow;
+    }
   }
 }

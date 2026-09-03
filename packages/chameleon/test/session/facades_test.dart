@@ -1,11 +1,42 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:chameleon/src/fake/fake_device.dart';
 import 'package:chameleon/src/model/enums.dart';
 import 'package:chameleon/src/model/models.dart';
+import 'package:chameleon/src/protocol/errors.dart';
 import 'package:chameleon/src/session/connection_state.dart';
 import 'package:chameleon/src/session/device_session.dart';
+import 'package:chameleon/src/transport/transport.dart';
 import 'package:test/test.dart';
+
+/// A [FakeDevice] whose writes can be made to fail while the link stays up,
+/// which no fake transport option produces on its own.
+final class FailingWriteDevice implements Transport {
+  FailingWriteDevice(this.inner);
+
+  final FakeDevice inner;
+  bool failWrites = false;
+
+  @override
+  Future<void> write(Uint8List bytes) async {
+    if (failWrites) throw const Disconnected('write refused');
+    return inner.write(bytes);
+  }
+
+  @override
+  TransportKind get kind => inner.kind;
+  @override
+  Future<void> open() => inner.open();
+  @override
+  Future<void> close() => inner.close();
+  @override
+  Stream<Uint8List> get incoming => inner.incoming;
+  @override
+  Stream<TransportState> get state => inner.state;
+  @override
+  TransportState get currentState => inner.currentState;
+}
 
 Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
 
@@ -61,6 +92,27 @@ void main() {
       expect(fresh[2].hfType, TagType.undefined);
     },
   );
+
+  test('setMode is refused while a reader lease holds the mode', () async {
+    final lease = await s.acquireReaderMode();
+    await expectLater(s.device.setMode(DeviceMode.emulator), throwsStateError);
+    expect(device.firmware.mode, DeviceMode.reader);
+    await lease.release();
+    await s.device.setMode(DeviceMode.reader);
+    expect(s.mode.value, DeviceMode.reader);
+  });
+
+  test('re-reading unchanged settings wakes no listener', () async {
+    final seen = <DeviceSettings?>[];
+    s.settingsState.changes.listen(seen.add);
+    await s.settings.refresh();
+    await s.settings.refresh();
+    await settle();
+    expect(seen, isEmpty);
+    await s.settings.setAnimation(AnimationMode.none);
+    await settle();
+    expect(seen, hasLength(1));
+  });
 
   test('an undefined tag type clears both senses in the cache', () async {
     await s.slots.setTagType(0, TagType.undefined);
@@ -175,6 +227,26 @@ void main() {
     await settle();
     expect(device.firmware.bootloaderRequested, isTrue);
     expect(s.connectionState.value, isA<SessionUpdating>());
+  });
+
+  test('a failed bootloader command leaves the session ready', () async {
+    // The write fails with the link still up: nothing is rebooting, so a
+    // session stranded in updating would refuse every later command.
+    final flaky = FailingWriteDevice(FakeDevice());
+    final other = DeviceSession(
+      flaky,
+      idlePollInterval: const Duration(days: 1),
+      batteryDelay: Duration.zero,
+    );
+    await other.open();
+    await settle();
+    flaky.failWrites = true;
+    await expectLater(
+      other.firmware.enterBootloader(),
+      throwsA(isA<ChameleonException>()),
+    );
+    expect(other.connectionState.value, isA<SessionReady>());
+    await other.close();
   });
 
   test('entering the bootloader is refused when not connected', () async {

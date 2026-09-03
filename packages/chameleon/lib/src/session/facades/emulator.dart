@@ -9,6 +9,9 @@ import '../device_session.dart';
 
 /// One LF family's emulator id commands: the set command's id (which is also
 /// the key into [emuLfIdLengths]), how to build it, and the matching read.
+///
+/// A [setId] that drifts from the command [build] makes cannot go unnoticed:
+/// the command's own constructor checks the id length against the same table.
 typedef _LfIdCommands = ({
   int setId,
   VoidCommand Function(Uint8List) build,
@@ -116,6 +119,8 @@ final class EmulatorFacade {
     return _s.send(const Mf1GetDetectionLog(0));
   });
 
+  // Not chunked: the largest emulated tag (NTAG216, 231 pages) is 924 bytes,
+  // well inside one frame.
   Future<Uint8List> readNtagPages(int start, int count) =>
       _s.send(Mf0NtagReadEmuPageData(start, count));
 
