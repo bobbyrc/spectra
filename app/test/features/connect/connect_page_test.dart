@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' show Tristate;
 
 import 'package:chameleon/chameleon.dart';
+import 'package:chameleon_flutter/chameleon_flutter.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -70,6 +71,34 @@ final class _GatedTransport implements Transport {
   @override
   Stream<TransportState> get state => _inner.state;
 
+  @override
+  TransportState get currentState => _inner.currentState;
+}
+
+/// A [Transport] that is also a [GuidedTransport], like the real
+/// `SerialTransport`/`BleTransport`: it fails to open and explains why.
+final class _GuidedFailingTransport implements Transport, GuidedTransport {
+  _GuidedFailingTransport(this._inner, this.guidance);
+
+  final FakeDevice _inner;
+
+  @override
+  final TransportGuidance? guidance;
+
+  @override
+  Future<void> open() => _inner.open();
+  @override
+  Future<void> close() => _inner.close();
+  @override
+  TransportKind get kind => _inner.kind;
+  @override
+  Stream<Uint8List> get incoming => _inner.incoming;
+  @override
+  Future<void> write(Uint8List bytes) => _inner.write(bytes);
+  @override
+  int get maxWriteLength => _inner.maxWriteLength;
+  @override
+  Stream<TransportState> get state => _inner.state;
   @override
   TransportState get currentState => _inner.currentState;
 }
@@ -217,6 +246,28 @@ void main() {
       }
       expect(find.byType(SpectraAppShell), findsOneWidget);
       expect(opens, 1);
+    },
+  );
+
+  testWidgetsApp(
+    "a failed connect shows the transport's own platform instructions",
+    (tester) async {
+      await pumpTestApp(
+        tester,
+        transport: (_) => _GuidedFailingTransport(
+          FakeDevice(openError: const PermissionDenied()),
+          TransportGuidance.linuxSerialGroup,
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Emulated Chameleon Ultra'));
+      await awaitConnectAttempt(tester);
+
+      expect(
+        find.textContaining('Add your user to the dialout group'),
+        findsOneWidget,
+      );
     },
   );
 

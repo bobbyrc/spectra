@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:chameleon/chameleon.dart';
+import 'package:chameleon_flutter/chameleon_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/core/session/active_device.dart';
@@ -42,6 +45,36 @@ ProviderContainer harnessWithFactory(
   );
   addTearDown(container.dispose);
   return container;
+}
+
+/// A [Transport] that is also a [GuidedTransport]: every call goes to the
+/// wrapped [FakeDevice], and [guidance] is whatever the test asked for. The
+/// real `BleTransport`/`SerialTransport` pair are the production shape this
+/// stands in for.
+final class GuidedFake implements Transport, GuidedTransport {
+  GuidedFake(this._inner, this.guidance);
+
+  final FakeDevice _inner;
+
+  @override
+  final TransportGuidance? guidance;
+
+  @override
+  Future<void> open() => _inner.open();
+  @override
+  Future<void> close() => _inner.close();
+  @override
+  TransportKind get kind => _inner.kind;
+  @override
+  Stream<Uint8List> get incoming => _inner.incoming;
+  @override
+  Future<void> write(Uint8List bytes) => _inner.write(bytes);
+  @override
+  int get maxWriteLength => _inner.maxWriteLength;
+  @override
+  Stream<TransportState> get state => _inner.state;
+  @override
+  TransportState get currentState => _inner.currentState;
 }
 
 void main() {
@@ -276,21 +309,69 @@ void main() {
     expect(h.container.read(sessionsProvider).sessions, isEmpty);
   });
 
-  test('consumeLastDisconnected clears the preselected device', () async {
-    final device = FakeDevice();
-    final h = harness({emulated.transportId: device});
-    final notifier = h.container.read(sessionsProvider.notifier);
+  test('a successful connect clears the preselected device', () async {
+    final first = FakeDevice();
+    final second = FakeDevice();
+    var calls = 0;
+    final container = harnessWithFactory((_) {
+      calls++;
+      return calls == 1 ? first : second;
+    });
+    final notifier = container.read(sessionsProvider.notifier);
     await notifier.connect(emulated);
 
-    await device.simulateLinkLoss();
+    await first.simulateLinkLoss();
     await Future<void>.delayed(Duration.zero);
-    expect(h.container.read(sessionsProvider).lastDisconnected, emulated);
+    expect(container.read(sessionsProvider).lastDisconnected, emulated);
 
-    final consumed = notifier.consumeLastDisconnected();
+    await notifier.connect(emulated);
 
-    expect(consumed, emulated);
-    expect(h.container.read(sessionsProvider).lastDisconnected, isNull);
-    expect(notifier.consumeLastDisconnected(), isNull);
+    expect(container.read(sessionsProvider).lastDisconnected, isNull);
+    await notifier.disconnectAll();
+  });
+
+  test('a failed connect keeps the transport\'s guidance for the UI', () async {
+    final container = harnessWithFactory(
+      (_) => GuidedFake(
+        FakeDevice(openError: const PermissionDenied()),
+        TransportGuidance.linuxSerialGroup,
+      ),
+    );
+    final notifier = container.read(sessionsProvider.notifier);
+
+    await expectLater(
+      notifier.connect(emulated),
+      throwsA(isA<PermissionDenied>()),
+    );
+
+    expect(
+      container.read(sessionsProvider).lastFailureGuidance,
+      TransportGuidance.linuxSerialGroup,
+    );
+  });
+
+  test('a later successful connect clears the guidance', () async {
+    var calls = 0;
+    final container = harnessWithFactory((_) {
+      calls++;
+      return calls == 1
+          ? GuidedFake(
+              FakeDevice(openError: const PermissionDenied()),
+              TransportGuidance.linuxSerialGroup,
+            )
+          : FakeDevice();
+    });
+    final notifier = container.read(sessionsProvider.notifier);
+    await expectLater(
+      notifier.connect(emulated),
+      throwsA(isA<PermissionDenied>()),
+    );
+    expect(container.read(sessionsProvider).lastFailureGuidance, isNotNull);
+
+    await notifier.connect(emulated);
+
+    expect(container.read(sessionsProvider).lastFailureGuidance, isNull);
+    await notifier.disconnectAll();
   });
 
   test('markLastDisconnected arms the connect screen preselect with no session '

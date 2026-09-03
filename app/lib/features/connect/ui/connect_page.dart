@@ -1,12 +1,15 @@
 import 'dart:async';
 
+import 'package:chameleon_flutter/chameleon_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../../core/discovery/discovery_provider.dart';
+import '../../../core/errors/error_catalog.dart';
 import '../../../core/routing/routes.dart';
+import '../../../core/session/sessions.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/connect_controller.dart';
 import '../state/connect_row.dart';
@@ -56,6 +59,14 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
     final AsyncValue<DiscoveryState> discovery = ref.watch(discoveryProvider);
     final AsyncValue<void> connect = ref.watch(connectControllerProvider);
     final Object? problem = connect.error ?? discovery.value?.error;
+    // Spec 7.6: the transport that failed explained itself as a value
+    // (`GuidedTransport.guidance`, kept by `Sessions` on the failure path);
+    // the words are the catalog's. Only ever shown beside the connect
+    // failure it belongs to — a discovery error is a different story, and
+    // a stale guidance from an earlier attempt must not be pinned to it.
+    final TransportGuidance? guidance = ref.watch(
+      sessionsProvider.select((s) => s.lastFailureGuidance),
+    );
     // See the class doc: only a real, started attempt gates the spinner and
     // disables the rows, never the controller's own async-build loading.
     final bool connecting = _attemptStarted && connect.isLoading;
@@ -73,6 +84,9 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
             if (problem != null)
               ConnectProblemView(
                 error: problem,
+                instructions: connect.hasError && guidance != null
+                    ? ErrorCatalog(l10n).guidance(guidance)
+                    : null,
                 onRetry: () {
                   // Ruling 11: clear the failed attempt first, then give
                   // every scanner — including the one that failed — a

@@ -21,25 +21,44 @@ final class SessionsState {
   const SessionsState({
     this.sessions = const <DeviceIdentity, ActiveSession>{},
     this.lastDisconnected,
+    this.lastFailureGuidance,
   });
 
   final Map<DeviceIdentity, ActiveSession> sessions;
 
   /// The device whose link went away without being asked to. The connect
-  /// screen preselects it (spec 7.4) and consumes it once via
-  /// [Sessions.consumeLastDisconnected].
+  /// screen preselects it (spec 7.4). Armed by an unexpected disconnect and
+  /// by [Sessions.markLastDisconnected]; cleared the moment any connect
+  /// succeeds, since the screen it feeds is gone by then.
   final DiscoveredDevice? lastDisconnected;
 
-  /// [lastDisconnected] defaults to "unchanged"; pass `null` explicitly to
-  /// clear it.
+  /// Why the most recent connect attempt failed, in the transport's own
+  /// terms (spec 7.6), or null when the last attempt did not fail or the
+  /// transport had nothing to say. Set on the failure path of
+  /// [Sessions.connect] from [GuidedTransport.guidance]; cleared by the next
+  /// successful connect.
+  ///
+  /// Kept here — rather than wrapped around the thrown error — because it
+  /// costs exactly two call sites: this file, which fills it in, and
+  /// `ConnectPage`, which watches it. A typed `ConnectFailure` carrying both
+  /// would instead change the type every existing catcher, every
+  /// `AsyncValue.guard` consumer and the error catalog itself sees.
+  final TransportGuidance? lastFailureGuidance;
+
+  /// [lastDisconnected] and [lastFailureGuidance] default to "unchanged";
+  /// pass `null` explicitly to clear either.
   SessionsState copyWith({
     Map<DeviceIdentity, ActiveSession>? sessions,
     Object? lastDisconnected = _unset,
+    Object? lastFailureGuidance = _unset,
   }) => SessionsState(
     sessions: sessions ?? this.sessions,
     lastDisconnected: identical(lastDisconnected, _unset)
         ? this.lastDisconnected
         : lastDisconnected as DiscoveredDevice?,
+    lastFailureGuidance: identical(lastFailureGuidance, _unset)
+        ? this.lastFailureGuidance
+        : lastFailureGuidance as TransportGuidance?,
   );
 }
 
@@ -148,14 +167,31 @@ class Sessions extends _$Sessions {
   }
 
   Future<DeviceIdentity> _connectNew(DiscoveredDevice device) async {
+    final transport = ref.read(transportFactoryProvider)(device);
     final session = DeviceSession(
-      ref.read(transportFactoryProvider)(device),
+      transport,
       batteryDelay: ref.read(sessionOptionsProvider).batteryDelay,
     );
     try {
       await session.open();
     } on Object {
       await session.close();
+      // The transport knows why it could not open — a denied permission, an
+      // adapter that is off, a port held by something else — in terms the
+      // app can turn into a concrete instruction (spec 7.6). It is about to
+      // be dropped on the floor with the session, so take its explanation
+      // first; the error itself still propagates unchanged.
+      _setState(
+        state.copyWith(
+          lastFailureGuidance: switch (transport) {
+            // A pattern, not `is` + promotion: `GuidedTransport` is not a
+            // subtype of `Transport` (the transports implement both
+            // independently), so a local variable cannot promote to it.
+            final GuidedTransport guided => guided.guidance,
+            _ => null,
+          },
+        ),
+      );
       rethrow;
     }
     final identity = await resolveIdentity(session, device);
@@ -172,12 +208,17 @@ class Sessions extends _$Sessions {
       device: device,
       session: session,
     );
+    // A connect that worked ends both stories the failure path tells: there
+    // is nothing left to preselect on a connect screen the user has just
+    // left, and no failure left to explain.
     _setState(
       state.copyWith(
         sessions: <DeviceIdentity, ActiveSession>{
           ...state.sessions,
           identity: entry,
         },
+        lastDisconnected: null,
+        lastFailureGuidance: null,
       ),
     );
     _watch(entry);
@@ -220,15 +261,6 @@ class Sessions extends _$Sessions {
   /// a link that dropped on its own.
   void markLastDisconnected(DiscoveredDevice device) {
     _setState(state.copyWith(lastDisconnected: device));
-  }
-
-  /// Clears and returns the device whose link dropped unexpectedly (spec
-  /// 7.4), for the connect screen to preselect once. Null when nothing is
-  /// pending.
-  DiscoveredDevice? consumeLastDisconnected() {
-    final dropped = state.lastDisconnected;
-    if (dropped != null) _setState(state.copyWith(lastDisconnected: null));
-    return dropped;
   }
 
   /// A link that dies on its own drops the session; only an unexpected

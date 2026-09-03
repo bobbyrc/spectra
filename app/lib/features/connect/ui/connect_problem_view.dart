@@ -12,10 +12,10 @@ import '../../../l10n/app_localizations.dart';
 /// system settings is a platform call this phase does not own, and
 /// [instructions] (when given) already tells the user where to go by hand.
 ///
-/// [instructions] is supplied by the caller — null in Phase 4. Once real
-/// transports are wired, `ConnectPage` will fill it in from
-/// `GuidedTransport.guidance` via `ErrorCatalog.guidance()`; this widget has
-/// no transport of its own to ask. Falls back to
+/// [instructions] is supplied by the caller: `ConnectPage` fills it in from
+/// the failed transport's `GuidedTransport.guidance` (kept by `Sessions` as
+/// `SessionsState.lastFailureGuidance`) through `ErrorCatalog.guidance()` —
+/// this widget has no transport of its own to ask. Falls back to
 /// `ErrorPresentation.instructions` (the catalog's own guidance, when it has
 /// any) so a future catalog value that fills that field is not silently
 /// dropped just because the caller passed nothing.
