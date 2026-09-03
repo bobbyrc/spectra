@@ -106,12 +106,20 @@ class CardReader extends _$CardReader {
         ? TagType.mifare1k
         : guessed;
 
+    // Spec 8.1: the app supplies the keys. `candidateMifareKeysProvider`
+    // resolves the user's selected dictionary (Phase 9), falling back to
+    // the built-in list.
+    final List<Uint8List> keys = await ref.read(
+      candidateMifareKeysProvider.future,
+    );
+    if (!_current(generation)) throw const CommandCancelled();
+
     if (_current(generation)) {
       state = const ReadState(busy: true, progress: 0);
     }
     final Mf1DumpReadResult dump = await reader.mf1ReadDump(
       type: type,
-      candidateKeys: defaultMifareKeys(),
+      candidateKeys: keys,
       onProgress: (int done, int total) {
         if (!_current(generation)) return;
         state = ReadState(

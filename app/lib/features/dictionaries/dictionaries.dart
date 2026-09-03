@@ -10,3 +10,9 @@ export 'state/built_in_keys.dart'
 // its own type of that name, and a cards file that imports this barrel
 // would then carry two `ImportOutcome`s.
 export 'state/dictionaries_provider.dart' show dictionariesProvider;
+export 'state/selected_dictionary.dart'
+    show
+        SelectedDictionaryId,
+        candidateMifareKeysProvider,
+        selectedDictionaryIdProvider,
+        selectedDictionaryProvider;
