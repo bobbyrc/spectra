@@ -442,6 +442,30 @@ abstract class AppLocalizations {
   /// **'That slot does not exist.'**
   String get slotNotFound;
 
+  /// Marks the slot the device is emulating.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get slotActive;
+
+  /// Button that switches the device to this slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Make active'**
+  String get slotMakeActive;
+
+  /// Shown on a slot the device is not currently emulating.
+  ///
+  /// In en, this message translates to:
+  /// **'Not the active slot'**
+  String get slotInactive;
+
+  /// Label of the per-sense enable switch.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get slotEnabled;
+
   /// Placeholder body of the Cards tab.
   ///
   /// In en, this message translates to:

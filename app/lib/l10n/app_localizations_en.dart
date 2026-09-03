@@ -212,6 +212,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get slotNotFound => 'That slot does not exist.';
 
   @override
+  String get slotActive => 'Active';
+
+  @override
+  String get slotMakeActive => 'Make active';
+
+  @override
+  String get slotInactive => 'Not the active slot';
+
+  @override
+  String get slotEnabled => 'Enabled';
+
+  @override
   String get comingSoonCards => 'The card library arrives in Phase 6.';
 
   @override

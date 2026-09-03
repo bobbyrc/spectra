@@ -1,6 +1,8 @@
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
+import 'package:spectra/core/routing/routes.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../support/app_harness.dart';
@@ -35,5 +37,88 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.byType(SpectraSlotTile), findsNWidgets(8));
+  });
+
+  testWidgetsApp('slot 1 says it is already the active slot', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+    await openSlot(tester, 1);
+
+    expect(find.text('Active'), findsWidgets);
+    expect(find.text('Make active'), findsNothing);
+  });
+
+  testWidgetsApp('making slot 4 active moves the marker on the grid', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+    await openSlot(tester, 4);
+
+    await tester.tap(find.text('Make active'));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.text('Make active'), findsNothing);
+
+    await tester.tap(find.byType(BackButton));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final SpectraSlotTile fourth = tester.widget<SpectraSlotTile>(
+      find.byType(SpectraSlotTile).at(3),
+    );
+    expect(fourth.active, isTrue);
+  });
+
+  testWidgetsApp('turning the LF sense off writes through to the device', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+    await openSlot(tester, 1);
+
+    // Two switches: HF first, then LF.
+    expect(find.byType(Switch), findsNWidgets(2));
+    expect(tester.widget<Switch>(find.byType(Switch).at(1)).value, isTrue);
+
+    await tester.tap(find.byType(Switch).at(1));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(tester.widget<Switch>(find.byType(Switch).at(1)).value, isFalse);
+  });
+
+  testWidgetsApp('an out-of-range slot index shows the not-found copy', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+
+    GoRouter.of(tester.element(find.text('Slots').last)).go(AppRoutes.slot(99));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.text('That slot does not exist.'), findsOneWidget);
   });
 }
