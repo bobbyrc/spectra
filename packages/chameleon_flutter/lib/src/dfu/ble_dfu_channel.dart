@@ -73,6 +73,7 @@ final class BleDfuChannel implements DfuChannel {
   /// Connects, discovers, subscribes to the control point and settles the
   /// write size. Must be awaited before any write. A single attempt — the
   /// orchestrator already scanned and retries are its business.
+  @override
   Future<void> open() async {
     if (_open) return;
     if (_closed) {

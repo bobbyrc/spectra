@@ -36,6 +36,19 @@ class FakeDfuChannel implements DfuChannel {
 
   bool get isClosed => _closed;
 
+  /// How many times [open] was called, so a test can prove the lifecycle
+  /// was followed.
+  int openCalls = 0;
+  bool _open = false;
+
+  @override
+  Future<void> open() async {
+    openCalls++;
+    if (_open) return;
+    if (_closed) throw StateError('channel closed');
+    _open = true;
+  }
+
   /// Swallows the next control response, so the client's timeout fires.
   void dropNextResponse() => _drop++;
 

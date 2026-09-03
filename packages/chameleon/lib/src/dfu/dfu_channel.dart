@@ -9,6 +9,15 @@ abstract interface class DfuChannel {
   /// serial chunk size).
   int get maxDataWrite;
 
+  /// Gets the channel ready to carry DFU traffic: connect, discover,
+  /// subscribe, settle [maxDataWrite] — whatever the transport needs.
+  ///
+  /// Must be awaited before the first write; idempotent, so a second call
+  /// on an already-open channel does nothing. A channel over a link that is
+  /// already up (the SLIP serial channel, the fakes) implements it as a
+  /// no-op, so every caller can follow one lifecycle: open, write, close.
+  Future<void> open();
+
   Future<void> writeControl(Uint8List bytes);
 
   Future<void> writeData(Uint8List bytes);

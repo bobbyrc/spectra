@@ -253,6 +253,10 @@ final class DfuOrchestrator {
     DfuChannel? channel;
     try {
       channel = await open();
+      // One lifecycle for every channel (ruling F33): the BLE channel does
+      // its connect and MTU negotiation here, the serial one and the fakes
+      // no-op. Inside the same try, so a failure still closes the channel.
+      await channel.open();
       final events = StreamController<DfuEvent>();
       final dfu = SecureDfu(channel);
       final done = Future(() async {

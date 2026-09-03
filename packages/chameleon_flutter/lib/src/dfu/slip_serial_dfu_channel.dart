@@ -102,6 +102,17 @@ final class SlipSerialDfuChannel implements DfuChannel {
   @override
   Stream<Uint8List> get responses => _responses.stream;
 
+  /// Nothing to do: the transport is already open when the channel is
+  /// built, and the constructor has done the wiring. Part of the
+  /// [DfuChannel] lifecycle so every caller can open, write and close the
+  /// same way. Idempotent; throws once the channel is closed.
+  @override
+  Future<void> open() async {
+    if (_closed) {
+      throw const Disconnected('the DFU channel is closed');
+    }
+  }
+
   @override
   Future<void> writeControl(Uint8List bytes) {
     final frame = _frame(bytes);

@@ -196,6 +196,22 @@ void main() {
     expect(device.bootloader.init, isNull);
   });
 
+  test('the orchestrator opens the channel before transferring', () async {
+    final device = FakeDevice();
+    final s = sessionFor(device);
+    await s.open();
+    final events = await orchestratorFor(device)
+        .run(package: package(bin), session: s)
+        .toList();
+    expect(events.last, isA<DfuCompleted>());
+    expect(channels, hasLength(1));
+    // open() is part of the DfuChannel lifecycle (ruling F33): the BLE
+    // channel does its connect there, so a transfer that skipped it would
+    // write to a channel that was never connected.
+    expect(channels.single.openCalls, 1);
+    await s.close();
+  });
+
   test('a channel that opens after an unsubscribe is still closed', () async {
     final device = FakeDevice();
     await enterBootloader(device);
