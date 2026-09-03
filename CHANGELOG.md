@@ -10,7 +10,7 @@ candidates for the entry below them.
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-09-03
+## [1.0.0-rc.1] - 2026-09-03
 
 The first release of Spectra, a cross-platform companion app for the
 Chameleon Ultra and Chameleon Lite.
@@ -29,10 +29,11 @@ Chameleon Ultra and Chameleon Lite.
   app's JSON exports.
 - Write and emulate: load a saved card into a slot, write a dump to a card,
   and quick-emulate from the library.
-- Firmware update: a release feed, package selection, and an orchestrated
-  Nordic Secure DFU over USB with a recovery path for an interrupted flash,
-  so firmware update stays behind the `dfuOverBleEnabled` flag over
-  Bluetooth, off by default until hardware validation completes.
+- Firmware update: install a downloaded firmware package over USB through an
+  orchestrated Nordic Secure DFU, with a recovery path for an interrupted
+  flash. DFU over Bluetooth is built but ships behind the
+  `dfuOverBleEnabled` flag, off by default until hardware validation
+  completes.
 - Dictionaries: key lists with import and export.
 - Settings: device settings, app settings, and a frame log that can be
   exported with any bug report.

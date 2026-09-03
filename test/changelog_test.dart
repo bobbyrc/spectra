@@ -48,11 +48,14 @@ void main() {
       expect(source, contains('## [Unreleased]'));
     });
 
-    test('its newest entry is 1.0.0 and matches app/pubspec.yaml', () {
+    test('its newest entry is 1.0.0-rc.1 and matches app/pubspec.yaml', () {
       final ChangelogEntry entry = latestReleasedEntry(source);
-      expect(entry.version, '1.0.0');
+      expect(entry.version, '1.0.0-rc.1');
+      // app/pubspec.yaml carries the core version only; the pre-release
+      // identity lives in the git tag (see tool/src/release_version.dart).
+      final String core = entry.version.split('-').first;
       final String pubspec = File('app/pubspec.yaml').readAsStringSync();
-      expect(pubspec, contains('version: ${entry.version}+'));
+      expect(pubspec, contains('version: $core+'));
     });
 
     test('the v1 entry names the shipped features', () {
@@ -61,7 +64,7 @@ void main() {
         'Connect',
         'Slots',
         'Cards',
-        'firmware update',
+        'Firmware update',
         'Dictionaries',
       ]) {
         expect(entry.body, contains(feature), reason: 'missing $feature');
