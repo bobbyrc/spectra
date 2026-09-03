@@ -56,6 +56,7 @@ void main() {
       readProvider(tester, deviceSettingsControllerProvider).dirty,
       isFalse,
     );
+    expect(find.text('Settings saved to the device.'), findsOneWidget);
   });
 
   testWidgetsApp('the pairing switch carries the spec 5.1 warning', (
@@ -74,6 +75,42 @@ void main() {
     await tester.enterText(find.byType(SpectraTextField).first, '12345');
     await tester.pump();
     expect(find.text('The passkey is six digits.'), findsOneWidget);
+  });
+
+  testWidgetsApp('forgetting paired hosts asks for confirmation first', (
+    tester,
+  ) async {
+    await _openSettings(tester);
+
+    await tester.tap(find.text('Forget paired hosts'));
+    await pumpFrames(tester);
+    expect(find.text('Forget the paired hosts?'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraDialog),
+        matching: find.text('Forget paired hosts'),
+      ),
+    );
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+    expect(find.text('The device forgot its paired hosts.'), findsOneWidget);
+  });
+
+  testWidgetsApp('cancelling the forget-bonds confirmation clears no bonds', (
+    tester,
+  ) async {
+    await _openSettings(tester);
+
+    await tester.tap(find.text('Forget paired hosts'));
+    await pumpFrames(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraDialog),
+        matching: find.text('Cancel'),
+      ),
+    );
+    await pumpFrames(tester);
+    expect(find.text('The device forgot its paired hosts.'), findsNothing);
   });
 
   testWidgetsApp('a failed write is shown through ProblemView', (tester) async {

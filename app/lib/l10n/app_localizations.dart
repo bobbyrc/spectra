@@ -2038,11 +2038,23 @@ abstract class AppLocalizations {
   /// **'Restore the device\'s defaults?'**
   String get settingsResetTitle;
 
-  /// No description provided for @settingsResetBody.
+  /// Body of the reset confirmation.
   ///
   /// In en, this message translates to:
   /// **'Animation, buttons, sleep and pairing all go back to the firmware defaults. Slots and cards are untouched.'**
   String get settingsResetBody;
+
+  /// Title of the delete-bonds confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Forget the paired hosts?'**
+  String get settingsDeleteBondsTitle;
+
+  /// Body of the delete-bonds confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'The device forgets every host it has bonded with. With pairing required, it goes invisible to those hosts until they pair again.'**
+  String get settingsDeleteBondsBody;
 
   /// Section header above the app's own settings.
   ///

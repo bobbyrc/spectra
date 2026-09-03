@@ -1183,6 +1183,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Animation, buttons, sleep and pairing all go back to the firmware defaults. Slots and cards are untouched.';
 
   @override
+  String get settingsDeleteBondsTitle => 'Forget the paired hosts?';
+
+  @override
+  String get settingsDeleteBondsBody =>
+      'The device forgets every host it has bonded with. With pairing required, it goes invisible to those hosts until they pair again.';
+
+  @override
   String get settingsAppTitle => 'App';
 
   @override
