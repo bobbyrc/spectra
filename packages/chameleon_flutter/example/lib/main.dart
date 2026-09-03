@@ -14,53 +14,45 @@ void main() {
   runApp(const SerialProbeApp());
 }
 
-/// One enumerated port, flattened to strings for display.
-class ProbeResult {
-  const ProbeResult(this.line);
-  final String line;
-}
-
 String _hex16(int? value) =>
     value == null ? '?' : '0x${value.toRadixString(16).padLeft(4, '0')}';
 
-/// Enumerates every serial port the platform reports.
+/// Enumerates every serial port the platform reports, one display line each.
 ///
 /// Enumeration call: `SerialPort.getAvailablePorts()` for the names, then
 /// `SerialPort(name).getInfo()` for description, manufacturer and USB
 /// VID/PID (`SerialPortInfo.usbVid` / `.usbPid` / `.usbManufacturer`).
-List<ProbeResult> probeSerialPorts() {
+List<String> probeSerialPorts() {
   if (Platform.isIOS) {
-    return const [ProbeResult('serial unsupported on this platform')];
+    return const ['serial unsupported on this platform'];
   }
   final List<String> names;
   try {
     names = SerialPort.getAvailablePorts();
   } on SerialPortException catch (error) {
-    return [ProbeResult('enumeration failed: ${error.code} ${error.message}')];
+    return ['enumeration failed: ${error.code} ${error.message}'];
   }
   if (names.isEmpty) {
-    return const [ProbeResult('no serial ports found')];
+    return const ['no serial ports found'];
   }
-  final results = <ProbeResult>[];
+  final lines = <String>[];
   for (final name in names) {
     final port = SerialPort(name);
     try {
       final info = port.getInfo();
-      results.add(
-        ProbeResult(
-          '${info.name} | ${info.description} | ${info.transport.name} | '
-          'vid=${_hex16(info.usbVid)} pid=${_hex16(info.usbPid)} | '
-          'mfr=${info.usbManufacturer ?? '?'} '
-          'product=${info.usbProduct ?? '?'}',
-        ),
+      lines.add(
+        '${info.name} | ${info.description} | ${info.transport.name} | '
+        'vid=${_hex16(info.usbVid)} pid=${_hex16(info.usbPid)} | '
+        'mfr=${info.usbManufacturer ?? '?'} '
+        'product=${info.usbProduct ?? '?'}',
       );
     } on SerialPortException catch (error) {
-      results.add(ProbeResult('$name | info failed: ${error.message}'));
+      lines.add('$name | info failed: ${error.message}');
     } finally {
       port.dispose();
     }
   }
-  return results;
+  return lines;
 }
 
 class SerialProbeApp extends StatefulWidget {
@@ -71,7 +63,7 @@ class SerialProbeApp extends StatefulWidget {
 }
 
 class _SerialProbeAppState extends State<SerialProbeApp> {
-  List<ProbeResult> _results = const [];
+  List<String> _lines = const [];
 
   @override
   void initState() {
@@ -80,11 +72,11 @@ class _SerialProbeAppState extends State<SerialProbeApp> {
   }
 
   void _refresh() {
-    final results = probeSerialPorts();
-    for (final result in results) {
-      debugPrint('[serial_probe] ${result.line}');
+    final lines = probeSerialPorts();
+    for (final line in lines) {
+      debugPrint('[serial_probe] $line');
     }
-    setState(() => _results = results);
+    setState(() => _lines = lines);
   }
 
   @override
@@ -105,10 +97,10 @@ class _SerialProbeAppState extends State<SerialProbeApp> {
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            for (final result in _results)
+            for (final line in _lines)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                child: SelectableText(result.line),
+                child: SelectableText(line),
               ),
           ],
         ),
