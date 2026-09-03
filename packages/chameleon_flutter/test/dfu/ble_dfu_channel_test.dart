@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:chameleon/chameleon.dart';
 import 'package:chameleon_flutter/chameleon_flutter.dart';
-import 'package:chameleon_flutter/src/dfu/ble_dfu_channel.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/fake_ble_adapter.dart';
