@@ -4,7 +4,11 @@
 /// else (spec section 5).
 library;
 
+export 'src/ble/ble_adapter.dart';
+export 'src/ble/ble_chunking.dart';
+export 'src/ble/ble_failure.dart' show BleAdapterException, BleFailure;
 export 'src/ble/ble_uuids.dart';
+export 'src/ble/universal_ble_adapter.dart';
 export 'src/guidance.dart';
 export 'src/host_platform.dart';
 export 'src/serial/serial_ids.dart';
