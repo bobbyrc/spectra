@@ -287,6 +287,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsSaveColour => 'Colour';
 
   @override
+  String cardsSaveColourSwatch(int number) {
+    return 'Colour $number';
+  }
+
+  @override
+  String cardsSaveColourSwatchSelected(int number) {
+    return 'Colour $number, selected';
+  }
+
+  @override
   String get cardsSaveConfirm => 'Save';
 
   @override
@@ -387,6 +397,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cardsDetailNotFound => 'That card is not in the library.';
+
+  @override
+  String get cardsDetailEdit => 'Edit details';
+
+  @override
+  String get cardsDetailEditTitle => 'Edit details';
 
   @override
   String get cardsDetailDelete => 'Delete';

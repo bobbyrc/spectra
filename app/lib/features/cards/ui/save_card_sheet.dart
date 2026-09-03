@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../../core/errors/problem_view.dart';
+import '../../../data/data.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/saved_cards_provider.dart';
 
@@ -32,38 +33,105 @@ Future<bool?> showSaveCardSheet(
   return SpectraBottomSheet.show<bool>(
     context: context,
     title: l10n.cardsSaveTitle,
-    builder: (BuildContext context) => _SaveCardForm(
-      type: type,
-      bytes: bytes,
-      suggestedName: suggestedName,
+    builder: (BuildContext context) => _CardDetailsForm(
+      confirmLabel: l10n.cardsSaveConfirm,
+      initialName: suggestedName,
       unreadChunks: unreadChunks,
+      onSubmit: (WidgetRef ref, String name, String? folder, int color) async =>
+          await ref
+              .read(cardLibraryProvider.notifier)
+              .add(
+                name: name,
+                type: type,
+                bytes: bytes,
+                folder: folder,
+                color: color,
+              ) !=
+          null,
     ),
   );
 }
 
-class _SaveCardForm extends ConsumerStatefulWidget {
-  const _SaveCardForm({
-    required this.type,
-    required this.bytes,
-    this.suggestedName,
+/// Edits what [showSaveCardSheet] collected — name, folder, colour — on a
+/// card that is already in the library, and writes it back through
+/// [CardLibrary.updateCard]. Resolves to true when the row was written and
+/// to null when the sheet was dismissed (R34).
+///
+/// The same form as the save sheet, prefilled: those three fields were
+/// write-once until this existed, so a card read under a placeholder name
+/// could never be renamed. The dump is not touched here — the hex editor on
+/// the detail page owns the bytes.
+Future<bool?> showEditCardDetailsSheet(
+  BuildContext context, {
+  required SavedCard card,
+}) {
+  final AppLocalizations l10n = AppLocalizations.of(context);
+  return SpectraBottomSheet.show<bool>(
+    context: context,
+    title: l10n.cardsDetailEditTitle,
+    builder: (BuildContext context) => _CardDetailsForm(
+      confirmLabel: l10n.cardsSaveConfirm,
+      initialName: card.name,
+      initialFolder: card.folder,
+      initialColor: card.color,
+      onSubmit: (WidgetRef ref, String name, String? folder, int color) => ref
+          .read(cardLibraryProvider.notifier)
+          .updateCard(
+            SavedCard(
+              id: card.id,
+              name: name,
+              tagType: card.tagType,
+              bytes: card.bytes,
+              updatedAt: card.updatedAt,
+              folder: folder,
+              color: color,
+            ),
+          ),
+    ),
+  );
+}
+
+/// The name/folder/colour form both sheets show. One widget, because the
+/// two flows differ only in what they do with the three values: a new card
+/// goes through [CardLibrary.add], an existing one through
+/// [CardLibrary.updateCard] (R34). [onSubmit] gets the form's own [WidgetRef]
+/// and returns whether the write succeeded — false leaves the sheet open
+/// with the failure showing.
+class _CardDetailsForm extends ConsumerStatefulWidget {
+  const _CardDetailsForm({
+    required this.confirmLabel,
+    required this.onSubmit,
+    this.initialName,
+    this.initialFolder,
+    this.initialColor,
     this.unreadChunks,
   });
 
-  final TagType type;
-  final Uint8List bytes;
-  final String? suggestedName;
+  final String confirmLabel;
+  final Future<bool> Function(
+    WidgetRef ref,
+    String name,
+    String? folder,
+    int color,
+  )
+  onSubmit;
+  final String? initialName;
+  final String? initialFolder;
+  final int? initialColor;
   final int? unreadChunks;
 
   @override
-  ConsumerState<_SaveCardForm> createState() => _SaveCardFormState();
+  ConsumerState<_CardDetailsForm> createState() => _CardDetailsFormState();
 }
 
-class _SaveCardFormState extends ConsumerState<_SaveCardForm> {
+class _CardDetailsFormState extends ConsumerState<_CardDetailsForm> {
   late final TextEditingController _name = TextEditingController(
-    text: widget.suggestedName ?? '',
+    text: widget.initialName ?? '',
   );
-  final TextEditingController _folder = TextEditingController();
-  int _color = cardColors.first;
+  late final TextEditingController _folder = TextEditingController(
+    text: widget.initialFolder ?? '',
+  );
+  late int _color = widget.initialColor ?? cardColors.first;
   bool _nameMissing = false;
 
   @override
@@ -73,7 +141,7 @@ class _SaveCardFormState extends ConsumerState<_SaveCardForm> {
     super.dispose();
   }
 
-  Future<void> _save() async {
+  Future<void> _submit() async {
     final String name = _name.text.trim();
     if (name.isEmpty) {
       setState(() => _nameMissing = true);
@@ -82,16 +150,8 @@ class _SaveCardFormState extends ConsumerState<_SaveCardForm> {
     final String? folder = _folder.text.trim().isEmpty
         ? null
         : _folder.text.trim();
-    final String? id = await ref
-        .read(cardLibraryProvider.notifier)
-        .add(
-          name: name,
-          type: widget.type,
-          bytes: widget.bytes,
-          folder: folder,
-          color: _color,
-        );
-    if (!mounted || id == null) return;
+    final bool ok = await widget.onSubmit(ref, name, folder, _color);
+    if (!mounted || !ok) return;
     Navigator.of(context).pop(true);
   }
 
@@ -148,12 +208,18 @@ class _SaveCardFormState extends ConsumerState<_SaveCardForm> {
         const SizedBox(height: SpectraSpacing.sm),
         Row(
           children: <Widget>[
-            for (final int value in cardColors)
+            for (final (int i, int value) in cardColors.indexed)
               Padding(
                 padding: const EdgeInsets.only(right: SpectraSpacing.sm),
                 child: SpectraTappable(
                   onTap: () => setState(() => _color = value),
-                  semanticsLabel: l10n.cardsSaveColour,
+                  // One label per swatch, and the chosen one says so:
+                  // seven controls all announcing "Colour" told a screen
+                  // reader user nothing about which is which, or which is
+                  // on.
+                  semanticsLabel: _color == value
+                      ? l10n.cardsSaveColourSwatchSelected(i + 1)
+                      : l10n.cardsSaveColourSwatch(i + 1),
                   child: Container(
                     width: 32,
                     height: 32,
@@ -180,9 +246,9 @@ class _SaveCardFormState extends ConsumerState<_SaveCardForm> {
         ],
         const SizedBox(height: SpectraSpacing.lg),
         SpectraButton(
-          label: l10n.cardsSaveConfirm,
+          label: widget.confirmLabel,
           busy: busy,
-          onPressed: busy ? null : _save,
+          onPressed: busy ? null : _submit,
         ),
       ],
     );

@@ -259,6 +259,40 @@ class CardEditor extends _$CardEditor {
     _inFlight = false;
   }
 
+  /// Re-reads the stored row's name, folder and colour, keeping the working
+  /// copy: [CardEditState.bytes] and [CardEditState.dirty] are untouched.
+  ///
+  /// The edit-details sheet (R34) writes those three fields through
+  /// `CardLibrary.updateCard`; this is how the screen behind it catches up
+  /// without a full reload, which would throw away unsaved hex edits. A
+  /// failed or empty re-read leaves the details as they were — the sheet
+  /// has already reported whatever went wrong with the write, and stale
+  /// details on screen are better than blanking the card.
+  Future<void> refreshDetails() async {
+    final CardEditState? current = state.value;
+    if (current == null || _inFlight) return;
+    _inFlight = true;
+    final AsyncValue<SavedCard?> reloaded = await AsyncValue.guard<SavedCard?>(
+      () => ref.read(savedCardsRepositoryProvider).byId(id),
+    );
+    if (!ref.mounted) {
+      _inFlight = false;
+      return;
+    }
+    final SavedCard? card = reloaded.value;
+    if (card != null) {
+      state = AsyncData<CardEditState?>(
+        CardEditState(
+          card: card,
+          bytes: current.bytes,
+          dirty: current.dirty,
+          error: current.error,
+        ),
+      );
+    }
+    _inFlight = false;
+  }
+
   /// [Ruling 12]: deletes through the repository directly, not through
   /// `cardLibraryProvider.notifier` — that provider is autoDispose and
   /// nothing is watching it from here, so reading its notifier just to

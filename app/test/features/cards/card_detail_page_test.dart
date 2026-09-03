@@ -660,6 +660,87 @@ void main() {
     expect((await repo.byId(id))!.bytes[16], 0);
   });
 
+  testWidgetsApp('Edit details renames, re-folders and re-colours the card', (
+    tester,
+  ) async {
+    final String id = await seedAndOpen(tester);
+
+    await tester.ensureVisible(find.text('Edit details'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Edit details'));
+    await pumpFrames(tester);
+
+    // The form comes up prefilled with what is stored. Its fields are
+    // found through the sheet (ruling 8/10): the screen underneath has
+    // text fields of its own.
+    final Finder fields = find.descendant(
+      of: find.byType(SpectraBottomSheet),
+      matching: find.byType(SpectraTextField),
+    );
+    expect(
+      find.descendant(of: fields.at(0), matching: find.text('Office badge')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: fields.at(1), matching: find.text('Work')),
+      findsWidgets,
+    );
+
+    await tester.enterText(fields.at(0), 'Front door');
+    await tester.enterText(fields.at(1), 'Home');
+    await pumpFrames(tester);
+    await tester.tap(find.bySemanticsLabel('Colour 3'));
+    await pumpFrames(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text('Save'),
+      ),
+    );
+    await pumpFrames(tester, count: 20);
+
+    final SavedCardsRepository repo = readProvider(
+      tester,
+      savedCardsRepositoryProvider,
+    );
+    final SavedCard stored = (await repo.byId(id))!;
+    expect(stored.name, 'Front door');
+    expect(stored.folder, 'Home');
+    expect(stored.color, cardColors[2]);
+    // The dump is untouched by a details edit.
+    expect(stored.bytes.sublist(0, 5), <int>[0xDE, 0xAD, 0xBE, 0xEF, 0x22]);
+
+    // The screen it came from reflects the new name…
+    expect(find.text('Front door'), findsWidgets);
+    // …and so does the library row.
+    await tester.tap(find.byType(BackButton));
+    await pumpFrames(tester);
+    expect(find.byType(CardsPage), findsOneWidget);
+    expect(find.text('Front door'), findsOneWidget);
+    expect(find.text('Office badge'), findsNothing);
+  });
+
+  testWidgetsApp('the colour swatches announce themselves distinctly', (
+    tester,
+  ) async {
+    await seedAndOpen(tester);
+    await tester.ensureVisible(find.text('Edit details'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Edit details'));
+    await pumpFrames(tester);
+
+    // Seven swatches, seven distinct labels, and the chosen one says so.
+    expect(find.bySemanticsLabel('Colour 1, selected'), findsOne);
+    for (int i = 2; i <= cardColors.length; i++) {
+      expect(find.bySemanticsLabel('Colour $i'), findsOne);
+    }
+
+    await tester.tap(find.bySemanticsLabel('Colour 4'));
+    await pumpFrames(tester);
+    expect(find.bySemanticsLabel('Colour 4, selected'), findsOne);
+    expect(find.bySemanticsLabel('Colour 1'), findsOne);
+  });
+
   test('trailerHighlights covers every MIFARE Classic trailer', () {
     final List<SpectraHexHighlight> highlights = trailerHighlights(
       TagType.mifare1k,

@@ -580,6 +580,18 @@ abstract class AppLocalizations {
   /// **'Colour'**
   String get cardsSaveColour;
 
+  /// Accessible name of one colour swatch; the number is its position in the palette.
+  ///
+  /// In en, this message translates to:
+  /// **'Colour {number}'**
+  String cardsSaveColourSwatch(int number);
+
+  /// Accessible name of the colour swatch that is currently chosen.
+  ///
+  /// In en, this message translates to:
+  /// **'Colour {number}, selected'**
+  String cardsSaveColourSwatchSelected(int number);
+
   /// Confirms the save.
   ///
   /// In en, this message translates to:
@@ -735,6 +747,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'That card is not in the library.'**
   String get cardsDetailNotFound;
+
+  /// Opens the sheet that edits a saved card's name, folder and colour.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit details'**
+  String get cardsDetailEdit;
+
+  /// Title of the sheet that edits a saved card's name, folder and colour.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit details'**
+  String get cardsDetailEditTitle;
 
   /// Removes a card from the library.
   ///

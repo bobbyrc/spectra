@@ -17,6 +17,7 @@ import '../state/card_codec.dart';
 import '../state/card_editor_controller.dart';
 import '../state/card_import.dart';
 import 'card_hex_editor.dart';
+import 'save_card_sheet.dart';
 
 /// The sector trailers of a MIFARE Classic, so the keys and access bits are
 /// visible at a glance in the hex viewer. Empty for every other family:
@@ -79,6 +80,7 @@ class CardDetailPage extends ConsumerWidget {
         state: value,
         loading: value.busy,
         onDelete: () => _confirmDelete(context, editor),
+        onEditDetails: () => _editDetails(context, editor, value.card),
         onRetrySave: () => unawaited(editor.save()),
       ),
       AsyncError<CardEditState?>(:final Object error) => ProblemView(
@@ -128,6 +130,21 @@ class CardDetailPage extends ConsumerWidget {
     );
   }
 
+  /// Opens the save sheet's form on the stored row (R34). The sheet does
+  /// the write through `CardLibrary.updateCard`; the editor is then told
+  /// what changed so the title, the tile and a later "Save changes" all
+  /// carry the new details — without reloading, which would throw away
+  /// unsaved hex edits.
+  Future<void> _editDetails(
+    BuildContext context,
+    CardEditor editor,
+    SavedCard card,
+  ) async {
+    final bool? saved = await showEditCardDetailsSheet(context, card: card);
+    if (saved != true) return;
+    await editor.refreshDetails();
+  }
+
   Future<void> _confirmDelete(BuildContext context, CardEditor editor) async {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final GoRouter router = GoRouter.of(context);
@@ -163,6 +180,7 @@ class _Detail extends StatelessWidget {
     required this.state,
     required this.loading,
     required this.onDelete,
+    required this.onEditDetails,
     required this.onRetrySave,
   });
 
@@ -174,6 +192,9 @@ class _Detail extends StatelessWidget {
   /// controls disable.
   final bool loading;
   final VoidCallback onDelete;
+
+  /// Opens the name/folder/colour sheet (R34).
+  final VoidCallback onEditDetails;
 
   /// [ProblemView]'s action when [CardEditState.error] is set (Phase 6
   /// ruling 29 item 1): re-invokes `CardEditor.save`, not `discard` — the
@@ -260,6 +281,12 @@ class _Detail extends StatelessWidget {
           label: l10n.cardsExport,
           variant: SpectraButtonVariant.secondary,
           onPressed: loading ? null : () => _export(context, state.card),
+        ),
+        const SizedBox(height: SpectraSpacing.md),
+        SpectraButton(
+          label: l10n.cardsDetailEdit,
+          variant: SpectraButtonVariant.secondary,
+          onPressed: loading ? null : onEditDetails,
         ),
         const SizedBox(height: SpectraSpacing.md),
         SpectraButton(

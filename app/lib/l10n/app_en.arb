@@ -174,6 +174,16 @@
   "@cardsSaveFolderHint": {"description": "Example folder name."},
   "cardsSaveColour": "Colour",
   "@cardsSaveColour": {"description": "Label above the colour swatches."},
+  "cardsSaveColourSwatch": "Colour {number}",
+  "@cardsSaveColourSwatch": {
+    "description": "Accessible name of one colour swatch; the number is its position in the palette.",
+    "placeholders": {"number": {"type": "int"}}
+  },
+  "cardsSaveColourSwatchSelected": "Colour {number}, selected",
+  "@cardsSaveColourSwatchSelected": {
+    "description": "Accessible name of the colour swatch that is currently chosen.",
+    "placeholders": {"number": {"type": "int"}}
+  },
   "cardsSaveConfirm": "Save",
   "@cardsSaveConfirm": {"description": "Confirms the save."},
   "cardsSavePartial": "{count, plural, one {1 block could not be read. It is saved as zeros.} other {{count} blocks could not be read. They are saved as zeros.}}",
@@ -238,6 +248,10 @@
   },
   "cardsDetailNotFound": "That card is not in the library.",
   "@cardsDetailNotFound": {"description": "Shown when a card route names an id that is gone."},
+  "cardsDetailEdit": "Edit details",
+  "@cardsDetailEdit": {"description": "Opens the sheet that edits a saved card's name, folder and colour."},
+  "cardsDetailEditTitle": "Edit details",
+  "@cardsDetailEditTitle": {"description": "Title of the sheet that edits a saved card's name, folder and colour."},
   "cardsDetailDelete": "Delete",
   "@cardsDetailDelete": {"description": "Removes a card from the library."},
   "cardsDetailDeleteTitle": "Delete this card?",

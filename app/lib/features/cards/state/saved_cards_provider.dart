@@ -113,14 +113,16 @@ class CardLibrary extends _$CardLibrary {
     return ok ? id : null;
   }
 
-  /// Replaces an existing card, stamping it as changed now.
+  /// Replaces an existing card, stamping it as changed now. Returns whether
+  /// the write landed — false when it failed (the failure is in [state]) or
+  /// was dropped because another write was already in flight.
   ///
   /// Named `updateCard`, not `update`: `AsyncNotifier` (riverpod 3.4.2)
   /// already declares a `@protected` `update` method with an incompatible
   /// signature — overriding it with `update(SavedCard card)` is a compile
   /// error (`invalid_override`), not a style choice.
-  Future<void> updateCard(SavedCard card) async {
-    await _run(
+  Future<bool> updateCard(SavedCard card) async {
+    return _run(
       (SavedCardsRepository repo) => repo.save(
         SavedCard(
           id: card.id,
@@ -195,10 +197,6 @@ class CardLibrary extends _$CardLibrary {
         : AsyncError<void>(error, stackTrace!);
     _inFlight = false;
     return ImportOutcome(written: written, error: error);
-  }
-
-  Future<void> remove(String id) async {
-    await _run((SavedCardsRepository repo) => repo.delete(id));
   }
 
   /// Clears a failed write's [state] back to idle, so the save sheet's
