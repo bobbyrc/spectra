@@ -1,0 +1,15 @@
+{
+  "dictionaries": [
+    {
+      "id": "3f2b",
+      "name": "Transport",
+      "color": 4283215104,
+      "keys": ["FFFFFFFFFFFF", "a0a1a2a3a4a5", "D3F7D3F7D3F7"]
+    },
+    {
+      "id": "9c11",
+      "name": "Hotel",
+      "keys": ["714C5C886E97"]
+    }
+  ]
+}
