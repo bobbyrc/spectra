@@ -69,4 +69,46 @@ void main() {
     final big = Frame(command: 4008, status: 0x68, data: Uint8List(4096));
     expect(FrameDecoder().feed(big.encode()), [big]);
   });
+
+  test('a SOF byte inside the payload is not mistaken for a frame', () {
+    // 0x11 in the data is ordinary payload: the decoder is length-driven
+    // once a header has checked out, so it must not resync on it.
+    final withSof = Frame(
+      command: 4008,
+      status: 0x68,
+      data: bytes([frameSof, frameSof, 0x00, frameSof]),
+    );
+    final diags = <DecodeDiagnostic>[];
+    final d = FrameDecoder(onDiagnostic: diags.add);
+    expect(d.feed([...withSof.encode(), ...f2.encode()]), [withSof, f2]);
+    expect(diags, isEmpty);
+  });
+
+  test('a SOF byte inside a payload survives a one-byte-at-a-time feed', () {
+    final withSof = Frame(
+      command: 4008,
+      status: 0x68,
+      data: bytes([frameSof, 0x01, frameSof]),
+    );
+    final d = FrameDecoder();
+    final out = <Frame>[];
+    for (final b in withSof.encode()) {
+      out.addAll(d.feed([b]));
+    }
+    expect(out, [withSof]);
+  });
+
+  test('a corrupted LRC1 drops one byte and resyncs on the next frame', () {
+    // LRC1 covers the SOF alone, so a wrong one means the stream is not
+    // where we think it is: drop a byte, report, and look for the next SOF.
+    final diags = <DecodeDiagnostic>[];
+    final d = FrameDecoder(onDiagnostic: diags.add);
+    final bad = f1.encode();
+    bad[1] ^= 0xFF;
+    expect(d.feed([...bad, ...f2.encode()]), [f2]);
+    expect(
+      diags.whereType<BadLrcDiagnostic>().map((b) => b.which),
+      contains('sof'),
+    );
+  });
 }

@@ -11,14 +11,9 @@ import 'package:chameleon/src/session/device_session.dart';
 import 'package:chameleon/src/session/facades/reader.dart';
 import 'package:test/test.dart';
 
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
-Uint8List b(List<int> l) => Uint8List.fromList(l);
+import 'session_helpers.dart';
 
-DeviceSession sessionFor(FakeDevice device) => DeviceSession(
-  device,
-  idlePollInterval: const Duration(days: 1),
-  batteryDelay: Duration.zero,
-);
+Uint8List b(List<int> l) => Uint8List.fromList(l);
 
 /// Every CHANGE_DEVICE_MODE the device saw, in order, as the mode asked for.
 List<DeviceMode> modeChanges(FakeDevice d) => [
@@ -34,7 +29,7 @@ void main() {
     device = FakeDevice();
     s = sessionFor(device);
     await s.open();
-    await settle();
+    await awaitBackgroundLoad(s);
   });
 
   tearDown(() => s.close());
@@ -217,7 +212,7 @@ void main() {
     final s = sessionFor(device);
     addTearDown(s.close);
     await s.open();
-    await settle();
+    await awaitBackgroundLoad(s);
     final card = FakeMf1Card.classic1k(uid: b([1, 2, 3, 4]));
     card.keys.remove(FakeMf1Card.keyId(2, KeyType.a));
     card.keys.remove(FakeMf1Card.keyId(2, KeyType.b));
@@ -299,7 +294,7 @@ void main() {
     final s = sessionFor(device);
     addTearDown(s.close);
     await s.open();
-    await settle();
+    await awaitBackgroundLoad(s);
     await expectLater(s.reader.scan14a(), throwsA(isA<ReaderUnavailable>()));
     expect(s.readerLeaseCount, 0);
   });

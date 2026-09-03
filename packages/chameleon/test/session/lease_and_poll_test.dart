@@ -7,11 +7,10 @@ import 'package:chameleon/src/protocol/errors.dart';
 import 'package:chameleon/src/session/device_session.dart';
 import 'package:test/test.dart';
 
+import 'session_helpers.dart';
+
 /// Timing here is deliberately small: poll intervals of tens of milliseconds
 /// and no battery delay, so the whole file runs in well under a second.
-Future<void> settle([int ms = 20]) =>
-    Future<void>.delayed(Duration(milliseconds: ms));
-
 /// A firmware that does not answer CHANGE_DEVICE_MODE (1001).
 FakeFirmwareConfig _noModeChange() => FakeFirmwareConfig(
   capabilities: FakeFirmwareConfig.defaultCapabilities(DeviceModel.ultra)

@@ -14,14 +14,7 @@ import 'package:chameleon/src/session/device_session.dart';
 import 'package:chameleon/src/transport/transport.dart';
 import 'package:test/test.dart';
 
-DeviceSession sessionFor(FakeFirmwareConfig config, {FakeDevice? device}) =>
-    DeviceSession(
-      device ?? FakeDevice(firmware: FakeFirmware(config)),
-      idlePollInterval: const Duration(days: 1),
-      batteryDelay: Duration.zero,
-    );
-
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
+import 'session_helpers.dart';
 
 /// GET_ACTIVE_SLOT (1018) with a short timeout, so the retry-on-timeout
 /// tests finish in milliseconds instead of the catalog's three seconds. The
@@ -48,7 +41,10 @@ void main() {
     'reaches ready on a 2.2 Ultra with only three handshake commands',
     () async {
       final device = FakeDevice();
-      final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+      final s = sessionForFirmware(
+        FakeFirmwareConfig.ultra22(),
+        device: device,
+      );
       final states = <ConnectionState>[];
       s.connectionState.changes.listen(states.add);
       await s.open();
@@ -71,9 +67,9 @@ void main() {
   test(
     'loads identity, mode, slots, settings and battery in the background',
     () async {
-      final s = sessionFor(FakeFirmwareConfig.ultra22());
+      final s = sessionForFirmware(FakeFirmwareConfig.ultra22());
       await s.open();
-      await settle();
+      await awaitBackgroundLoad(s);
       expect(s.deviceInfo.value!.identity!.chipId, '0102030405060708');
       expect(s.deviceInfo.value!.gitVersion, 'v2.2.0-fake');
       expect(s.mode.value, DeviceMode.emulator);
@@ -89,9 +85,9 @@ void main() {
   test(
     '2.0 firmware without GET_ALL_SLOT_NICKS still loads nicknames',
     () async {
-      final s = sessionFor(FakeFirmwareConfig.ultra20());
+      final s = sessionForFirmware(FakeFirmwareConfig.ultra20());
       await s.open();
-      await settle();
+      await awaitBackgroundLoad(s);
       expect(s.connectionState.value, isA<SessionReady>());
       expect(s.slotsState.value[0].hfNick, 'Fake 1K');
       expect(s.settingsState.value!.sleepTimeoutSeconds, isNull);
@@ -100,7 +96,7 @@ void main() {
   );
 
   test('pre-2.0 firmware lands in limited(preTwoPointZero)', () async {
-    final s = sessionFor(FakeFirmwareConfig.preTwoPointZero());
+    final s = sessionForFirmware(FakeFirmwareConfig.preTwoPointZero());
     await s.open();
     expect(
       s.connectionState.value,
@@ -114,7 +110,7 @@ void main() {
   });
 
   test('legacy 0.1 lands in limited(legacyMustUpdate)', () async {
-    final s = sessionFor(FakeFirmwareConfig.legacy01());
+    final s = sessionForFirmware(FakeFirmwareConfig.legacy01());
     await s.open();
     final limited = s.connectionState.value as SessionLimited;
     expect(limited.reason, UnsupportedReason.legacyMustUpdate);
@@ -123,7 +119,7 @@ void main() {
   });
 
   test('a newer major lands in limited(newerMajor)', () async {
-    final s = sessionFor(
+    final s = sessionForFirmware(
       FakeFirmwareConfig(version: const FirmwareVersion(major: 3, minor: 0)),
     );
     await s.open();
@@ -140,7 +136,7 @@ void main() {
       final device = FakeDevice(
         firmware: FakeFirmware(FakeFirmwareConfig.preTwoPointZero()),
       );
-      final s = sessionFor(
+      final s = sessionForFirmware(
         FakeFirmwareConfig.preTwoPointZero(),
         device: device,
       );
@@ -176,7 +172,7 @@ void main() {
 
   test('background failures surface as errors, not refusals', () async {
     final device = FakeDevice();
-    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22(), device: device);
     device.firmware.config.effectiveCapabilities.remove(1034);
     final errors = <ChameleonException>[];
     s.backgroundErrors.listen(errors.add);
@@ -190,7 +186,7 @@ void main() {
 
   test('link loss while ready is an unexpected disconnect', () async {
     final device = FakeDevice();
-    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22(), device: device);
     await s.open();
     await device.simulateLinkLoss();
     await settle();
@@ -205,7 +201,10 @@ void main() {
     'a lost link releases the transport and refuses later commands',
     () async {
       final device = FakeDevice();
-      final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+      final s = sessionForFirmware(
+        FakeFirmwareConfig.ultra22(),
+        device: device,
+      );
       await s.open();
       await device.simulateLinkLoss();
       await settle();
@@ -222,7 +221,7 @@ void main() {
   );
 
   test('opening twice is a programming error', () async {
-    final s = sessionFor(FakeFirmwareConfig.ultra22());
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22());
     await s.open();
     await expectLater(s.open(), throwsA(isA<StateError>()));
     await s.close();
@@ -231,7 +230,7 @@ void main() {
 
   test('concurrent opens share one handshake', () async {
     final device = FakeDevice();
-    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22(), device: device);
     await Future.wait([s.open(), s.open()]);
     expect(s.connectionState.value, isA<SessionReady>());
     expect(device.received.where((f) => f.command == 1035), hasLength(1));
@@ -240,7 +239,7 @@ void main() {
 
   test('transport open failure is reported and rethrown', () async {
     final device = FakeDevice(openError: const PermissionDenied());
-    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22(), device: device);
     await expectLater(s.open(), throwsA(isA<PermissionDenied>()));
     expect(
       (s.connectionState.value as SessionDisconnected).error,
@@ -251,7 +250,7 @@ void main() {
 
   test('an idempotent read is retried once after a dropped response', () async {
     final device = FakeDevice();
-    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22(), device: device);
     await s.open();
     await settle();
     final before = device.received.length;
@@ -263,7 +262,7 @@ void main() {
 
   test('a non-idempotent command is not retried', () async {
     final device = FakeDevice();
-    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22(), device: device);
     await s.open();
     await settle();
     final before = device.received.length;
@@ -277,7 +276,7 @@ void main() {
   });
 
   test('close shuts the session streams down', () async {
-    final s = sessionFor(FakeFirmwareConfig.ultra22());
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22());
     await s.open();
     await settle();
     await s.close();
@@ -319,7 +318,10 @@ void main() {
         '${state.runtimeType} disconnects the session with $error',
         () async {
           final device = FakeDevice();
-          final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+          final s = sessionForFirmware(
+            FakeFirmwareConfig.ultra22(),
+            device: device,
+          );
           await s.open();
           expect(s.connectionState.value, isA<SessionReady>());
           device.emitState(state);
@@ -343,7 +345,10 @@ void main() {
         'open() throws $error when ${state.runtimeType} arrives while connecting',
         () async {
           final device = FakeDevice(latency: const Duration(milliseconds: 20));
-          final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+          final s = sessionForFirmware(
+            FakeFirmwareConfig.ultra22(),
+            device: device,
+          );
           final opening = s.open();
           device.emitState(state, setCurrent: false);
           await expectLater(opening, throwsA(isA<TransportError>()));
@@ -360,7 +365,7 @@ void main() {
 
   test('a disconnected session is spent and cannot be opened again', () async {
     final device = FakeDevice();
-    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22(), device: device);
     await s.open();
     await device.simulateLinkLoss();
     await settle();
@@ -385,7 +390,7 @@ void main() {
     final device = FakeDevice()
       ..dropNextResponse()
       ..dropNextResponse();
-    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22(), device: device);
     final watch = Stopwatch()..start();
     await s.open();
     watch.stop();
@@ -409,9 +414,9 @@ void main() {
     // it are held for 500 ms, not for another full timeout (which used to
     // make this run past six seconds).
     final device = FakeDevice();
-    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    final s = sessionForFirmware(FakeFirmwareConfig.ultra22(), device: device);
     await s.open();
-    await settle();
+    await awaitBackgroundLoad(s);
     device.dropNextResponse();
     final watch = Stopwatch()..start();
     final slots = await s.slots.refresh();

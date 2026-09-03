@@ -56,7 +56,7 @@ void main() {
   });
 
   test('a late response is drained, not matched to the next command', () async {
-    device.delayNextResponse(const Duration(milliseconds: 60));
+    device.delayNextResponse(const Duration(milliseconds: 120));
     await expectLater(
       dispatcher.send(const GetActiveSlot().toFrame(), timeout: short),
       throwsA(isA<CommandTimeout>()),
@@ -72,12 +72,12 @@ void main() {
   test(
     'a stale response to a timed-out command is dropped, not surfaced',
     () async {
-      device.delayNextResponse(const Duration(milliseconds: 60));
+      device.delayNextResponse(const Duration(milliseconds: 120));
       await expectLater(
         dispatcher.send(const GetActiveSlot().toFrame(), timeout: short),
         throwsA(isA<CommandTimeout>()),
       );
-      // The drain window (500 ms after the timeout) outlasts the 60 ms
+      // The drain window (500 ms after the timeout) outlasts the 120 ms
       // delay, so the stale frame is consumed silently.
       final watch = Stopwatch()..start();
       await dispatcher.send(const GetDeviceModel().toFrame(), timeout: patient);
@@ -143,7 +143,7 @@ void main() {
   test(
     'cancelling the in-flight command drains before the next send',
     () async {
-      device.delayNextResponse(const Duration(milliseconds: 60));
+      device.delayNextResponse(const Duration(milliseconds: 120));
       final token = CancelToken();
       final first = dispatcher.send(
         const GetAppVersion().toFrame(),
@@ -163,7 +163,7 @@ void main() {
   test(
     'a cancelled command\'s late response ends draining and is dropped',
     () async {
-      device.delayNextResponse(const Duration(milliseconds: 60));
+      device.delayNextResponse(const Duration(milliseconds: 120));
       final token = CancelToken();
       final first = dispatcher.send(
         const GetAppVersion().toFrame(),

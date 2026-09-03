@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:chameleon/src/fake/fake_device.dart';
@@ -9,7 +8,7 @@ import 'package:chameleon/src/session/connection_state.dart';
 import 'package:chameleon/src/session/device_session.dart';
 import 'package:test/test.dart';
 
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
+import 'session_helpers.dart';
 
 void main() {
   late FakeDevice device;
@@ -23,7 +22,7 @@ void main() {
       batteryDelay: Duration.zero,
     );
     await s.open();
-    await settle();
+    await awaitBackgroundLoad(s);
   });
 
   tearDown(() => s.close());
@@ -210,7 +209,7 @@ void main() {
       batteryDelay: Duration.zero,
     );
     await other.open();
-    await settle();
+    await awaitBackgroundLoad(other);
     flaky.failNextWrite();
     await expectLater(
       other.firmware.enterBootloader(),
