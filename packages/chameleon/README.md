@@ -28,7 +28,13 @@ An app talks to `DeviceSession` and its facades (`device`, `slots`,
 `settings`, `emulator`, `reader`, `firmware`). **Commands are internal**
 (spec 3.2): `session.send(Command)` exists for the SDK's own use and no
 command class is exported, so a new device operation is a facade method here,
-never a command built in app code.
+never a command built in app code. The firmware's raw status codes are
+internal for the same reason (spec 3.3): a caller catches a typed
+`DeviceError`, never compares an int.
+
+A `DeviceSession` is single-use. Once its transport has gone — a link loss,
+or `close()` — the session is spent and `open()` throws; reconnecting means
+a new session over a new transport.
 
 Transports are seams: `Transport` and `DeviceScanner` are implemented per
 platform in `chameleon_flutter` (Phase 3). This package ships `FakeDevice`,
@@ -61,7 +67,7 @@ changes. `close()` is mandatory — it is the only thing that closes them.
 
 ## Tests and coverage
 
-`dart test` runs 294 tests with no hardware. Coverage of the hand-written
+`dart test` runs 317 tests with no hardware. Coverage of the hand-written
 sources (2026-09-03, generated `models.freezed.dart` excluded) is 91.5 % of
 lines: session 96.2 %, facades 97.3 %, codec 95.2 %, dfu 91.4 %, protocol
 91.0 %, commands 89.5 %, fake 88.4 %, transport 84.4 %, dump 82.5 %. The
@@ -82,6 +88,7 @@ the `hardware-validate` tag (`dart test -t hardware-validate`). Open items,
 tracked in `docs/hardware-checklist.md`:
 
 - MF1 detection log (4006) record layout, 18 bytes per entry.
+- `MifareClassicDump.uid`: block 0 is assumed to hold a 4-byte UID.
 - The settings payload length (1034); decoded by its leading version byte.
 - `hf14a_raw` (2012) option bit meanings and bit ordering.
 - Check-keys-of-sectors (2020) key A/B bit ordering.

@@ -215,6 +215,38 @@ dump formats and DFU. Rulings taken while executing
   is how the Phase 3 transports will be laid out. `FakeFirmware` and
   `DeviceSession` were split instead — handlers by command range into
   extension files, the session's handshake and polling into `part` files.
+- **The drain window is bounded separately from the command timeout**
+  (500 ms by default). Draining for a whole timeout meant one dropped
+  response stalled every later command for six seconds; a response arriving
+  after the window is simply no longer recognised as stale.
+- **The two handshake probes (1035, 1000) get one second and no retry.**
+  A device that answers neither is exactly the device that has to reach
+  `limited` quickly, so the probes do not pay the catalog's three-second
+  timeout twice over.
+- **A session is single-use.** Once the transport has been released, `open()`
+  throws `StateError('this session is spent...')` rather than failing with a
+  confusing `Disconnected: dispatcher disposed`; reconnecting is a new
+  `DeviceSession`.
+- **`pairingRequired`, `permissionDenied` and `adapterOff` are transport
+  states, mapped by the session** to `SessionDisconnected(unexpected)`
+  carrying `PairingRequired`, `PermissionDenied` or `AdapterOff`; `open()`
+  throws that error when one arrives mid-connect. Spec 4.1's state list was
+  amended in the same commit (Phase 3 Task 1, folded into Phase 1's fix
+  wave).
+- **`Transport.maxWriteLength` is informational.** The dispatcher never
+  chunks — every request fits in one 4105-byte frame — so a transport with a
+  smaller link MTU fragments internally and reports the largest frame it
+  accepts.
+- **A limited session refuses commands with `UnsupportedFirmware`** carrying
+  the reason it is limited; `SessionNotReady` is kept for the states that are
+  only a matter of timing.
+- **The fake advertises only what it answers.** `FakeFirmwareConfig`'s
+  default capability set is exactly `FakeFirmware`'s handler table, so a
+  session built on the fake cannot believe in a command that comes back
+  NOT_IMPLEMENTED. SEOS (4042-4044), ISO14443-4 (6000-6005), IoProx
+  emulation and the Ultralight version/signature/counter commands are
+  dropped rather than advertised; the version matrix runs on
+  GET_ALL_SLOT_NICKS (1038-1040), which 2.0 lacks.
 - **Commands stay internal.** `lib/chameleon.dart` exports the session, the
   facades, models, errors, the transport seams, the dump formats, DFU and the
   fakes, but no `Command` subclass, no `RawCommand`, no byte helpers and no

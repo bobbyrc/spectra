@@ -168,3 +168,28 @@ dated entry per lesson; keep each one actionable.
   first, then run `dart`/`melos` directly. In a pub workspace, note that
   `.dart_tool/package_config.json` lives at the workspace root, so
   `format_coverage --packages=../../.dart_tool/package_config.json`.
+- **A drain window is not a timeout.** Waiting for a stray response for as
+  long as the command itself was allowed makes one dropped response cost
+  every later command a full timeout. Bound the two separately: the timeout
+  answers "how long may this command take", the drain "how long is a late
+  response still recognisable as stale".
+- **A probe needs a probe's timeout.** Commands sent to find out whether the
+  device supports them should not pay the catalog's timeout, let alone with
+  a retry: the case they exist for is the device that never answers.
+- **Refusals should carry their reason.** `SessionNotReady` on a session that
+  is limited by old firmware tells the app nothing it can act on;
+  `UnsupportedFirmware(reason)` tells it to offer an update. Add the state
+  that makes the refusal specific before the UI has to guess.
+- **One fake, many knobs.** Three test files had each grown their own
+  `Transport` stub for a single misbehaviour (a failing write, a stalled
+  write, an out-of-band state). Knobs on the one fake — `failNextWrite`,
+  `stallWrites`, `emitState` — kept the fake honest and deleted 100 lines of
+  near-duplicate test scaffolding.
+- **Make the fake's capability list the fake's handler list.** Advertising
+  commands the fake answers NOT_IMPLEMENTED means every test runs against a
+  device that lies about itself, and the version matrix stops proving
+  anything.
+- **Wait for the condition, not for a duration.** `await settle()` after an
+  async load is a guess that fails on a slow machine and wastes time on a
+  fast one; a helper that polls the state the load produces (and throws when
+  it never arrives) says what the test is actually waiting for.
