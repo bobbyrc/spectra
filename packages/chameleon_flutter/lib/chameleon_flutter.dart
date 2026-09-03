@@ -7,6 +7,7 @@ library;
 export 'src/ble/ble_adapter.dart';
 export 'src/ble/ble_chunking.dart';
 export 'src/ble/ble_failure.dart' show BleAdapterException, BleFailure;
+export 'src/ble/ble_scanner.dart';
 export 'src/ble/ble_transport.dart';
 export 'src/ble/ble_uuids.dart';
 export 'src/ble/universal_ble_adapter.dart';
