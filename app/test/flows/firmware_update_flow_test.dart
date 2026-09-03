@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,34 +7,39 @@ import 'package:spectra/app.dart';
 import 'package:spectra/core/dfu/dfu_runtime.dart';
 import 'package:spectra/core/session/sessions.dart';
 import 'package:spectra/features/tools/state/firmware_package_source.dart';
+import 'package:spectra/features/tools/state/update_steps.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../fixtures/dfu_package_fixture.dart';
 import '../support/app_harness.dart';
+import '../support/dfu_test_support.dart';
 
 /// The roadmap's Phase 8 gate: flash a connected emulated device end to end,
 /// and recover one already left in its bootloader with no session — both as
 /// a flow test. The channel half of the gate (both transport kinds) is
 /// `packages/chameleon_flutter/test/dfu/dfu_channel_flash_test.dart`.
-final class _MemorySource implements FirmwarePackageSource {
-  _MemorySource(this.bytes);
-  final Uint8List bytes;
-  @override
-  Future<Uint8List> read(String path) async => bytes;
-}
-
 Widget _app({List<DeviceScanner>? scanners}) => ProviderScope(
   overrides: <Override>[
     ...appOverrides(transport: (_) => FakeDevice(), scanners: scanners),
     firmwarePackageSourceProvider.overrideWithValue(
-      _MemorySource(buildDfuZip(size: 8192)),
+      MemoryFirmwarePackageSource(buildDfuZip(size: 8192)),
     ),
     dfuScanTimeoutProvider.overrideWithValue(const Duration(seconds: 2)),
   ],
   child: const SpectraRoot(),
 );
 
-Future<void> _loadAndStart(WidgetTester tester) async {
+/// [expectFirstStepIndex], when given, checks [SpectraStepIndicator]'s step
+/// right after the single pump that follows the tap — before the run has had
+/// a chance to move past it. The recovery path (spec 5.6) never emits
+/// `checking`, `enteringBootloader` or `findingBootloader`; it starts
+/// straight at `transferring` (ruling 8-3), which this flow test would
+/// otherwise never notice since `pumpFrames`'s 100-frame run afterwards
+/// blows straight through every intermediate step.
+Future<void> _loadAndStart(
+  WidgetTester tester, {
+  int? expectFirstStepIndex,
+}) async {
   await tester.enterText(
     find.byType(SpectraTextField).first,
     '/tmp/ultra-dfu-app.zip',
@@ -54,6 +57,14 @@ Future<void> _loadAndStart(WidgetTester tester) async {
     find.text('Keep the device connected and powered until this finishes.'),
     findsOneWidget,
   );
+  if (expectFirstStepIndex != null) {
+    expect(
+      tester
+          .widget<SpectraStepIndicator>(find.byType(SpectraStepIndicator))
+          .currentIndex,
+      expectFirstStepIndex,
+    );
+  }
 
   await pumpFrames(tester, count: 100);
 }
@@ -96,7 +107,10 @@ void main() {
 
     await tester.tap(find.text('Recover'));
     await pumpFrames(tester);
-    await _loadAndStart(tester);
+    await _loadAndStart(
+      tester,
+      expectFirstStepIndex: updateStepIndex(DfuPhase.transferring),
+    );
 
     expect(find.text('Firmware installed.'), findsOneWidget);
 
