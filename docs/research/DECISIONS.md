@@ -1,6 +1,6 @@
 # Spectra: architecture decisions so far (2026-09-02)
 
-Status: brainstorming (architectural path). Research complete; next step is presenting 2-3 architecture approaches, then a sectioned design, then spec at docs/superpowers/specs/, then implementation plan.
+Status: design approved in brainstorm; spec at docs/superpowers/specs/2026-09-02-spectra-design.md. Next: user spec review, then implementation plan.
 
 ## Agreed with user
 - Product: polished, cross-platform (Windows, macOS, Linux, iOS, Android) Chameleon Ultra companion. "One stop shop": both hobbyists and researchers, progressive disclosure (simple default path, expert detail one tap away).
@@ -11,7 +11,11 @@ Status: brainstorming (architectural path). Research complete; next step is pres
 - v1 scope: connect + device dashboard, slot management, read/write/emulate cards, firmware/DFU + advanced (dictionaries, settings).
 - Toolchain versions are managed with mise (not FVM). Local Flutter was 3.32.5; stable is 3.47.1 / Dart 3.13.1: upgrade before scaffolding.
 
-## Research-derived recommendations (not yet approved)
+## Architecture (approved 2026-09-02, detail in the spec)
+- Approach A: four-package pub workspace. packages/chameleon (pure Dart SDK: codec, commands, models, DeviceSession with facades, FakeDevice, SecureDfu), packages/chameleon_flutter (BLE, serial, DFU runners), packages/spectra_ui (design system on material_ui 1.0), app/ (Riverpod, go_router, Drift, feature modules with a FeatureModule registry).
+- Extension points: CardCodec registry per tag family, transport registry, feature registry. Dependency lint in CI enforces package and feature boundaries.
+
+## Research-derived recommendations (approved as part of the spec)
 - Pub workspace + melos: packages/protocol (pure Dart), transport_ble, transport_serial, data (Drift), app.
 - BLE universal_ble; serial libserialport_plus (desktop) + usb_serial (Android); DFU nordic_dfu (mobile/macOS) + pure-Dart Secure DFU over universal_ble (Win/Linux).
 - Riverpod 3 + riverpod_generator; go_router; Drift; freezed 4 + json_serializable; material_ui + dynamic_color + google_fonts + flutter_animate; window_manager + macos_window_utils; alchemist + mocktail + integration_test.

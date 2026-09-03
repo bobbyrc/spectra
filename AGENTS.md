@@ -8,15 +8,16 @@ progressive disclosure (simple default path, expert detail one tap away).
 
 ## Current status (2026-09-02)
 
-Brainstorming, architectural path. No application code exists yet.
-Research is complete. Next steps, in order:
+Design spec approved in brainstorm and written to
+`docs/superpowers/specs/2026-09-02-spectra-design.md` (architecture A:
+pure-Dart `chameleon` SDK, `chameleon_flutter` transports, `spectra_ui`
+design system, `app`). No application code exists yet. Next steps, in order:
 
-1. Present 2-3 architecture approaches with a recommendation.
-2. Walk through the design section by section for approval.
-3. Write the spec to `docs/superpowers/specs/YYYY-MM-DD-spectra-design.md`.
-4. Write an implementation plan, then scaffold.
+1. User reviews the written spec.
+2. Write an implementation plan with the writing-plans skill.
+3. Upgrade the toolchain via mise, then scaffold per the plan.
 
-Do not scaffold or write app code before the spec is approved.
+Do not scaffold or write app code before the plan is approved.
 
 ## Decisions already made (do not re-ask)
 
