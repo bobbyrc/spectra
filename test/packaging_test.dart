@@ -132,12 +132,30 @@ void main() {
       expect(ps1, contains('skipping code signing'));
     });
 
+    test('resolves ISCC from PATH, then the default install path, then '
+        'fails clearly', () {
+      expect(ps1, contains("Get-Command 'ISCC.exe'"));
+      expect(ps1, contains(r'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'));
+      expect(ps1, contains('choco install innosetup'));
+      expect(ps1, contains('ISCC.exe not found on PATH'));
+    });
+
+    test('quotes paths passed to native executables', () {
+      expect(ps1, contains('/f "\$pfxPath"'));
+      expect(ps1, contains('/td SHA256 "\$Path"'));
+      expect(ps1, contains('"\$iss"'));
+    });
+
     test('the Inno script names the landed app identity', () {
       expect(iss, contains('AppName=Spectra'));
       expect(iss, contains('dev.spectra.spectra'));
       expect(iss, contains('spectra.exe'));
       expect(iss, contains('{#AppVersion}'));
       expect(iss, contains('ArchitecturesInstallIn64BitMode=x64compatible'));
+    });
+
+    test('AppId is a stable GUID, not the bundle identifier string', () {
+      expect(iss, contains(RegExp(r'#define AppId "\{\{[0-9A-Fa-f-]{36}\}"')));
     });
   });
 }

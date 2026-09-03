@@ -1,8 +1,13 @@
-; Inno Setup script for Spectra. ISCC is preinstalled on GitHub's
-; windows-latest runners. Driven by tool/package/windows_installer.ps1,
-; which passes AppVersion, BuildDir and OutDir with /D switches.
+; Inno Setup script for Spectra. Inno Setup is NOT preinstalled on the
+; windows-latest image (Windows Server 2025); windows_installer.ps1's
+; Get-ISCC resolves it from PATH or its default install location, or
+; throws with the install command. Driven by windows_installer.ps1, which
+; passes AppVersion, BuildDir and OutDir with /D switches.
 #define AppPublisher "Spectra"
-#define AppId "dev.spectra.spectra"
+; Bundle identifier: dev.spectra.spectra (matches the macOS bundle id).
+; AppId below is a separate, stable GUID Inno Setup uses to recognize
+; upgrades across versions — do not regenerate it once released.
+#define AppId "{{68E0C411-A8AC-481C-AB65-F07D8A6DA804}"
 
 [Setup]
 AppId={#AppId}
