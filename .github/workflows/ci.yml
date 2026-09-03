@@ -1,8 +1,13 @@
 name: ci
+# The branch gets CI through draft PR #1 (push only triggers on main).
 on:
   pull_request:
   push:
     branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   FLUTTER_VERSION: 3.47.2
@@ -10,6 +15,7 @@ env:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -22,9 +28,11 @@ jobs:
       - run: dart format --set-exit-if-changed .
       - run: dart analyze --fatal-infos .
       - run: dart run tool/dep_lint.dart
+      - run: dart test
       - run: bash tool/check_codegen.sh
         env:
           MISE_X: ""
+      # Needed because `melos exec` shells out to the `melos` binary.
       - run: dart pub global activate melos
       - run: echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
       - run: dart run melos run test:dart
@@ -32,6 +40,7 @@ jobs:
 
   build:
     needs: check
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

@@ -38,7 +38,10 @@ melos:
         dirExists: test
     lint:deps:
       run: dart run tool/dep_lint.dart
+    test:root:
+      run: dart test
+      description: Run the workspace root's own tests (tool/ dep lint tests).
     check:codegen:
       run: bash tool/check_codegen.sh
     check:all:
-      run: melos run format && melos run analyze && melos run lint:deps && melos run check:codegen && melos run test:dart && melos run test:flutter
+      run: melos run format && melos run analyze && melos run lint:deps && melos run test:root && melos run check:codegen && melos run test:dart && melos run test:flutter
