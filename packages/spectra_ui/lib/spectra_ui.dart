@@ -13,6 +13,7 @@ export 'src/components/hex_viewer.dart';
 export 'src/components/list_tile.dart';
 export 'src/components/progress_indicator.dart';
 export 'src/components/section_header.dart';
+export 'src/components/slot_tile.dart';
 export 'src/components/status_chip.dart';
 export 'src/components/step_indicator.dart';
 export 'src/components/text_field.dart';
