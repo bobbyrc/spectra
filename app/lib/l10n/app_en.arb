@@ -209,5 +209,13 @@
   "dashboardUnknown": "Unknown",
   "@dashboardUnknown": {"description": "Placeholder for a value the device has not reported."},
   "dashboardLimitedTitle": "This device needs a firmware update",
-  "@dashboardLimitedTitle": {"description": "Heading of the reduced dashboard."}
+  "@dashboardLimitedTitle": {"description": "Heading of the reduced dashboard."},
+  "slotTypeEmpty": "Empty",
+  "@slotTypeEmpty": {"description": "Shown where a slot sense has no tag type set."},
+  "slotSenseHf": "High frequency",
+  "@slotSenseHf": {"description": "The 13.56 MHz side of a slot."},
+  "slotSenseLf": "Low frequency",
+  "@slotSenseLf": {"description": "The 125 kHz side of a slot."},
+  "slotNicknameTooLong": "Names are limited to 32 bytes.",
+  "@slotNicknameTooLong": {"description": "Validation message under the slot name field."}
 }

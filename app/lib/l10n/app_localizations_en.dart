@@ -347,4 +347,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardLimitedTitle => 'This device needs a firmware update';
+
+  @override
+  String get slotTypeEmpty => 'Empty';
+
+  @override
+  String get slotSenseHf => 'High frequency';
+
+  @override
+  String get slotSenseLf => 'Low frequency';
+
+  @override
+  String get slotNicknameTooLong => 'Names are limited to 32 bytes.';
 }

@@ -705,6 +705,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This device needs a firmware update'**
   String get dashboardLimitedTitle;
+
+  /// Shown where a slot sense has no tag type set.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty'**
+  String get slotTypeEmpty;
+
+  /// The 13.56 MHz side of a slot.
+  ///
+  /// In en, this message translates to:
+  /// **'High frequency'**
+  String get slotSenseHf;
+
+  /// The 125 kHz side of a slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Low frequency'**
+  String get slotSenseLf;
+
+  /// Validation message under the slot name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Names are limited to 32 bytes.'**
+  String get slotNicknameTooLong;
 }
 
 class _AppLocalizationsDelegate
