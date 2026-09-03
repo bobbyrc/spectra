@@ -71,15 +71,17 @@ void main() {
         ),
       ),
     );
-    final DecoratedBox box = tester.widget<DecoratedBox>(
-      find
-          .descendant(
+    // The button's own fill, not SpectraTappable's transparent focus-ring
+    // overlay, which is also a DecoratedBox inside the same subtree.
+    final Iterable<Color?> fills = tester
+        .widgetList<DecoratedBox>(
+          find.descendant(
             of: find.byType(SpectraButton),
             matching: find.byType(DecoratedBox),
-          )
-          .first,
-    );
-    expect((box.decoration as BoxDecoration).color, SpectraColors.light.danger);
+          ),
+        )
+        .map((DecoratedBox box) => (box.decoration as BoxDecoration).color);
+    expect(fills, contains(SpectraColors.light.danger));
   });
 
   testWidgets('a semanticsLabel overrides the visible label for a11y', (

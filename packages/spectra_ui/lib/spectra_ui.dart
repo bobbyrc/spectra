@@ -19,6 +19,7 @@ export 'src/components/section_header.dart';
 export 'src/components/slot_tile.dart';
 export 'src/components/status_chip.dart';
 export 'src/components/step_indicator.dart';
+export 'src/components/tappable.dart';
 export 'src/components/text_field.dart';
 export 'src/theme/spectra_app.dart';
 export 'src/theme/spectra_fonts.dart';

@@ -2,8 +2,12 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme/spectra_theme.dart';
 import '../tokens/spacing.dart';
+import 'tappable.dart';
 
 /// A raised surface. Tappable only when [onTap] is given.
+///
+/// The 48px minimum tap target is implicit in the default [padding]: a card
+/// given a smaller padding and an [onTap] is the caller's to size.
 class SpectraCard extends StatelessWidget {
   const SpectraCard({
     required this.child,
@@ -21,11 +25,12 @@ class SpectraCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final SpectraTheme theme = SpectraTheme.of(context);
+    final BorderRadius radius = BorderRadius.circular(SpectraSpacing.md);
     final Widget surface = DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colors.surface,
         border: Border.all(color: theme.colors.border),
-        borderRadius: BorderRadius.circular(SpectraSpacing.md),
+        borderRadius: radius,
       ),
       child: Padding(padding: padding, child: child),
     );
@@ -34,10 +39,13 @@ class SpectraCard extends StatelessWidget {
           ? surface
           : Semantics(label: semanticsLabel, child: surface);
     }
-    return Semantics(
-      button: true,
-      label: semanticsLabel,
-      child: GestureDetector(onTap: onTap, child: surface),
+    return SpectraTappable(
+      onTap: onTap,
+      semanticsLabel: semanticsLabel,
+      // The card's content is its own label; keep it audible.
+      excludeSemantics: false,
+      borderRadius: radius,
+      child: surface,
     );
   }
 }

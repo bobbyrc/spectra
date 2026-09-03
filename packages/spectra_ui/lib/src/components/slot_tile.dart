@@ -4,9 +4,14 @@ import '../../l10n/spectra_ui_localizations.dart';
 import '../theme/spectra_theme.dart';
 import '../tokens/spacing.dart';
 import '../tokens/typography.dart';
+import 'tappable.dart';
 
 /// One of the device's eight slots. Tag types arrive as display strings, so
 /// the kit never depends on the SDK's tag enums.
+///
+/// The 48px minimum target is enforced on height only: the tile is meant to
+/// fill the width of its column or grid cell, so a caller that gives it a
+/// narrower box owns the width side of spec 6.2's rule.
 class SpectraSlotTile extends StatelessWidget {
   const SpectraSlotTile({
     required this.number,
@@ -120,15 +125,11 @@ class SpectraSlotTile extends StatelessWidget {
     if (onTap == null) {
       return Semantics(label: semantics, excludeSemantics: true, child: body);
     }
-    return Semantics(
-      button: true,
-      label: semantics,
-      excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: body,
-      ),
+    return SpectraTappable(
+      onTap: onTap,
+      semanticsLabel: semantics,
+      borderRadius: BorderRadius.circular(SpectraSpacing.md),
+      child: body,
     );
   }
 }

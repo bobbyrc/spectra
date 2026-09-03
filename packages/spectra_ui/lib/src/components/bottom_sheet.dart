@@ -4,8 +4,12 @@ import '../../l10n/spectra_ui_localizations.dart';
 import '../theme/spectra_theme.dart';
 import '../tokens/spacing.dart';
 import '../tokens/typography.dart';
+import 'tappable.dart';
 
 /// A titled modal sheet. [show] presents it and returns the popped value.
+///
+/// The top radius matches `spectraThemeData`'s `bottomSheetTheme`, so the
+/// sheet's own surface and the route's clip agree.
 class SpectraBottomSheet extends StatelessWidget {
   const SpectraBottomSheet({
     required this.title,
@@ -15,6 +19,9 @@ class SpectraBottomSheet extends StatelessWidget {
 
   final String title;
   final Widget child;
+
+  /// The minimum tap target, per spec 6.2's 48px rule.
+  static const double minTargetSize = 48;
 
   static Future<T?> show<T>({
     required BuildContext context,
@@ -58,18 +65,16 @@ class SpectraBottomSheet extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Semantics(
-                    button: true,
-                    label: l10n.close,
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(context).maybePop(),
-                      child: SizedBox(
-                        width: 48,
-                        height: 48,
-                        child: Icon(
-                          Icons.close,
-                          color: theme.colors.textSecondary,
-                        ),
+                  SpectraTappable(
+                    onTap: () => Navigator.of(context).maybePop(),
+                    semanticsLabel: l10n.close,
+                    borderRadius: BorderRadius.circular(SpectraSpacing.sm),
+                    child: SizedBox(
+                      width: minTargetSize,
+                      height: minTargetSize,
+                      child: Icon(
+                        Icons.close,
+                        color: theme.colors.textSecondary,
                       ),
                     ),
                   ),

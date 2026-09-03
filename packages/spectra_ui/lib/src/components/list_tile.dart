@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../theme/spectra_theme.dart';
 import '../tokens/spacing.dart';
 import '../tokens/typography.dart';
+import 'tappable.dart';
 
 /// One row of a list: title, optional subtitle, optional leading and trailing.
 class SpectraListTile extends StatelessWidget {
@@ -73,15 +74,10 @@ class SpectraListTile extends StatelessWidget {
       ),
     );
     if (onTap == null) return row;
-    return Semantics(
-      button: true,
-      label: subtitle == null ? title : '$title, $subtitle',
-      excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: row,
-      ),
+    return SpectraTappable(
+      onTap: onTap,
+      semanticsLabel: subtitle == null ? title : '$title, $subtitle',
+      child: row,
     );
   }
 }

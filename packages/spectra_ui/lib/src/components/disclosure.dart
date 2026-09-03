@@ -5,9 +5,15 @@ import '../../l10n/spectra_ui_localizations.dart';
 import '../theme/spectra_theme.dart';
 import '../tokens/motion.dart';
 import '../tokens/spacing.dart';
+import 'tappable.dart';
 
 /// A summary row that expands to expert detail: the progressive-disclosure
 /// primitive every expert affordance in Spectra sits behind.
+///
+/// Testing note: expanding runs a `flutter_animate` fade, which leaves a
+/// pending timer if the test ends immediately after the tap. Do not use
+/// `pumpAndSettle` after toggling — pump a bounded amount instead, e.g.
+/// `await tester.pump(); await tester.pump(SpectraMotion.medium);`.
 class SpectraDisclosure extends StatefulWidget {
   const SpectraDisclosure({
     required this.summary,
@@ -21,6 +27,9 @@ class SpectraDisclosure extends StatefulWidget {
   final Widget detail;
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpansionChanged;
+
+  /// The minimum tap target, per spec 6.2's 48px rule.
+  static const double minTargetSize = 48;
 
   @override
   State<SpectraDisclosure> createState() => _SpectraDisclosureState();
@@ -46,23 +55,21 @@ class _SpectraDisclosureState extends State<SpectraDisclosure> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        GestureDetector(
+        SpectraTappable(
           onTap: _toggle,
+          semanticsLabel: affordance,
+          expanded: _expanded,
+          excludeSemantics: false,
+          borderRadius: BorderRadius.circular(SpectraSpacing.sm),
           child: Row(
             children: <Widget>[
               Expanded(child: widget.summary),
-              Semantics(
-                button: true,
-                container: true,
-                expanded: _expanded,
-                label: affordance,
-                child: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
-                    color: theme.colors.textSecondary,
-                  ),
+              SizedBox(
+                width: SpectraDisclosure.minTargetSize,
+                height: SpectraDisclosure.minTargetSize,
+                child: Icon(
+                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  color: theme.colors.textSecondary,
                 ),
               ),
             ],
