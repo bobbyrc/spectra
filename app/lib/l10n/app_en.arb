@@ -254,6 +254,8 @@
     "description": "Body of the clear-sense confirmation; the sense's name.",
     "placeholders": {"sense": {"type": "String"}}
   },
+  "slotSaving": "Saving to the device…",
+  "@slotSaving": {"description": "Progress label while a slot change is in flight."},
   "commonCancel": "Cancel",
   "@commonCancel": {"description": "Dismisses a dialog without acting."}
 }

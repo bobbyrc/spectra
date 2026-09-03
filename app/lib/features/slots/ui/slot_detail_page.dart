@@ -10,6 +10,7 @@ import '../../../l10n/app_localizations.dart';
 import '../state/slot_editor_controller.dart';
 import '../state/slot_view.dart';
 import '../state/slot_views_provider.dart';
+import 'slot_problem_view.dart';
 import 'slot_sense_section.dart';
 
 /// Spec 7.7 step 2's editor: everything one slot can be changed to. Layout
@@ -47,6 +48,18 @@ class SlotDetailPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(SpectraSpacing.lg),
         children: <Widget>[
+          if (busy) ...<Widget>[
+            SpectraProgressIndicator(label: l10n.slotSaving),
+            const SizedBox(height: SpectraSpacing.md),
+          ],
+          if (editing.error case final Object problem) ...<Widget>[
+            SlotProblemView(
+              error: problem,
+              onDismiss: () =>
+                  ref.read(slotEditorProvider(index).notifier).reset(),
+            ),
+            const SizedBox(height: SpectraSpacing.md),
+          ],
           SpectraCard(
             child: Row(
               children: <Widget>[

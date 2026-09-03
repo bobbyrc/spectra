@@ -20,6 +20,11 @@ part 'slot_editor_controller.g.dart';
 /// SET_ACTIVE_SLOT command with no save step, and (unlike the other five
 /// methods) it is not wrapped in `DeviceSession.busy`, so the wakelock
 /// `sessionNeedsWakelock` polls is not held while it runs.
+///
+/// A call made while another is already in flight is dropped, not queued
+/// (see `_inFlight`): the screen must disable its controls while
+/// `state.isLoading` so a dropped call is never the only thing standing
+/// between a tap and the change it was supposed to make.
 @riverpod
 class SlotEditor extends _$SlotEditor {
   @override

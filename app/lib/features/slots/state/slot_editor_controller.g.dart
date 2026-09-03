@@ -21,6 +21,11 @@ part of 'slot_editor_controller.dart';
 /// SET_ACTIVE_SLOT command with no save step, and (unlike the other five
 /// methods) it is not wrapped in `DeviceSession.busy`, so the wakelock
 /// `sessionNeedsWakelock` polls is not held while it runs.
+///
+/// A call made while another is already in flight is dropped, not queued
+/// (see `_inFlight`): the screen must disable its controls while
+/// `state.isLoading` so a dropped call is never the only thing standing
+/// between a tap and the change it was supposed to make.
 
 @ProviderFor(SlotEditor)
 final slotEditorProvider = SlotEditorFamily._();
@@ -38,6 +43,11 @@ final slotEditorProvider = SlotEditorFamily._();
 /// SET_ACTIVE_SLOT command with no save step, and (unlike the other five
 /// methods) it is not wrapped in `DeviceSession.busy`, so the wakelock
 /// `sessionNeedsWakelock` polls is not held while it runs.
+///
+/// A call made while another is already in flight is dropped, not queued
+/// (see `_inFlight`): the screen must disable its controls while
+/// `state.isLoading` so a dropped call is never the only thing standing
+/// between a tap and the change it was supposed to make.
 final class SlotEditorProvider
     extends $AsyncNotifierProvider<SlotEditor, void> {
   /// Every change to one slot, as an [AsyncValue] the screen renders.
@@ -53,6 +63,11 @@ final class SlotEditorProvider
   /// SET_ACTIVE_SLOT command with no save step, and (unlike the other five
   /// methods) it is not wrapped in `DeviceSession.busy`, so the wakelock
   /// `sessionNeedsWakelock` polls is not held while it runs.
+  ///
+  /// A call made while another is already in flight is dropped, not queued
+  /// (see `_inFlight`): the screen must disable its controls while
+  /// `state.isLoading` so a dropped call is never the only thing standing
+  /// between a tap and the change it was supposed to make.
   SlotEditorProvider._({
     required SlotEditorFamily super.from,
     required int super.argument,
@@ -104,6 +119,11 @@ String _$slotEditorHash() => r'ac30cd693fb99638f57c81bb39177c82436539cc';
 /// SET_ACTIVE_SLOT command with no save step, and (unlike the other five
 /// methods) it is not wrapped in `DeviceSession.busy`, so the wakelock
 /// `sessionNeedsWakelock` polls is not held while it runs.
+///
+/// A call made while another is already in flight is dropped, not queued
+/// (see `_inFlight`): the screen must disable its controls while
+/// `state.isLoading` so a dropped call is never the only thing standing
+/// between a tap and the change it was supposed to make.
 
 final class SlotEditorFamily extends $Family
     with
@@ -136,6 +156,11 @@ final class SlotEditorFamily extends $Family
   /// SET_ACTIVE_SLOT command with no save step, and (unlike the other five
   /// methods) it is not wrapped in `DeviceSession.busy`, so the wakelock
   /// `sessionNeedsWakelock` polls is not held while it runs.
+  ///
+  /// A call made while another is already in flight is dropped, not queued
+  /// (see `_inFlight`): the screen must disable its controls while
+  /// `state.isLoading` so a dropped call is never the only thing standing
+  /// between a tap and the change it was supposed to make.
 
   SlotEditorProvider call(int index) =>
       SlotEditorProvider._(argument: index, from: this);
@@ -157,6 +182,11 @@ final class SlotEditorFamily extends $Family
 /// SET_ACTIVE_SLOT command with no save step, and (unlike the other five
 /// methods) it is not wrapped in `DeviceSession.busy`, so the wakelock
 /// `sessionNeedsWakelock` polls is not held while it runs.
+///
+/// A call made while another is already in flight is dropped, not queued
+/// (see `_inFlight`): the screen must disable its controls while
+/// `state.isLoading` so a dropped call is never the only thing standing
+/// between a tap and the change it was supposed to make.
 
 abstract class _$SlotEditor extends $AsyncNotifier<void> {
   late final _$args = ref.$arg as int;

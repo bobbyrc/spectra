@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra/core/routing/routes.dart';
+import 'package:spectra/features/slots/state/slot_editor_controller.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../support/app_harness.dart';
@@ -264,12 +265,51 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    await tester.tap(find.text('Clear').last);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraDialog),
+        matching: find.text('Clear'),
+      ),
+    );
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
     expect(find.text('MIFARE Classic 1K'), findsNothing);
     expect(find.text('Empty'), findsWidgets);
+  });
+
+  testWidgetsApp('the editor renders a notifier error through the catalog', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+    await openSlot(tester, 2);
+
+    // The message has to be on the *visible* slot's editor to reach the
+    // screen. `SlotEditor.state` is `@protected` (ruling 3): drive the
+    // error through `debugFail` rather than assigning `state` directly.
+    keepAlive(tester, slotEditorProvider(1));
+    readProvider(
+      tester,
+      slotEditorProvider(1).notifier,
+    ).debugFail(const ParameterError());
+    await tester.pump();
+
+    expect(find.text('The device rejected that value.'), findsOneWidget);
+    await tester.tap(find.text('Details'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.textContaining('ParameterError'), findsWidgets);
+
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(find.text('The device rejected that value.'), findsNothing);
   });
 }

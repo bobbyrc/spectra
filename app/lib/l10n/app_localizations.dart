@@ -820,6 +820,12 @@ abstract class AppLocalizations {
   /// **'This removes the tag type and the emulated data on the {sense} side. It cannot be undone.'**
   String slotClearBody(String sense);
 
+  /// Progress label while a slot change is in flight.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving to the device…'**
+  String get slotSaving;
+
   /// Dismisses a dialog without acting.
   ///
   /// In en, this message translates to:

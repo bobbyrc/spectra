@@ -410,5 +410,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get slotSaving => 'Saving to the device…';
+
+  @override
   String get commonCancel => 'Cancel';
 }

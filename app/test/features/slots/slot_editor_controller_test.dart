@@ -50,7 +50,7 @@ void main() {
     await pending;
 
     expect(_view(tester, 2).slot.hfNick, 'Front door');
-    expect(readProvider(tester, slotEditorProvider(2)).hasError, isFalse);
+    expect(readProvider(tester, slotEditorProvider(2)), isA<AsyncData<void>>());
   });
 
   testWidgetsApp('setEnabled flips one sense and leaves the other alone', (
@@ -142,6 +142,49 @@ void main() {
     expect(readProvider(tester, slotEditorProvider(9)).hasError, isFalse);
   });
 
+  testWidgetsApp('a mutation with no active session becomes SessionNotReady', (
+    tester,
+  ) async {
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await tester.pump();
+
+    // Lets `build(0)`'s own (trivially empty, but still async) Future
+    // settle to `AsyncData(null)` before the mutation below touches
+    // `state` — otherwise the build's completion can land after the
+    // mutation and clobber the error it just set (see task-5-report.md's
+    // note on this same microtask race).
+    final SlotEditor editor = _editor(tester, 0);
+    await tester.pump();
+
+    final Future<void> pending = editor.makeActive();
+    await _pump(tester);
+    await pending;
+
+    final AsyncValue<void> state = readProvider(tester, slotEditorProvider(0));
+    expect(state.hasError, isTrue);
+    expect(state.error, isA<SessionNotReady>());
+  });
+
+  testWidgetsApp(
+    'a second mutation while one is in flight is dropped, not queued',
+    (tester) async {
+      final FakeDevice device = FakeDevice();
+      await tester.pumpWidget(testApp(transport: (_) => device));
+      await connectToEmulator(tester);
+
+      final SlotEditor editor = _editor(tester, 2);
+      // Neither call is awaited before the second lands, so the guard sees
+      // the first still in flight (ruling 9's shape).
+      final Future<void> first = editor.rename(Sense.hf, 'First');
+      final Future<void> second = editor.rename(Sense.hf, 'Second');
+      await _pump(tester);
+      await first;
+      await second;
+
+      expect(device.received.where((Frame f) => f.command == 1007).length, 1);
+    },
+  );
+
   testWidgetsApp('a slot mutation holds the wakelock while it is in flight', (
     tester,
   ) async {
@@ -167,7 +210,7 @@ void main() {
     expect(
       sessionNeedsWakelock(session, session.connectionState.value),
       isTrue,
-      reason: 'SlotsFacade wraps every mutation in DeviceSession.busy',
+      reason: 'every mutation that writes and saves',
     );
 
     device.latency = Duration.zero;
