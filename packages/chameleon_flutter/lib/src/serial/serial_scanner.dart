@@ -5,6 +5,7 @@ import 'package:chameleon/chameleon.dart';
 import 'serial_adapter.dart';
 import 'serial_failure.dart';
 import 'serial_ids.dart';
+import 'usb_serial_adapter.dart';
 
 /// Spec 5.5: the Nordic bootloader enumerates as VID 0x1915 / PID 0x521F.
 bool isBootloaderPort(SerialPortDescriptor port) =>
@@ -53,6 +54,13 @@ final class SerialScanner implements DeviceScanner {
   /// [TransportError] if the adapter's `listPorts` fails.
   Future<List<DiscoveredDevice>> enumerate() async {
     try {
+      // usb_serial enumerates asynchronously and UsbSerialAdapter caches
+      // the result, so Android never discovers anything unless the cache
+      // is refreshed before every enumeration (see UsbSerialAdapter's
+      // doc). Desktop's libserialport-backed adapter enumerates
+      // synchronously in listPorts() and has no refresh step.
+      final adapter = _adapter;
+      if (adapter is UsbSerialAdapter) await adapter.refresh();
       return <DiscoveredDevice>[
         for (final port in _adapter.listPorts())
           if (isChameleonPort(port))
@@ -71,9 +79,9 @@ final class SerialScanner implements DeviceScanner {
   @override
   Stream<List<DiscoveredDevice>> scan() {
     Timer? timer;
-    // The (transportId, name, isBootloader) triple per device, in
-    // enumeration order — de-dup per ruling F24, since DiscoveredDevice
-    // equality only covers (kind, transportId).
+    // The (transportId, name, isBootloader) triple per device, sorted so a
+    // re-ordered listPorts() result compares equal — de-dup per ruling
+    // F24, since DiscoveredDevice equality only covers (kind, transportId).
     List<String>? previousKey;
     final controller = StreamController<List<DiscoveredDevice>>();
 
@@ -92,7 +100,7 @@ final class SerialScanner implements DeviceScanner {
       }
       final key = <String>[
         for (final d in devices) '${d.transportId} ${d.name} ${d.isBootloader}',
-      ];
+      ]..sort();
       if (previousKey != null && _sameList(previousKey!, key)) return;
       previousKey = key;
       if (!controller.isClosed) {

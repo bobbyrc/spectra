@@ -16,9 +16,11 @@ export 'src/host_platform.dart';
 export 'src/serial/libserialport_adapter.dart';
 export 'src/serial/serial_adapter.dart';
 export 'src/serial/serial_adapter_factory.dart';
-export 'src/serial/serial_failure.dart';
+export 'src/serial/serial_failure.dart'
+    show SerialAdapterException, SerialFailure;
 export 'src/serial/serial_guidance.dart';
 export 'src/serial/serial_ids.dart';
+export 'src/serial/serial_scanner.dart';
 export 'src/serial/serial_transport.dart';
 export 'src/serial/usb_serial_adapter.dart';
 

@@ -1,7 +1,6 @@
 import 'package:chameleon/chameleon.dart';
 import 'package:chameleon_flutter/chameleon_flutter.dart';
-import 'package:chameleon_flutter/src/serial/serial_adapter.dart';
-import 'package:chameleon_flutter/src/serial/serial_scanner.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/fake_serial_adapter.dart';
@@ -111,10 +110,91 @@ void main() {
       await expectLater(scanner.scan().first, throwsA(isA<Exception>()));
     },
   );
+
+  test(
+    'scan does not re-emit when listPorts reorders the same devices',
+    () async {
+      final adapter = _ReorderingAdapter(const [ultra, bootloader]);
+      final scanner = SerialScanner(
+        adapter: adapter,
+        pollInterval: const Duration(milliseconds: 5),
+      );
+      final emissions = <List<DiscoveredDevice>>[];
+      final sub = scanner.scan().listen(emissions.add);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await sub.cancel();
+      expect(
+        emissions.length,
+        1,
+        reason:
+            'a re-ordered but otherwise identical port list must not re-emit',
+      );
+    },
+  );
+
+  group('UsbSerialAdapter (Android)', () {
+    const channel = MethodChannel('usb_serial');
+
+    setUp(() {
+      TestWidgetsFlutterBinding.ensureInitialized();
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    test('enumerate refreshes the adapter before listing ports, so a device '
+        'plugged in since the last refresh is found', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'listDevices') {
+              return <Map<String, Object?>>[
+                {
+                  'deviceName': '/dev/bus/usb/001/002',
+                  'vid': 0x6868,
+                  'pid': 0x8686,
+                  'productName': 'ChameleonUltra',
+                  'manufacturerName': 'Proxgrind',
+                  'deviceId': 1,
+                  'serialNumber': null,
+                  'interfaceCount': 1,
+                },
+              ];
+            }
+            return null;
+          });
+
+      // A fresh adapter's device cache starts empty (per the class doc):
+      // if SerialScanner.enumerate() did not call refresh() first,
+      // listPorts() would return nothing.
+      final adapter = UsbSerialAdapter();
+      final scanner = SerialScanner(adapter: adapter);
+      final found = await scanner.enumerate();
+
+      expect(found, hasLength(1));
+      expect(found.single.transportId, '/dev/bus/usb/001/002');
+    });
+  });
 }
 
 final class _ThrowingAdapter extends FakeSerialAdapter {
   @override
   List<SerialPortDescriptor> listPorts() =>
       throw Exception('enumeration blew up');
+}
+
+/// Returns [_ports] on odd calls and its reverse on even calls, so a test
+/// can prove the scanner's change detection tolerates reordering.
+final class _ReorderingAdapter extends FakeSerialAdapter {
+  _ReorderingAdapter(this._ports) : super(ports: _ports);
+
+  final List<SerialPortDescriptor> _ports;
+  int _calls = 0;
+
+  @override
+  List<SerialPortDescriptor> listPorts() {
+    _calls++;
+    return _calls.isOdd ? _ports : _ports.reversed.toList();
+  }
 }
