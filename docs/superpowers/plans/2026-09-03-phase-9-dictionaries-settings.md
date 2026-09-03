@@ -1015,7 +1015,7 @@ MSG
   - `bool isBuiltIn(KeyDictionary d)`.
   - `@riverpod Stream<List<KeyDictionary>> dictionaries(Ref ref)` — the built-in first, then the stored rows newest-updated first.
   - `@riverpod class DictionaryLibrary extends _$DictionaryLibrary` with `Future<void> build()`, `Future<String?> create(String name, {List<Uint8List> keys = const <Uint8List>[]})`, `Future<void> rename(KeyDictionary d, String name)`, `Future<void> setKeys(KeyDictionary d, List<Uint8List> keys)`, `Future<void> remove(String id)`, `Future<String?> duplicate(KeyDictionary d, String name)`, `Future<ImportOutcome> importText(String text, {String? fallbackName})`, `void reset()`, `@visibleForTesting void debugFail(Object error)`.
-  - `final class ImportOutcome { const ImportOutcome({required this.written, this.error}); final int written; final Object? error; bool get ok; }` — the same shape `features/cards/state/saved_cards_provider.dart` uses, deliberately: a partial import must be able to say both how many landed and what stopped the rest. It is a separate declaration, not an import, because it is another feature's internal.
+  - `final class ImportOutcome { const ImportOutcome({required this.written, this.error}); final int written; final Object? error; bool get ok; }` — the same shape `features/cards/state/saved_cards_provider.dart` uses, deliberately: a partial import must be able to say both how many landed and what stopped the rest. It is a separate declaration, not an import, because it is another feature's internal — and for the same reason it is **not** exported from the barrel, so no cards file ever sees two `ImportOutcome`s.
   - `String newDictionaryId()`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1484,8 +1484,10 @@ library;
 
 export 'state/built_in_keys.dart'
     show builtInDictionary, builtInDictionaryId, defaultMifareKeys, isBuiltIn;
-export 'state/dictionaries_provider.dart'
-    show ImportOutcome, dictionariesProvider;
+// `ImportOutcome` is deliberately *not* exported: `features/cards` declares
+// its own type of that name, and a cards file that imports this barrel
+// would then carry two `ImportOutcome`s.
+export 'state/dictionaries_provider.dart' show dictionariesProvider;
 ```
 
 - [ ] **Step 6: Regenerate, run, check and commit**
@@ -3841,16 +3843,6 @@ void main() {
     expect(find.text('The passkey is six digits.'), findsOneWidget);
   });
 
-  testWidgetsApp('with nothing connected the section says so', (tester) async {
-    useDesktopSurface(tester);
-    await pumpTestAppWithNoDevices(tester);
-    await pumpFrames(tester);
-
-    // No session: the app is on the connect route, so drive the section's
-    // own empty state by reading what it renders when settings are null.
-    expect(readProvider(tester, settingsProvider).value, isNull);
-  });
-
   testWidgetsApp('a failed write is shown through ProblemView', (tester) async {
     await _openSettings(tester);
     readProvider(
@@ -4247,3 +4239,721 @@ MSG
 ```
 
 ---
+
+### Task 12: App settings — theme, emulator mode, flags, about
+
+Spec 7.7 step 7 ends with "app theme"; spec 7.5 makes emulator mode a user-visible choice; spec 5.6 needs somewhere to flip `dfuOverBleEnabled` once the user reports H2 passed. **This task owns the ARB.**
+
+**Files:**
+- Create: `app/lib/core/theme/theme_mode.dart`, `app/lib/features/settings/ui/app_settings_section.dart`
+- Modify: `app/lib/app.dart`, `app/lib/core/discovery/scanners.dart`, `app/lib/features/settings/ui/settings_page.dart`, `app/lib/features/settings/state/settings_labels.dart`, `app/lib/l10n/app_en.arb`, `app/test/core/discovery/discovery_provider_test.dart`
+- Test: `app/test/core/theme/theme_mode_test.dart`, `app/test/features/settings/app_settings_section_test.dart`
+
+**Interfaces:**
+- Consumes: `PreferencesRepository`, `preferencesRepositoryProvider`; `FeatureFlags`, `featureFlagsProvider`, `FeatureFlagsController.setDfuOverBleEnabled(bool)`, `FeatureFlags.dfuOverBleKey` (`app/lib/core/flags/feature_flags.dart`); `EmulatorMode.setEnabled` and `emulatorModeProvider` (`app/lib/core/discovery/scanners.dart`); `SpectraApp({required RouterConfig<Object> routerConfig, String title, String Function(BuildContext)? onGenerateTitle, ThemeMode themeMode, List<LocalizationsDelegate<Object?>> extraDelegates, Iterable<Locale>? supportedLocales, …})` (`packages/spectra_ui/lib/src/theme/spectra_app.dart`); `showLicensePage` from `material_ui`.
+- Produces:
+  - `@Riverpod(keepAlive: true) class ThemeModeController extends _$ThemeModeController` with `Future<ThemeMode> build()`, `Future<void> select(ThemeMode)`, `static const String preferenceKey = 'app.themeMode'`.
+  - `@Riverpod(keepAlive: true) ThemeMode themeMode(Ref ref)` — the sync mirror `SpectraRoot` reads (`ref.watch(themeModeControllerProvider).value ?? ThemeMode.system`), the `featureFlagsProvider` shape.
+  - `String themeModeLabel(ThemeMode, AppLocalizations)` in `settings_labels.dart`.
+  - `class AppSettingsSection extends ConsumerWidget`.
+  - `EmulatorMode.setEnabled` becomes `Future<void>` and persists (`EmulatorMode.preferenceKey = 'app.emulatorMode'`).
+
+- [ ] **Step 1: Add the ARB keys**
+
+```json
+  "settingsAppTitle": "App",
+  "@settingsAppTitle": {"description": "Section header above the app's own settings."},
+  "settingsTheme": "Theme",
+  "@settingsTheme": {"description": "Light, dark or follow the system."},
+  "settingsThemeSystem": "Match the system",
+  "@settingsThemeSystem": {"description": "Theme mode: system."},
+  "settingsThemeLight": "Light",
+  "@settingsThemeLight": {"description": "Theme mode: light."},
+  "settingsThemeDark": "Dark",
+  "@settingsThemeDark": {"description": "Theme mode: dark."},
+  "settingsEmulator": "Emulated device",
+  "@settingsEmulator": {"description": "Whether the connect screen offers an emulated Chameleon."},
+  "settingsEmulatorSubtitle": "Show an emulated Chameleon Ultra on the connect screen, so Spectra works with no hardware attached.",
+  "@settingsEmulatorSubtitle": {"description": "Explains emulator mode (spec 7.5)."},
+  "settingsDeveloperTitle": "Developer",
+  "@settingsDeveloperTitle": {"description": "Section header above the feature flags."},
+  "settingsFlagDfuBle": "Firmware update over Bluetooth",
+  "@settingsFlagDfuBle": {"description": "The dfuOverBleEnabled feature flag."},
+  "settingsFlagDfuBleSubtitle": "Off until a USB update has recovered a device from an interrupted Bluetooth update on real hardware.",
+  "@settingsFlagDfuBleSubtitle": {"description": "Spec 5.6's rule for enabling BLE DFU."},
+  "settingsAboutTitle": "About",
+  "@settingsAboutTitle": {"description": "Section header above the about rows."},
+  "settingsLicences": "Open-source licences",
+  "@settingsLicences": {"description": "Opens the licences of the packages Spectra uses."}
+```
+
+Then `cd app && flutter gen-l10n`.
+
+- [ ] **Step 2: Write the failing tests**
+
+Create `app/test/core/theme/theme_mode_test.dart`:
+
+```dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:spectra/core/theme/theme_mode.dart';
+import 'package:spectra/data/data.dart';
+
+import '../../support/app_harness.dart';
+
+void main() {
+  testWidgetsApp('defaults to following the system', (tester) async {
+    await pumpTestApp(tester);
+    await pumpFrames(tester);
+    expect(readProvider(tester, themeModeProvider), ThemeMode.system);
+  });
+
+  testWidgetsApp('a chosen theme is applied and persisted', (tester) async {
+    await pumpTestApp(tester);
+    await pumpFrames(tester);
+
+    final Future<void> pending = readProvider(
+      tester,
+      themeModeControllerProvider.notifier,
+    ).select(ThemeMode.dark);
+    await pumpFrames(tester, count: 3);
+    await pending;
+    await pumpFrames(tester, count: 3);
+
+    expect(readProvider(tester, themeModeProvider), ThemeMode.dark);
+    expect(
+      await readProvider(
+        tester,
+        preferencesRepositoryProvider,
+      ).read(ThemeModeController.preferenceKey),
+      'dark',
+    );
+  });
+}
+```
+
+Create `app/test/features/settings/app_settings_section_test.dart`:
+
+```dart
+import 'package:chameleon/chameleon.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' hide ConnectionState;
+import 'package:spectra/core/discovery/scanners.dart';
+import 'package:spectra/core/flags/feature_flags.dart';
+import 'package:spectra/core/theme/theme_mode.dart';
+import 'package:spectra_ui/spectra_ui.dart';
+
+import '../../support/app_harness.dart';
+
+Future<void> _openSettings(WidgetTester tester) async {
+  useDesktopSurface(tester);
+  await pumpTestApp(tester, transport: (_) => FakeDevice());
+  await connectToEmulator(tester);
+  await tester.tap(find.text('Settings').last);
+  await pumpFrames(tester);
+}
+
+void main() {
+  testWidgetsApp('picks a theme', (tester) async {
+    await _openSettings(tester);
+
+    await tester.tap(find.text('Theme'));
+    await pumpFrames(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text('Dark'),
+      ),
+    );
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+
+    expect(readProvider(tester, themeModeProvider), ThemeMode.dark);
+  });
+
+  testWidgetsApp('turns emulator mode off', (tester) async {
+    await _openSettings(tester);
+
+    await tester.tap(
+      find.descendant(
+        of: find.ancestor(
+          of: find.text('Emulated device'),
+          matching: find.byType(SpectraListTile),
+        ),
+        matching: find.byType(Switch),
+      ),
+    );
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+
+    expect(readProvider(tester, emulatorModeProvider), isFalse);
+  });
+
+  testWidgetsApp('flips the BLE DFU flag and says why it is off', (
+    tester,
+  ) async {
+    await _openSettings(tester);
+    expect(
+      find.textContaining('recovered a device from an interrupted'),
+      findsOneWidget,
+    );
+    expect(readProvider(tester, featureFlagsProvider).dfuOverBleEnabled, isFalse);
+
+    await tester.tap(
+      find.descendant(
+        of: find.ancestor(
+          of: find.text('Firmware update over Bluetooth'),
+          matching: find.byType(SpectraListTile),
+        ),
+        matching: find.byType(Switch),
+      ),
+    );
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+
+    expect(readProvider(tester, featureFlagsProvider).dfuOverBleEnabled, isTrue);
+  });
+
+  testWidgetsApp('offers the licences', (tester) async {
+    await _openSettings(tester);
+    expect(find.text('Open-source licences'), findsOneWidget);
+  });
+}
+```
+
+- [ ] **Step 3: Run them and watch them fail**
+
+```bash
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+cd app && flutter test test/core/theme test/features/settings/app_settings_section_test.dart
+```
+
+Expected: FAIL — `Target of URI doesn't exist: 'package:spectra/core/theme/theme_mode.dart'`.
+
+- [ ] **Step 4: Write the theme preference**
+
+Create `app/lib/core/theme/theme_mode.dart`:
+
+```dart
+import 'package:material_ui/material_ui.dart' show ThemeMode;
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import '../../data/data.dart';
+
+part 'theme_mode.g.dart';
+
+/// The app's theme choice (spec 7.7 step 7), persisted like every other app
+/// preference. The same `PreferencesRepository`-backed keepAlive shape
+/// `core/flags/feature_flags.dart` uses: an async controller, plus a plain
+/// value provider so a widget above `Localizations` — `SpectraRoot` — can
+/// read it synchronously.
+@Riverpod(keepAlive: true)
+class ThemeModeController extends _$ThemeModeController {
+  static const String preferenceKey = 'app.themeMode';
+
+  @override
+  Future<ThemeMode> build() async {
+    final String? stored = await ref
+        .watch(preferencesRepositoryProvider)
+        .read(preferenceKey);
+    return ThemeMode.values
+            .where((ThemeMode m) => m.name == stored)
+            .firstOrNull ??
+        ThemeMode.system;
+  }
+
+  Future<void> select(ThemeMode mode) async {
+    await ref
+        .read(preferencesRepositoryProvider)
+        .write(preferenceKey, mode.name);
+    if (!ref.mounted) return;
+    state = AsyncData<ThemeMode>(mode);
+  }
+}
+
+/// The theme as a plain value: the system theme until the stored one loads,
+/// which is the safe direction (it is what the platform already shows).
+@Riverpod(keepAlive: true)
+ThemeMode themeMode(Ref ref) =>
+    ref.watch(themeModeControllerProvider).value ?? ThemeMode.system;
+```
+
+In `app/lib/app.dart`, pass it: `themeMode: ref.watch(themeModeProvider),` on `SpectraApp`, with `import 'core/theme/theme_mode.dart';`.
+
+- [ ] **Step 5: Persist emulator mode**
+
+In `app/lib/core/discovery/scanners.dart`, replace the body of `EmulatorMode`:
+
+```dart
+@Riverpod(keepAlive: true)
+class EmulatorMode extends _$EmulatorMode {
+  static const String preferenceKey = 'app.emulatorMode';
+
+  @override
+  bool build() {
+    // The stored value arrives asynchronously and a scanner list cannot
+    // wait for it, so the default holds until it lands. On by default,
+    // because it is also how screenshots and manual QA happen with no
+    // hardware attached (spec 7.5) — and the stored value can only ever
+    // turn it off, which is the harmless direction to be late about.
+    final PreferencesRepository prefs = ref.watch(preferencesRepositoryProvider);
+    unawaited(
+      prefs.read(preferenceKey).then((String? stored) {
+        if (stored != null && ref.mounted) state = stored == 'true';
+      }),
+    );
+    return true;
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    state = enabled;
+    await ref
+        .read(preferencesRepositoryProvider)
+        .write(preferenceKey, '$enabled');
+  }
+}
+```
+
+with `import 'dart:async';` and `import '../../data/data.dart';`. `setEnabled` now returns a `Future`, and `unawaited_futures` is on: update the one landed call site, `app/test/core/discovery/discovery_provider_test.dart:185`, to `await container.read(emulatorModeProvider.notifier).setEnabled(false);`.
+
+- [ ] **Step 6: Write the section and assemble the screen**
+
+Create `app/lib/features/settings/ui/app_settings_section.dart` with three cards — App (theme, emulator switch), Developer (the BLE DFU switch), About (a licences row calling `showLicensePage(context: context, applicationName: l10n.appTitle)`):
+
+```dart
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:spectra_ui/spectra_ui.dart';
+
+import '../../../core/discovery/scanners.dart';
+import '../../../core/flags/feature_flags.dart';
+import '../../../core/theme/theme_mode.dart';
+import '../../../l10n/app_localizations.dart';
+import '../state/settings_labels.dart';
+import 'option_sheet.dart';
+
+/// Spec 7.7 step 7 (app theme), spec 7.5 (emulator mode) and spec 5.6 (the
+/// BLE DFU flag, which stays off until the user reports hardware handoff H2
+/// passed — this switch is how they turn it on afterwards).
+///
+/// The About card lists the licences of the packages Spectra ships.
+/// Spectra's own LICENSE files are still the template TODO (`AGENTS.md`), so
+/// no licence is claimed for the app itself here; add that row when a
+/// licence is chosen.
+class AppSettingsSection extends ConsumerWidget {
+  const AppSettingsSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final ThemeMode theme = ref.watch(themeModeProvider);
+    final bool emulator = ref.watch(emulatorModeProvider);
+    final FeatureFlags flags = ref.watch(featureFlagsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SpectraSectionHeader(title: l10n.settingsAppTitle),
+        SpectraCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              SpectraListTile(
+                title: l10n.settingsTheme,
+                subtitle: themeModeLabel(theme, l10n),
+                onTap: () => unawaited(_pickTheme(context, ref, theme, l10n)),
+              ),
+              SpectraListTile(
+                title: l10n.settingsEmulator,
+                subtitle: l10n.settingsEmulatorSubtitle,
+                trailing: Switch(
+                  value: emulator,
+                  onChanged: (bool v) => unawaited(
+                    ref.read(emulatorModeProvider.notifier).setEnabled(v),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: SpectraSpacing.lg),
+        SpectraSectionHeader(title: l10n.settingsDeveloperTitle),
+        SpectraCard(
+          child: SpectraListTile(
+            title: l10n.settingsFlagDfuBle,
+            subtitle: l10n.settingsFlagDfuBleSubtitle,
+            trailing: Switch(
+              value: flags.dfuOverBleEnabled,
+              onChanged: (bool v) => unawaited(
+                ref
+                    .read(featureFlagsControllerProvider.notifier)
+                    .setDfuOverBleEnabled(v),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: SpectraSpacing.lg),
+        SpectraSectionHeader(title: l10n.settingsAboutTitle),
+        SpectraCard(
+          child: SpectraListTile(
+            title: l10n.settingsLicences,
+            leading: const Icon(Icons.article_outlined),
+            onTap: () => showLicensePage(
+              context: context,
+              applicationName: l10n.appTitle,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickTheme(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeMode current,
+    AppLocalizations l10n,
+  ) async {
+    final ThemeMode? mode = await showOptionSheet<ThemeMode>(
+      context: context,
+      title: l10n.settingsTheme,
+      options: ThemeMode.values,
+      labelOf: (ThemeMode m) => themeModeLabel(m, l10n),
+      selected: current,
+    );
+    if (mode == null) return;
+    await ref.read(themeModeControllerProvider.notifier).select(mode);
+  }
+}
+```
+
+Add to `settings_labels.dart` (with `import 'package:material_ui/material_ui.dart' show ThemeMode;`):
+
+```dart
+String themeModeLabel(ThemeMode mode, AppLocalizations l10n) => switch (mode) {
+  ThemeMode.system => l10n.settingsThemeSystem,
+  ThemeMode.light => l10n.settingsThemeLight,
+  ThemeMode.dark => l10n.settingsThemeDark,
+};
+```
+
+`settings_labels.dart` is under `state/`, which the string lint does not scan, and it imports `material_ui` — not `package:flutter/material.dart` — so the features lint stays green.
+
+Finally, `settings_page.dart` becomes the two sections in one `ListView`:
+
+```dart
+      children: <Widget>[
+        const DeviceSettingsSection(),
+        const SizedBox(height: SpectraSpacing.xl),
+        const AppSettingsSection(),
+      ],
+```
+
+- [ ] **Step 7: Regenerate, run, check and commit**
+
+```bash
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+cd app && dart run build_runner build --delete-conflicting-outputs
+flutter test
+cd .. && dart run melos run check:all
+git add -A app/lib app/test
+git commit -m "$(cat <<'MSG'
+add app settings: theme, emulator mode, flags and licences
+
+Theme and emulator mode are preferences and now persist; the BLE DFU flag
+finally has the switch spec 5.6 assumes the user flips after H2.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+MSG
+)"
+```
+
+---
+
+### Task 13: The phase gate
+
+The roadmap's Phase 9 gate is "integration test on emulator". One flow widget test and one integration test, both driving the same app: edit a dictionary, then change a device setting.
+
+**Files:**
+- Create: `app/test/flows/dictionary_and_settings_flow_test.dart`, `app/integration_test/settings_flow_test.dart`
+- Modify: `app/integration_test/support.dart` (export what the new test needs)
+- Test: the two files above are the test.
+
+**Interfaces:**
+- Consumes: the harness (`testWidgetsApp`, `pumpTestApp`, `connectToEmulator`, `openDictionaries`, `pumpFrames`, `useDesktopSurface`, `readProvider`) and, in the integration test, `appOverrides` / `testApp` / `pumpFrames` re-exported from `app/integration_test/support.dart`; `FakeDevice`, `FakeScanner.emulatedUltra`, `AnimationMode` (`package:chameleon`); `SpectraAppShell`, `SpectraBottomSheet`, `SpectraTextField` (`package:spectra_ui`).
+
+- [ ] **Step 1: Write the flow widget test**
+
+Create `app/test/flows/dictionary_and_settings_flow_test.dart`:
+
+```dart
+import 'package:chameleon/chameleon.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:spectra/core/session/session_streams.dart';
+import 'package:spectra/features/dictionaries/state/selected_dictionary.dart';
+import 'package:spectra_ui/spectra_ui.dart';
+
+import '../support/app_harness.dart';
+
+/// The roadmap's Phase 9 gate: edit a key list and change a device setting,
+/// in emulator mode, through the real `DeviceSession`.
+void main() {
+  testWidgetsApp('create a key list, add a key, use it, then set the '
+      'animation mode', (tester) async {
+    useDesktopSurface(tester);
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+    await tester.pump();
+    await connectToEmulator(tester);
+
+    // A key list of our own.
+    await openDictionaries(tester);
+    await tester.tap(find.text('New list'));
+    await pumpFrames(tester);
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.byType(SpectraTextField),
+      ),
+      'Hotel',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text('Save'),
+      ),
+    );
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+
+    // A key in it.
+    await tester.tap(find.text('Hotel'));
+    await pumpFrames(tester);
+    await tester.enterText(find.byType(SpectraTextField).last, '714C5C886E97');
+    await tester.pump();
+    await tester.tap(find.text('Add key'));
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+    expect(find.text('714C5C886E97'), findsOneWidget);
+
+    // And it is the list a read will use.
+    await tester.tap(find.byType(BackButton));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Use these keys').last);
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+    expect(
+      readProvider(tester, candidateMifareKeysProvider).value,
+      hasLength(1),
+    );
+
+    // A device setting, on the emulated device.
+    await tester.tap(find.text('Settings').last);
+    await pumpFrames(tester);
+    await tester.tap(find.text('Start-up animation'));
+    await pumpFrames(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text('None'),
+      ),
+    );
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+    await tester.tap(find.text('Save to device'));
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+
+    expect(
+      readProvider(tester, settingsProvider).value!.animation,
+      AnimationMode.none,
+    );
+  });
+}
+```
+
+`BackButton` comes from `package:material_ui/material_ui.dart` — import it with `hide ConnectionState`, as `app/test/flows/slot_edit_flow_test.dart` does.
+
+- [ ] **Step 2: Run it**
+
+```bash
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+cd app && flutter test test/flows/dictionary_and_settings_flow_test.dart
+```
+
+Expected: PASS. If it fails on a finder, fix the finder — not the app — unless the failure is a real defect, in which case fix the defect and say so in the commit body.
+
+- [ ] **Step 3: Write the integration test**
+
+Create `app/integration_test/settings_flow_test.dart`:
+
+```dart
+import 'package:chameleon/chameleon.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:material_ui/material_ui.dart' hide ConnectionState;
+import 'package:spectra_ui/spectra_ui.dart';
+
+import 'support.dart';
+
+/// The Phase 9 gate on a real engine: edit a key list and change a device
+/// setting in emulator mode. No hardware is touched, and none is needed.
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('edit a dictionary and a device setting on the emulator', (
+    tester,
+  ) async {
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await tester.pump();
+
+    Future<void> settle([int frames = 20]) => pumpFrames(tester, count: frames);
+
+    await tester.tap(find.text(FakeScanner.emulatedUltra.name));
+    await settle(30);
+    expect(find.byType(SpectraAppShell), findsOneWidget);
+
+    await tester.tap(find.text('Tools').last);
+    await settle();
+    await tester.tap(find.text('Key dictionaries'));
+    await settle();
+
+    await tester.tap(find.text('New list'));
+    await settle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.byType(SpectraTextField),
+      ),
+      'Hotel',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text('Save'),
+      ),
+    );
+    await settle(30);
+    expect(find.text('Hotel'), findsOneWidget);
+
+    await tester.tap(find.text('Settings').last);
+    await settle();
+    await tester.tap(find.text('Start-up animation'));
+    await settle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text('None'),
+      ),
+    );
+    await settle(30);
+    await tester.tap(find.text('Save to device'));
+    await settle(30);
+
+    expect(find.text('None'), findsOneWidget);
+  });
+}
+```
+
+If `support.dart`'s export list does not carry a name this test needs, widen that list — do not build a second override list (Phase 6 ruling 9).
+
+- [ ] **Step 4: Run the integration test**
+
+```bash
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+cd app && flutter test integration_test/settings_flow_test.dart -d macos
+```
+
+Expected: PASS. (`-d macos` is how the landed integration tests are run on this machine; if the runner is configured differently in CI, match what `.github/workflows` already does for `slot_edit_flow_test.dart`.)
+
+- [ ] **Step 5: Check and commit**
+
+```bash
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+cd /Users/bcraig/orca/workspaces/spectra/chinook
+dart run melos run check:all
+git add app/test/flows app/integration_test
+git commit -m "$(cat <<'MSG'
+add the Phase 9 gate flows
+
+The roadmap gate is an integration test on the emulator: a key list edited
+and a device setting changed, through the real session.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+MSG
+)"
+```
+
+---
+
+### Task 14: Close-out
+
+The roadmap's per-phase obligation: leave the repo describing itself accurately.
+
+**Files:**
+- Modify: `docs/superpowers/plans/2026-09-02-spectra-v1-roadmap.md`, `AGENTS.md`, `tasks/lessons.md`, `docs/research/DECISIONS.md`, `docs/hardware-checklist.md`
+- Test: the whole suite (`dart run melos run check:all`).
+
+- [ ] **Step 1: Run everything, in the foreground**
+
+```bash
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+cd /Users/bcraig/orca/workspaces/spectra/chinook
+dart run melos run check:all
+cd app && flutter test
+```
+
+Both must be green before anything below is written. Nothing in this task may claim a result the commands did not produce.
+
+- [ ] **Step 2: Tick the roadmap**
+
+In `docs/superpowers/plans/2026-09-02-spectra-v1-roadmap.md`, change `- [ ] Phase 9` to `- [x] Phase 9`, and in the phase table replace the Phase 9 row's `write from spec 7.7 step 7` with `2026-09-03-phase-9-dictionaries-settings.md (done)`.
+
+- [ ] **Step 3: Update `AGENTS.md`**
+
+In "Current status", add a paragraph for Phase 9 in the style of the Phase 5/6 ones: the dictionaries feature (repository, built-in synthesized list, codec for `.dic` and both JSON shapes, list and detail screens, import/export, `showDictionaryPicker`, the selected-list preference feeding `ReaderFacade.mf1ReadDump`), the settings feature (device settings through `SettingsFacade` with explicit save and re-read, theme, emulator mode, the `dfuOverBleEnabled` switch, licences), and the test count the run in Step 1 actually reported. Point "Next" at Phase 10 and its plan-to-be-written.
+
+- [ ] **Step 4: Record the decisions**
+
+In `docs/research/DECISIONS.md`, under a Phase 9 heading, record:
+
+1. **No `file_selector`.** Spec 7.3's import/export is paste-in and copy-out for dictionaries as it already is for cards; adding a file dialog would mean a new dependency, per-platform setup on five targets and a spec section 2 amendment. Revisit in Phase 10 if the release checklist wants file round-trips.
+2. **The built-in key list is synthesized, not seeded** — `dictionariesProvider` puts it in front of the stored rows, so read-only is structural and its name can be localized.
+3. **`hex.dart` moved to `core/format/`** (R28's rule applied a second time).
+4. **The `dfuOverBleEnabled` flag has a developer switch** in Settings, because spec 5.6 has the user flip it after reporting H2 and `FeatureFlagsController.setDfuOverBleEnabled` had no caller until now.
+5. **Spec 8.5 relaxed for two files** (`dictionary_codec.dart`, `dictionary_detail_page.dart`) — the Phase 6 ruling 17 precedent.
+6. **The dictionary format assumptions are unverified against a real reference-app export** — the reader is permissive by design; see the checklist item below.
+
+- [ ] **Step 5: Add the hardware-checklist items**
+
+In `docs/hardware-checklist.md`, append to an existing H3 section (do **not** add a second section with a name already in the file — Phase 6 ruling 19; `grep -n '^## ' docs/hardware-checklist.md` first):
+
+- [ ] Import a dictionary exported from the real reference app and confirm every key lands (the JSON field names are inferred, not documented).
+- [ ] With a real device: change the animation mode, save, power-cycle, and confirm the change survived (SAVE_SETTINGS is the only thing that makes a setting durable).
+- [ ] Set a button function and confirm the physical button does it.
+- [ ] Set the sleep timeout to 5 s and confirm the device sleeps on that schedule.
+- [ ] Enable BLE pairing, save, reboot, and confirm: the device demands the passkey, is invisible to a host that has not bonded (spec 5.1), and "Forget paired hosts" makes it visible again.
+- [ ] Read a MIFARE Classic card with a custom key list selected and confirm the sectors that list opens are the ones reported (the dictionary reaches `mf1ReadDump` unchanged).
+
+- [ ] **Step 6: Add lessons**
+
+Append to `tasks/lessons.md` whatever this phase actually taught — not a summary of the plan. Candidates only if they happened: a landed name this plan got wrong (and what the executor did about it), a finder that needed scoping, a preference-backed provider whose async load raced a widget test.
+
+- [ ] **Step 7: Commit**
+
+```bash
+cd /Users/bcraig/orca/workspaces/spectra/chinook
+git add AGENTS.md docs tasks
+git commit -m "$(cat <<'MSG'
+close out Phase 9
+
+Record what dictionaries and settings shipped, the decisions taken along
+the way, and the device-settings checks only real hardware can prove.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+MSG
+)"
+```
+
+---
+
+## Parallelisation
+
+`T1 | T2 ∥ T3 | T4 | T5 ∥ T10 | T6 | T7 | T8 | T9 | T11 | T12 | T13 | T14`
+
+T2 and T3 are file-disjoint once T1 has landed. T10 (the settings controller) touches nothing the dictionaries UI touches and can run beside T5–T9, with one caveat in its own Step 4 about the ARB. Everything from T6 on that appends to `app_en.arb` is serialised by the single-writer rule.
