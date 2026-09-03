@@ -3,6 +3,9 @@ import 'dart:typed_data';
 
 import '../codec/frame.dart';
 import '../codec/frame_decoder.dart';
+import '../dfu/fake_bootloader.dart';
+import '../dfu/fake_dfu_channel.dart';
+import '../model/enums.dart';
 import '../protocol/errors.dart';
 import '../transport/transport.dart';
 import 'fake_firmware.dart';
@@ -64,6 +67,39 @@ final class FakeDevice implements Transport {
 
   /// Flips the last byte of the next response's LRC, corrupting it.
   void corruptNextResponse() => _corruptNext = true;
+
+  /// The bootloader this device presents while [inBootloader]. Its expected
+  /// hardware version follows the configured model, so a package built for
+  /// the other model is refused at execute time, exactly as a real one is.
+  late final FakeBootloader bootloader = FakeBootloader(
+    expectedHwVersion: firmware.config.model == DeviceModel.lite ? 1 : 0,
+  );
+
+  /// True from the moment ENTER_BOOTLOADER is decoded until
+  /// [leaveBootloader]. While it is set the device answers DFU, not the
+  /// Chameleon protocol.
+  bool get inBootloader => firmware.bootloaderRequested;
+
+  /// A DFU channel to this device's [bootloader]. Closing it after a finished
+  /// flash reboots the device into the application; closing it after a failed
+  /// or cancelled transfer leaves the device in the bootloader, which is what
+  /// makes a failed update retryable.
+  ///
+  /// The flashed image is never parsed, so the version this device reports
+  /// after an update is still its [FakeFirmwareConfig]'s.
+  FakeDfuChannel openDfuChannel({
+    int maxDataWrite = 20,
+    Duration latency = Duration.zero,
+  }) {
+    if (!inBootloader) {
+      throw const DeviceNotFound('device is not in the bootloader');
+    }
+    return _RebootingChannel(this, maxDataWrite, latency);
+  }
+
+  /// Returns the device to application mode: a fresh [open] and handshake
+  /// work again afterwards.
+  void leaveBootloader() => firmware.bootloaderRequested = false;
 
   /// Simulates an unexpected disconnect: cable pulled, out of range.
   Future<void> simulateLinkLoss() async =>
@@ -131,5 +167,21 @@ final class FakeDevice implements Transport {
   void _setState(TransportState s) {
     _current = s;
     _state.add(s);
+  }
+}
+
+/// The channel [FakeDevice.openDfuChannel] hands out: a [FakeDfuChannel] that
+/// reboots the device into the application on close, but only once the
+/// bootloader reports the image is complete.
+final class _RebootingChannel extends FakeDfuChannel {
+  _RebootingChannel(this._device, int maxDataWrite, Duration latency)
+    : super(_device.bootloader, maxDataWrite: maxDataWrite, latency: latency);
+
+  final FakeDevice _device;
+
+  @override
+  Future<void> close() async {
+    await super.close();
+    if (bootloader.completed) _device.leaveBootloader();
   }
 }
