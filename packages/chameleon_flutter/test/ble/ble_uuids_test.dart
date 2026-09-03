@@ -40,4 +40,16 @@ void main() {
       '0000fe59-0000-1000-8000-00805f9b34fb',
     );
   });
+
+  test('normalizeUuid expands a 32-bit UUID to its full 128-bit form', () {
+    expect(normalizeUuid('0000FE59'), '0000fe59-0000-1000-8000-00805f9b34fb');
+  });
+
+  test('normalizeUuid only lowercases anything that is not an exact '
+      '4- or 8-hex-digit short form', () {
+    expect(normalizeUuid('5'), '5');
+    expect(normalizeUuid('abc'), 'abc');
+    expect(normalizeUuid(''), '');
+    expect(normalizeUuid('zz'), 'zz');
+  });
 }

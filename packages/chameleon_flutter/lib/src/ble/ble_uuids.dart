@@ -29,15 +29,20 @@ abstract final class ChameleonBleNames {
 /// https://www.bluetooth.com/specifications/assigned-numbers/
 const String _bluetoothBaseUuidSuffix = '-0000-1000-8000-00805f9b34fb';
 
-final RegExp _shortFormUuid = RegExp(r'^[0-9a-f]{1,8}$');
+final RegExp _shortFormUuid = RegExp(r'^[0-9a-f]{4}$|^[0-9a-f]{8}$');
 
-/// Case- and brace-insensitive form for comparing UUIDs, with 16- and 32-bit
-/// short-form UUIDs (as the Chameleon's DFU service is specified, `FE59`)
-/// expanded to their full 128-bit form. Platforms report UUIDs
-/// inconsistently: CoreBluetooth uppercases, BlueZ lowercases, Windows wraps
-/// them in braces, and some short-form values arrive un-expanded; expanding
-/// here keeps every comparison against universal_ble's reported UUIDs
-/// stable regardless of which form it hands back.
+/// Case- and brace-insensitive form for comparing UUIDs, with 16-bit
+/// (exactly 4 hex digits, as the Chameleon's DFU service is specified,
+/// `FE59`) and 32-bit (exactly 8 hex digits) short-form UUIDs expanded to
+/// their full 128-bit form. Platforms report UUIDs inconsistently:
+/// CoreBluetooth uppercases, BlueZ lowercases, Windows wraps them in
+/// braces, and some short-form values arrive un-expanded; expanding here
+/// keeps every comparison against universal_ble's reported UUIDs stable
+/// regardless of which form it hands back. Anything that isn't a full UUID
+/// or an exact 4-/8-digit short form (garbage, the wrong digit count, or
+/// non-hex characters) is only lowercased and brace-stripped, not
+/// expanded or rejected — this is a best-effort normalizer for
+/// comparisons, not a validator.
 String normalizeUuid(String uuid) {
   final normalized = uuid
       .replaceAll('{', '')
