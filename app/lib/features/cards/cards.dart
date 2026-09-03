@@ -4,5 +4,6 @@
 library;
 
 export 'ui/card_detail_page.dart';
+export 'ui/card_import_sheet.dart';
 export 'ui/cards_page.dart';
 export 'ui/read_page.dart';

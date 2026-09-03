@@ -1,6 +1,7 @@
-import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:chameleon/chameleon.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
@@ -267,6 +268,39 @@ void main() {
     ).value!;
     expect(reverted.dirty, isFalse);
     expect(reverted.chunk(1), everyElement(0));
+  });
+
+  testWidgetsApp('copies the card as JSON and confirms it', (tester) async {
+    final List<MethodCall> clipboard = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (MethodCall call) async {
+        if (call.method == 'Clipboard.setData') clipboard.add(call);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    await seedAndOpen(tester);
+    await tester.ensureVisible(find.text('Copy as JSON'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Copy as JSON'));
+    await pumpFrames(tester);
+
+    expect(clipboard, hasLength(1));
+    final Map<String, Object?> args =
+        clipboard.single.arguments as Map<String, Object?>;
+    final Map<String, Object?> exported =
+        jsonDecode(args['text']! as String) as Map<String, Object?>;
+    final List<Object?> cards = exported['cards']! as List<Object?>;
+    expect(cards, hasLength(1));
+    expect((cards.single as Map<String, Object?>)['name'], 'Office badge');
+    expect(find.text('Copied to the clipboard.'), findsOneWidget);
   });
 
   test('trailerHighlights covers every MIFARE Classic trailer', () {

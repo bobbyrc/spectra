@@ -6,6 +6,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../data/data.dart';
 import 'card_codec.dart';
+import 'card_import.dart';
 
 part 'saved_cards_provider.g.dart';
 
@@ -107,6 +108,54 @@ class CardLibrary extends _$CardLibrary {
         ),
       ),
     );
+  }
+
+  /// Parses [text] in either format [parseCardsJson] understands and writes
+  /// every card it holds, each under a fresh id ([newCardId]) — an import
+  /// never collides with an existing card because nothing exported carries
+  /// one back in.
+  ///
+  /// Returns how many cards were written; 0 with the failure in [state]
+  /// when the text could not be read at all (a [CardImportException]) or
+  /// a card wrote and failed partway through (any other error) — the sheet
+  /// renders either through the spec 9 catalog, so a storage failure is
+  /// never worded as a parse failure (Phase 6 ruling 21).
+  ///
+  /// Same drop-not-queue and `ref.mounted` discipline as [_run] (Phase 6
+  /// ruling 2): the sheet can be popped while the write is still on the
+  /// wire, and there is then nowhere left to report it, but the writes
+  /// already issued still complete.
+  Future<int> importJson(String text) async {
+    if (_inFlight) return 0;
+    _inFlight = true;
+    state = const AsyncLoading<void>();
+    final AsyncValue<int> result = await AsyncValue.guard<int>(() async {
+      final List<ImportedCard> cards = parseCardsJson(text);
+      final SavedCardsRepository repo = ref.read(savedCardsRepositoryProvider);
+      for (final ImportedCard card in cards) {
+        await repo.save(
+          SavedCard(
+            id: newCardId(),
+            name: card.name,
+            tagType: tagTypeName(card.tagType),
+            bytes: card.bytes,
+            updatedAt: DateTime.now().toUtc(),
+            folder: card.folder,
+            color: card.color,
+          ),
+        );
+      }
+      return cards.length;
+    });
+    if (!ref.mounted) {
+      _inFlight = false;
+      return 0;
+    }
+    state = result.hasError
+        ? AsyncError<void>(result.error!, result.stackTrace!)
+        : const AsyncData<void>(null);
+    _inFlight = false;
+    return result.value ?? 0;
   }
 
   Future<void> remove(String id) async {

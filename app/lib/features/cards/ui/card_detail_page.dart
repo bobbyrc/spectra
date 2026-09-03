@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:chameleon/chameleon.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
@@ -10,9 +11,11 @@ import '../../../core/errors/problem_view.dart';
 import '../../../core/format/tag_labels.dart';
 import '../../../core/routing/routes.dart';
 import '../../../core/routing/sub_page_scaffold.dart';
+import '../../../data/data.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/card_codec.dart';
 import '../state/card_editor_controller.dart';
+import '../state/card_import.dart';
 import 'card_hex_editor.dart';
 
 /// The sector trailers of a MIFARE Classic, so the keys and access bits are
@@ -170,6 +173,15 @@ class _Detail extends StatelessWidget {
   final bool loading;
   final VoidCallback onDelete;
 
+  Future<void> _export(BuildContext context, SavedCard card) async {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final String text = exportCardsJson(<SavedCard>[card]);
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!context.mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(l10n.cardsExported)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
@@ -226,6 +238,15 @@ class _Detail extends StatelessWidget {
         const SizedBox(height: SpectraSpacing.lg),
         CardHexEditor(id: id, state: state),
         const SizedBox(height: SpectraSpacing.lg),
+        // Spec 7.3's export: the clipboard, not a file dialog — see
+        // `card_import_sheet.dart`'s doc comment for why a native save
+        // dialog is a deliberate v1 gap that Phase 9 revisits.
+        SpectraButton(
+          label: l10n.cardsExport,
+          variant: SpectraButtonVariant.secondary,
+          onPressed: loading ? null : () => _export(context, state.card),
+        ),
+        const SizedBox(height: SpectraSpacing.md),
         SpectraButton(
           label: l10n.cardsDetailDelete,
           variant: SpectraButtonVariant.danger,

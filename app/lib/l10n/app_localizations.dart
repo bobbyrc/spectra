@@ -640,6 +640,78 @@ abstract class AppLocalizations {
   /// **'Name'**
   String get cardsSortName;
 
+  /// Opens the import sheet from the library screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get cardsImport;
+
+  /// Title of the import sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Import cards'**
+  String get cardsImportTitle;
+
+  /// Explains what may be pasted.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a card export from Spectra or from the Chameleon Ultra GUI.'**
+  String get cardsImportHint;
+
+  /// Label of the paste field.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported JSON'**
+  String get cardsImportLabel;
+
+  /// Confirms the import inside the sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get cardsImportConfirm;
+
+  /// Confirms how many cards were imported.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {Imported {count} card.} other {Imported {count} cards.}}'**
+  String cardsImported(int count);
+
+  /// The pasted text is not JSON.
+  ///
+  /// In en, this message translates to:
+  /// **'That text is not a card export Spectra can read.'**
+  String get cardsImportNotJson;
+
+  /// The pasted export is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'That export has no cards in it.'**
+  String get cardsImportNoCards;
+
+  /// The export names a tag type with no dump format.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectra cannot read that tag type yet.'**
+  String get cardsImportUnsupported;
+
+  /// A card's data rows are not hex.
+  ///
+  /// In en, this message translates to:
+  /// **'That export\'s card data could not be read.'**
+  String get cardsImportBadBytes;
+
+  /// Puts the card's export on the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy as JSON'**
+  String get cardsExport;
+
+  /// Confirms the export reached the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to the clipboard.'**
+  String get cardsExported;
+
   /// Second line of a library row when the card has a folder: the tag type and folder.
   ///
   /// In en, this message translates to:

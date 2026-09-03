@@ -318,6 +318,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsSortName => 'Name';
 
   @override
+  String get cardsImport => 'Import';
+
+  @override
+  String get cardsImportTitle => 'Import cards';
+
+  @override
+  String get cardsImportHint =>
+      'Paste a card export from Spectra or from the Chameleon Ultra GUI.';
+
+  @override
+  String get cardsImportLabel => 'Exported JSON';
+
+  @override
+  String get cardsImportConfirm => 'Import';
+
+  @override
+  String cardsImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Imported $count cards.',
+      one: 'Imported $count card.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get cardsImportNotJson =>
+      'That text is not a card export Spectra can read.';
+
+  @override
+  String get cardsImportNoCards => 'That export has no cards in it.';
+
+  @override
+  String get cardsImportUnsupported => 'Spectra cannot read that tag type yet.';
+
+  @override
+  String get cardsImportBadBytes =>
+      'That export\'s card data could not be read.';
+
+  @override
+  String get cardsExport => 'Copy as JSON';
+
+  @override
+  String get cardsExported => 'Copied to the clipboard.';
+
+  @override
   String cardsSubtitle(String tagType, String folder) {
     return '$tagType · $folder';
   }

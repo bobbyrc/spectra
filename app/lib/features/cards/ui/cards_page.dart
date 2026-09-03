@@ -10,6 +10,7 @@ import '../../../l10n/app_localizations.dart';
 import '../state/card_codec.dart';
 import '../state/cards_filter.dart';
 import '../state/saved_cards_provider.dart';
+import 'card_import_sheet.dart';
 
 /// The card library (spec 7.7 step 4): search, folder filter, sort, and the
 /// read entry point. Layout only — the filtering rule is [filterCards].
@@ -35,6 +36,13 @@ class CardsPage extends ConsumerWidget {
           label: l10n.cardsReadAction,
           icon: Icons.nfc,
           onPressed: () => GoRouter.of(context).go(AppRoutes.cardRead),
+        ),
+        const SizedBox(height: SpectraSpacing.md),
+        SpectraButton(
+          label: l10n.cardsImport,
+          icon: Icons.file_download_outlined,
+          variant: SpectraButtonVariant.secondary,
+          onPressed: () => _import(context),
         ),
         const SizedBox(height: SpectraSpacing.lg),
         SpectraTextField(
@@ -92,6 +100,18 @@ class CardsPage extends ConsumerWidget {
             ),
       ],
     );
+  }
+
+  /// Opens the import sheet and, on a successful import, tells the user how
+  /// many cards landed (`cardsImported`, spec 7.3). The sheet itself shows
+  /// its own failures inline, so a null result here is just a dismissal —
+  /// nothing to report.
+  Future<void> _import(BuildContext context) async {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final int? count = await showCardImportSheet(context);
+    if (count == null) return;
+    messenger.showSnackBar(SnackBar(content: Text(l10n.cardsImported(count))));
   }
 
   /// [Ruling 20]: a folderless card renders just the tag type, never
