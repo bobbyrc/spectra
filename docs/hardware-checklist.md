@@ -413,6 +413,23 @@ emulator mode **off** in Settings first, so no item can be satisfied by the
       answers `LF_TAG_NO_FOUND` for a field holding a non-EM410x card —
       both are assumptions about firmware behaviour, not verified facts.
       Report whether a real device's behaviour matches either assumption.
+- [ ] pending: **`antiCollForClassic`'s block-0 layout on a 7-byte-UID
+      card.** `app/lib/features/cards/state/write_target.dart` (~line 147)
+      reads bytes 0-3 as the UID, 5 as SAK and 6-7 as ATQA, which is the
+      4-byte-UID layout. Load a 7-byte-UID MIFARE Classic dump into a slot
+      and report whether a reader sees the full UID and the right SAK/ATQA,
+      or whether the emulated card answers with only the first four UID
+      bytes.
+- [ ] pending: **load a MIFARE Classic 1K into a slot and read it with a
+      second device.** Load a saved 1K dump into a slot, make it active,
+      and present it to a second reader (a phone or a Proxmark). Report
+      whether the emulated card is seen as the original and whether its
+      sectors are readable with the dump's own keys.
+- [ ] pending: **retire the write sheet's hardware notice.** Once the two
+      physical-write items above (write a MIFARE Classic onto a blank; the
+      T55xx password list) are reported passing, remove `cardsWriteNotice`
+      from `app/lib/l10n/app_en.arb` and the standing notice it drives on
+      the write sheet.
 
 ### Sign-off list for `v1.0.0`
 

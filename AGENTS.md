@@ -117,10 +117,10 @@ quick emulate from the read screen. The shared `ProblemView` now hides its
 action entirely for `ErrorRecovery.none` rather than offering a dead "Try
 again". Entry points are on the card detail page and the read screen;
 "which slot?" goes through the Slots feature's published `showSlotPicker`,
-so the feature dependency runs one way, `cards -> slots`. Gate green:
-`app/test/flows/write_emulate_flow_test.dart` and
-`app/integration_test/load_to_slot_flow_test.dart` (picked up by the
-existing macOS CI `integration` job). Writing a physical card is
+so the feature dependency runs one way, `cards -> slots`. The enforced gate
+is the widget flow `app/test/flows/write_emulate_flow_test.dart` (every CI
+job); its `app/integration_test/load_to_slot_flow_test.dart` twin runs in
+the existing macOS `integration` job once it lands. Writing a physical card is
 `hardware-validate`; the write sheet carries a standing on-screen notice
 (`cardsWriteNotice`) until H3 reports otherwise.
 
