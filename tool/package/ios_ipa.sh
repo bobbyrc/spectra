@@ -16,10 +16,10 @@ mkdir -p "$(dirname "$OUT_IPA")"
 OUT_IPA="$(cd "$(dirname "$OUT_IPA")" && pwd)/$(basename "$OUT_IPA")"
 
 STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/Payload"
 cp -R "$APP_PATH" "$STAGE/Payload/"
 rm -f "$OUT_IPA"
-(cd "$STAGE" && zip -r -q "$OUT_IPA" Payload)
-rm -rf "$STAGE"
+(cd "$STAGE" && zip -r -q -y "$OUT_IPA" Payload)
 
 echo "ios_ipa: wrote $OUT_IPA (unsigned — see docs/RELEASING.md)"

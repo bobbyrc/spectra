@@ -47,6 +47,15 @@ void main() {
         ..writeAsStringSync('#!/bin/sh\n');
       Process.runSync('chmod', <String>['+x', executable.path]);
 
+      // A framework symlink, the way a real Runner.app embeds one (e.g.
+      // Frameworks/Foo.framework/Foo -> Versions/Current/Foo). zip must
+      // store this as a link (-y), not dereference it into a regular file.
+      final Directory frameworkDir = Directory(
+        '$appPath/Frameworks/Foo.framework',
+      )..createSync(recursive: true);
+      File('${frameworkDir.path}/RealFoo').writeAsStringSync('foo\n');
+      Link('${frameworkDir.path}/FooLink').createSync('RealFoo');
+
       final String outIpa = '${tempDir.path}/out/spectra-ios-unsigned.ipa';
 
       final ProcessResult result = await Process.run('bash', <String>[
@@ -68,6 +77,23 @@ void main() {
       ]);
       expect(listing.exitCode, 0);
       expect(listing.stdout, contains('Payload/Runner.app/Info.plist'));
+
+      final Directory extractDir = Directory('${tempDir.path}/extracted')
+        ..createSync(recursive: true);
+      final ProcessResult extract = await Process.run('unzip', <String>[
+        '-q',
+        outIpa,
+        '-d',
+        extractDir.path,
+      ]);
+      expect(extract.exitCode, 0);
+      final String extractedLink =
+          '${extractDir.path}/Payload/Runner.app/Frameworks/Foo.framework/FooLink';
+      expect(
+        FileSystemEntity.isLinkSync(extractedLink),
+        isTrue,
+        reason: 'zip must store the symlink, not dereference it',
+      );
 
       expect(result.stdout, contains('unsigned'));
     }, timeout: const Timeout(Duration(seconds: 20)));
