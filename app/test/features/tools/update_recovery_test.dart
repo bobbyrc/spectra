@@ -174,12 +174,20 @@ void main() {
     await tester.tap(find.text('Load package'));
     await pumpFrames(tester);
 
+    // The "nothing to update" copy appears twice: once as the stale-target
+    // card that would otherwise have named the unresolved transport id, and
+    // once from the unrelated "no device connected" card below it — neither
+    // ever names the raw transport id.
     expect(
       find.text(
         'Connect a device, or choose a device in the bootloader on '
         'the connect screen.',
       ),
-      findsOneWidget,
+      findsNWidgets(2),
+    );
+    expect(
+      find.textContaining('a-bootloader-nobody-is-reporting'),
+      findsNothing,
     );
     // Rendered but disabled: the connected device is not a fallback
     // target for a `?recover=` link that no longer resolves.
@@ -195,5 +203,57 @@ void main() {
     final UpdateState state = readProvider(tester, updateControllerProvider);
     expect(state.running, isFalse);
     expect(state.completed, isFalse);
+  });
+
+  testWidgetsApp('the recovery cards disappear once the run has completed', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    await tester.pumpWidget(
+      buildDfuTestApp(
+        source: MemoryFirmwarePackageSource(buildDfuZip(size: 4096)),
+        scanners: <DeviceScanner>[
+          const StaticScanner(<DiscoveredDevice>[
+            FakeScanner.emulatedBootloader,
+          ]),
+        ],
+      ),
+    );
+    await pumpFrames(tester);
+
+    await tester.tap(find.text('Recover'));
+    await pumpFrames(tester);
+    // Present while the run has not finished: the recovery target card
+    // and the button-B instructions.
+    expect(find.textContaining('Recovering the device at'), findsOneWidget);
+    expect(
+      find.text(
+        'If the device is not listed, hold button B while plugging in '
+        'the USB cable to enter the bootloader from any state.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byType(SpectraTextField).first,
+      '/tmp/ultra-dfu-app.zip',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Load package'));
+    await pumpFrames(tester);
+
+    await tester.tap(find.text('Install firmware'));
+    await pumpFrames(tester, count: 80);
+
+    expect(find.text('Firmware installed.'), findsOneWidget);
+    // Gone: a finished flash has nothing left to recover or instruct.
+    expect(find.textContaining('Recovering the device at'), findsNothing);
+    expect(
+      find.text(
+        'If the device is not listed, hold button B while plugging in '
+        'the USB cable to enter the bootloader from any state.',
+      ),
+      findsNothing,
+    );
   });
 }

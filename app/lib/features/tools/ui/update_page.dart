@@ -70,9 +70,21 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
       body: ListView(
         padding: const EdgeInsets.all(SpectraSpacing.lg),
         children: <Widget>[
-          if (widget.recoverTransportId != null) ...<Widget>[
+          // Hidden once the run has completed: a finished flash has nothing
+          // left to recover, and the instructions (hold button B, the stale
+          // transport id) would otherwise linger on a screen that is done.
+          if (widget.recoverTransportId != null &&
+              !state.completed) ...<Widget>[
             SpectraCard(
-              child: Text(l10n.updateRecoverTarget(widget.recoverTransportId!)),
+              child: Text(
+                // A `?recover=` link (or a "Recover" tap) whose bootloader
+                // is no longer listed has no honest id to show — the raw
+                // transport id belongs to a target we could not find, so
+                // the generic "nothing to update" copy replaces it instead.
+                recover == null
+                    ? l10n.updateNoTarget
+                    : l10n.updateRecoverTarget(widget.recoverTransportId!),
+              ),
             ),
             const SizedBox(height: SpectraSpacing.md),
             SpectraCard(child: Text(l10n.updateRecoverInstructions)),
