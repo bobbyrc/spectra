@@ -52,7 +52,7 @@ Order is fixed as listed. Phase 2 and Phase 1 do not depend on each other and ma
 ## Phase status
 
 - [x] Phase 0
-- [ ] Phase 1
+- [x] Phase 1
 - [x] Phase 2
 - [ ] Phase 3
 - [ ] Phase 4

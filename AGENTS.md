@@ -21,8 +21,22 @@ Phase 2 (`packages/spectra_ui`) is complete (2026-09-03): tokens and
 `SpectraTheme` on `material_ui` 1.1.1, every spec 6.2 component with CI
 goldens that obscure text and verify layout/colour/shape, the string
 literal lint live, ARB localization, and a component gallery that builds
-on macOS. Phase 1 (`packages/chameleon`) is in progress, running
-concurrently on the same branch.
+on macOS.
+
+Phase 1 (`packages/chameleon`) is complete (2026-09-03): the pure-Dart,
+clean-room SDK — LRC framing and a resynchronising decoder, the full command
+catalog (internal), freezed models, `Transport`/`DeviceScanner` seams, a
+`FakeDevice`/`FakeFirmware` that speaks the real protocol across the whole
+firmware version matrix, `DeviceSession` (handshake, connection state,
+dispatch with timeouts/retry/cancellation, reader lease, write-through cache
+and idle poll) with six typed facades, MIFARE Classic/Ultralight/EM410x dump
+formats, and Nordic Secure DFU with an orchestrator and recovery path. 294
+tests, no hardware needed; 91.5% line coverage of the hand-written sources.
+See `packages/chameleon/README.md`.
+
+Next: Phase 3 (transports) — the plan
+`docs/superpowers/plans/2026-09-03-phase-3-transports.md` already exists;
+the Phase 4 plan is being written.
 
 Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
 "Decisions made overnight" below.
@@ -37,11 +51,13 @@ Plans, in `docs/superpowers/plans/`:
   hardware handoffs. Start here.
 - `2026-09-02-phase-0-foundation.md`: toolchain, workspace, lint, CI, spikes
   (complete).
-- `2026-09-02-phase-1-chameleon-sdk.md`: the pure-Dart SDK, task by task.
-  Next step.
+- `2026-09-02-phase-1-chameleon-sdk.md`: the pure-Dart SDK, task by task
+  (complete).
 - `2026-09-03-phase-2-design-system.md`: the design system on `spectra_ui`
   (complete).
-- Phases 3 to 10: write each plan with the writing-plans skill from the spec
+- `2026-09-03-phase-3-transports.md`: USB serial and BLE transports,
+  scanners and the platform seams. Next step.
+- Phases 4 to 10: write each plan with the writing-plans skill from the spec
   sections the roadmap lists, when that phase starts.
 
 Execute plans with superpowers:subagent-driven-development. Hardware steps
@@ -58,6 +74,15 @@ the `dfuOverBleEnabled` flag until the user reports the checks passed.
   opt-in via SPECTRA_PLATFORM_GOLDENS and git-ignored.
 - Fonts are vendored (Inter 4.1 static weights, JetBrains Mono 2.304) under
   packages/spectra_ui/assets/google_fonts with their OFL licenses.
+- `crypto` was added to the spec section 2 dependency table for `chameleon`
+  (SHA-256 verification of the DFU init packet).
+- `TransportState` gains `permissionDenied` and `adapterOff` in Phase 3; the
+  SDK's error hierarchy already carries the matching `TransportError`s.
+- Two DFU assumptions are H2 hardware items: nrfutil's byte-reversed image
+  hash in the init packet, and the no-op Execute the resume path sends at the
+  object boundary it picks up from.
+- LICENSE files in every package are still the template TODO — the user has
+  to choose a license before release.
 
 ## Decisions already made (do not re-ask)
 

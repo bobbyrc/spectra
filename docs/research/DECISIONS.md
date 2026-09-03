@@ -143,16 +143,83 @@ Status: design approved in brainstorm; spec at docs/superpowers/specs/2026-09-02
   default is 0.0, so any pixel difference now fails. `workflow_dispatch`
   resolves a workflow on the default branch only, so the workflow also
   triggers on a push that touches its own file — that is how it ran before
-  reaching main. The cost is that a plain `flutter test` on macOS reports
-  sub-1% diffs on a few scenarios (observed: button and hex viewer, light
-  and dark); the CI run is authoritative and
-  `packages/spectra_ui/README.md` says so.
+  reaching main. The cost is that a plain `flutter test` on macOS
+  fails 14 of the 18 CI goldens on sub-1% anti-aliasing differences — only
+  the four `app_shell` scenarios match locally, not just button and hex
+  viewer as first recorded here; the CI run (Linux, exact comparison) is
+  authoritative and `packages/spectra_ui/README.md` says so.
 - **`no-material-in-features` message.** The rule stays — it prevents the
   dual-import compile error — but its message no longer claims features may
   not use Material widgets. It now says to import
   `package:material_ui/material_ui.dart` (or `package:flutter/widgets.dart`)
   instead of the SDK's Material library. A symbol allowlist for `material_ui`
   is deferred.
+
+## Phase 1 decisions (2026-09-03)
+
+The pure-Dart `chameleon` SDK: codec, command catalog, models, session,
+dump formats and DFU. Rulings taken while executing
+`docs/superpowers/plans/2026-09-02-phase-1-chameleon-sdk.md`, one line each.
+
+- **`crypto` added to the spec section 2 dependency table** for `chameleon`:
+  the DFU init packet carries a SHA-256 of each image and every package is
+  verified before a byte is written.
+- **`Frame` copies the caller's bytes** in its constructor rather than
+  storing the list by reference: frames are values and are kept in the frame
+  log after the caller has moved on.
+- **`parseResponse` wraps a `RangeError` from a decoder in
+  `MalformedResponse`** (spec 3.2): a short or malformed payload is a typed
+  protocol error, never a raw Dart error escaping the SDK.
+- **Command 1034 (settings) decodes by its leading version byte**, falling
+  back to the payload-length branch only for an unrecognised version;
+  hardware-validate.
+- **One dispatcher per session, built at construction.** It survives a
+  transport that closes and opens again (the bootloader reboot); a terminal
+  close disposes it, and only `DeviceSession.close()` releases the state
+  streams — so `close()` is mandatory even for a disconnected session.
+- **The per-dispatch generation token is real** (spec 4.3): a response for an
+  abandoned generation is discarded rather than matched to the next command.
+- **The per-command timeout bounds the whole dispatch, the transport write
+  included**, and a completed command releases its cancel-token
+  registrations, so a long-lived token does not retain a closure per command.
+- **Legacy 0.1 detection reads the version tolerantly after a 1035 refusal.**
+  The other order can never reach `legacyMustUpdate`, because a legacy device
+  refuses capabilities first.
+- **The reader lease counts up before the awaited mode switch**, with the
+  in-flight switch memoised and rolled back on failure, so concurrent
+  acquires produce one CHANGE_DEVICE_MODE (spec 4.3's 0 -> 1 semantics).
+- **`enterBootloader` does not await the expected close** — the session stays
+  `updating` by design — and `device.setMode` throws while a lease holds the
+  mode.
+- **`FakeDevice` recognises an expected close from the command id of the
+  write that carried ENTER_BOOTLOADER**, not from a sticky flag.
+- **MIFARE Classic geometry lives in one helper** (`MifareGeometry`), shared
+  by the reader facade and the dump model; Ultralight page counts are one
+  table in `DumpFormats`.
+- **Large key dictionaries are chunked across CHECK_KEYS_OF_SECTORS (2012)
+  requests** when the capability is present; per-block authentication is the
+  fallback only when it is not.
+- **The DFU init-packet hash is accepted in one byte order only** — the
+  reversed order nrfutil writes — and the check runs on every path,
+  including recovery. Hardware-validate (H2).
+- **DFU resume truncates to the last object boundary** and executes a
+  complete-but-unexecuted object; a foreign prefix is discarded by
+  re-executing the init packet, which is what the Nordic client does.
+- **The orchestrator reports `DfuCompleted(device)` and leaves reconnection
+  to the app** (Phase 8); `DfuCompleted(null)` means "updated, but not seen
+  again yet" and must read that way in the UI.
+- **Spec 8.5 (about 300 lines, one public type per file) held, with three
+  recorded exceptions**: the command catalogs group one command id range per
+  file; a dump type and its `DumpFormat` share a file as a tightly coupled
+  pair; and a family of related seam implementations may share a file, which
+  is how the Phase 3 transports will be laid out. `FakeFirmware` and
+  `DeviceSession` were split instead — handlers by command range into
+  extension files, the session's handshake and polling into `part` files.
+- **Commands stay internal.** `lib/chameleon.dart` exports the session, the
+  facades, models, errors, the transport seams, the dump formats, DFU and the
+  fakes, but no `Command` subclass, no `RawCommand`, no byte helpers and no
+  generated freezed implementation classes: a new device operation is a
+  facade method, not a command built in app code.
 
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).

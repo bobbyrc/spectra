@@ -120,3 +120,51 @@ dated entry per lesson; keep each one actionable.
   steps.length)` in a const constructor is a `const_eval_property_access`
   error at every const call site. Keep the const-safe half (`i >= 0`) in the
   constructor and put the bound check plus a clamp at the top of `build`.
+
+## 2026-09-03 (Phase 1: chameleon SDK)
+
+- **`fake_async` and a `FakeDevice` do not mix.** `FakeAsync` only controls
+  timers and microtasks created inside its zone; a fake transport that
+  answers on a real `Future.delayed`, or any code awaiting a real I/O-shaped
+  future, hangs forever inside `fakeAsync`. Use `fake_async` for units whose
+  only time source is a `Timer` (the dispatcher's timeout), and short real
+  delays for anything that talks to the fake device.
+- **`expect(() async => f(), throwsA(...))` cannot catch an async throw.**
+  The closure returns a `Future` that completes with the error *after*
+  `expect` has returned, so the test passes and then crashes the run as an
+  unhandled error. Always `await expectLater(future, throwsA(...))`.
+- **A sealed hierarchy needs every subclass in the same library.** Moving one
+  variant of a `sealed class` into another file breaks exhaustive switches at
+  the seam. Keep the family together (`part` files if the file is getting
+  long) — that is the reason `DfuError` lives in `errors.dart` and not in the
+  DFU directory.
+- **Extensions are the clean way to split a long class.** `extension X on
+  Foo` in another file splits behaviour without a subclass — but an extension
+  cannot hold state, so the fields stay on the class, and the extension has
+  to be imported (or be a `part`) to be visible. `FakeFirmware`'s handlers
+  are imported extensions; `DeviceSession`'s handshake and polling are
+  `part` files precisely because they touch private state.
+- **Read the generation counter at dispatch, not at enqueue.** A command that
+  waits in a queue and then gets abandoned must be matched against the
+  generation in force when it went on the wire; capturing it when it was
+  queued lets a stale response match a fresh command.
+- **Say who disposes what, in the doc comment.** A terminal transport close
+  releases the dispatcher but deliberately leaves the state streams open (the
+  app still wants the last known state), so `close()` is mandatory even for a
+  session that is already disconnected. An undocumented split like that is a
+  leak or a "stream closed" crash a phase later.
+- **`yield*` forwards errors into the stream; a bare `await for` does not.**
+  In an `async*` method, forwarding a sub-stream with `yield*` lets its error
+  terminate the outer stream — which is what you want when the outer contract
+  is "exactly one terminal event". Wrapping the whole body in try/catch and
+  yielding a failure event is the other half of that contract.
+- **nrfutil stores the image SHA-256 byte-reversed in the init packet.** A
+  hash check written from the protobuf schema alone rejects every real
+  package. Accept the order the tool actually writes, one order only, and tag
+  it for hardware validation rather than accepting both.
+- **`mise x -- dart` is not the same as putting mise's Flutter on PATH.** The
+  Dart that ships inside the Flutter SDK is the one the workspace resolves
+  against; `export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"`
+  first, then run `dart`/`melos` directly. In a pub workspace, note that
+  `.dart_tool/package_config.json` lives at the workspace root, so
+  `format_coverage --packages=../../.dart_tool/package_config.json`.
