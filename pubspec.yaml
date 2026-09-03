@@ -7,9 +7,13 @@ environment:
 
 workspace:
   - packages/chameleon
+  - packages/chameleon_flutter
+  - packages/spectra_ui
+  - packages/spectra_ui/example
+  - app
 
 dev_dependencies:
-  lints: ^5.0.0
+  lints: ^6.0.0
   melos: ^8.0.0
   test: ^1.25.0
 
