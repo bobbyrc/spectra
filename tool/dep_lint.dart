@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'src/dep_rules.dart';
+import 'src/string_rules.dart';
 
 const _members = {
   'chameleon': 'packages/chameleon',
@@ -22,11 +23,19 @@ int runDepLint(Directory root) {
       for (final f in d.listSync(recursive: true).whereType<File>()) {
         if (!f.path.endsWith('.dart')) continue;
         final rel = f.path.substring(dir.path.length + 1);
-        final violations = checkFile(
-          packageName: entry.key,
-          relativePath: rel,
-          imports: extractImports(f.readAsStringSync()),
-        );
+        final source = f.readAsStringSync();
+        final violations = <Violation>[
+          ...checkFile(
+            packageName: entry.key,
+            relativePath: rel,
+            imports: extractImports(source),
+          ),
+          ...checkTextLiterals(
+            packageName: entry.key,
+            relativePath: rel,
+            source: source,
+          ),
+        ];
         for (final v in violations) {
           stderr.writeln('${entry.value}/$v');
           count++;
