@@ -23,7 +23,9 @@ Plans, in `docs/superpowers/plans/`:
   sections the roadmap lists, when that phase starts.
 
 Execute plans with superpowers:subagent-driven-development. Hardware steps
-need the user's device; stop at the handoffs the roadmap names.
+need the user's device and never block progress: build against the fake,
+keep `docs/hardware-checklist.md` current, and gate BLE and iOS DFU behind
+the `dfuOverBleEnabled` flag until the user reports the checks passed.
 
 ## Decisions already made (do not re-ask)
 
