@@ -95,8 +95,8 @@ final class FakeFirmwareConfig {
         // HF reader: scan, MF1 support/PRNG detection, auth, read/write,
         // check-keys-of-sectors and the two raw commands.
         2000, 2001, 2002, 2007, 2008, 2009, 2012, 2100, 2101,
-        // LF reader: EM410x, HID Prox, Viking and PAC scans.
-        3000, 3002, 3004, 3014,
+        // LF reader: EM410x scan and write, HID Prox, Viking and PAC scans.
+        3000, 3001, 3002, 3004, 3014,
       });
     }
     return ids;

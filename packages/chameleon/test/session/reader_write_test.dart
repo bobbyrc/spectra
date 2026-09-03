@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:chameleon/src/fake/fake_card.dart';
 import 'package:chameleon/src/fake/fake_device.dart';
 import 'package:chameleon/src/model/enums.dart';
+import 'package:chameleon/src/protocol/errors.dart';
 import 'package:chameleon/src/session/device_session.dart';
 import 'package:test/test.dart';
 
@@ -126,4 +127,35 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('em410xWriteToT55xx rewrites the card the reader then scans', () async {
+    device.firmware.present(
+      FakeLfCard(3000, b(<int>[0x11, 0x22, 0x33, 0x44, 0x55])),
+    );
+
+    await s.reader.em410xWriteToT55xx(
+      id: b(<int>[0xAA, 0xBB, 0xCC, 0xDD, 0xEE]),
+      newKey: b(<int>[0x20, 0x20, 0x66, 0x66]),
+      oldKeys: <Uint8List>[
+        b(<int>[0x51, 0x24, 0x36, 0x48]),
+      ],
+    );
+
+    expect(await s.reader.scanEm410x(), b(<int>[0xAA, 0xBB, 0xCC, 0xDD, 0xEE]));
+    expect(s.readerLeaseCount, 0);
+  });
+
+  test(
+    'em410xWriteToT55xx with no card in the field is LfTagNotFound',
+    () async {
+      await expectLater(
+        s.reader.em410xWriteToT55xx(
+          id: b(<int>[1, 2, 3, 4, 5]),
+          newKey: b(<int>[0x20, 0x20, 0x66, 0x66]),
+          oldKeys: const <Uint8List>[],
+        ),
+        throwsA(isA<LfTagNotFound>()),
+      );
+    },
+  );
 }

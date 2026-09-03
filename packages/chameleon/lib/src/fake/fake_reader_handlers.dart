@@ -89,6 +89,17 @@ extension FakeReaderHandlers on FakeFirmware {
           return okFrame(cmd, c.idBytes);
         }
         return statusFrame(cmd, Status.lfTagNoFound);
+      case 3001:
+        final id = r.bytes(5);
+        r.bytes(4); // newKey: the fake keeps no password.
+        final c = lfCard;
+        // Only a card that answers EM410X_SCAN can be rewritten as one; a
+        // field with nothing in it, or a HID/Viking/PAC card, is a miss.
+        if (c is! FakeLfCard || c.scanCommandId != 3000) {
+          return statusFrame(cmd, Status.lfTagNoFound);
+        }
+        c.idBytes.setRange(0, 5, id);
+        return okFrame(cmd);
       default:
         return statusFrame(cmd, Status.notImplemented);
     }

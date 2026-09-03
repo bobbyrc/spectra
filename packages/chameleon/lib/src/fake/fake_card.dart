@@ -102,6 +102,10 @@ final class FakeUltralightCard extends FakeCard {
 
 /// An LF card answering one scan command id (3000 EM410X, 3002 HID Prox,
 /// 3004 Viking, 3014 PAC) with fixed id bytes.
+///
+/// [idBytes] is rewritten in place by EM410X_WRITE_TO_T55XX (3001), so a
+/// test can write an id and then scan it back. Give it a mutable list —
+/// `Uint8List.fromList` — not a view of a shared constant.
 final class FakeLfCard extends FakeCard {
   const FakeLfCard(this.scanCommandId, this.idBytes);
   final int scanCommandId;

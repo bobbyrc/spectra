@@ -189,6 +189,28 @@ final class ReaderFacade {
   Future<Uint8List?> scanViking() => _lfScan(const VikingScan());
   Future<Uint8List?> scanPac() => _lfScan(const PacScan());
 
+  /// Writes an EM410x [id] onto the T55xx card in the field
+  /// (EM410X_WRITE_TO_T55XX).
+  ///
+  /// Keys are parameters here as everywhere on this facade (spec 8.1): the
+  /// SDK keeps no password list of its own. [newKey] is the four-byte
+  /// password the card is left with, and [oldKeys] are the passwords tried
+  /// to unlock it first — an empty list is a card with no password set.
+  ///
+  /// `hardware-validate` (checklist H3): the fake accepts the command and
+  /// rewrites the card it is presenting, but which passwords a blank T55xx
+  /// actually answers to, and whether a card takes the write at all, is
+  /// only proven on real hardware.
+  Future<void> em410xWriteToT55xx({
+    required Uint8List id,
+    required Uint8List newKey,
+    required List<Uint8List> oldKeys,
+  }) => _s.withReaderMode(
+    () => _s.send(
+      Em410xWriteToT55xx(cardId: id, newKey: newKey, oldKeys: oldKeys),
+    ),
+  );
+
   Future<Mf1DumpReadResult> _readDump(
     int sectors,
     int totalBlocks,
