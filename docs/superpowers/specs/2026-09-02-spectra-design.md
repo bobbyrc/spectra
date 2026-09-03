@@ -377,11 +377,13 @@ behavior. Those are covered by a hardware checklist that is a release gate
 Built on the `material_ui` 1.0 package. The in-SDK Material library is slated
 for deprecation, so starting on it would mean a migration within the year.
 `spectra_ui` wraps `material_ui` components and exposes its own `SpectraTheme`
-inherited widget. Any dependency that needs an in-SDK `ThemeData` (go_router
-page transitions, alchemist) gets it from one bridge file that derives it from
-the tokens. The enforced rule is a lint against `package:flutter/material.dart`
-imports under `app/lib/features`. An early spike confirms material_ui
-coexists with go_router and alchemist before the kit is built out.
+inherited widget. No bridge to an in-SDK `ThemeData` is written: Spike B
+(`docs/research/spikes.md`) found go_router already depends on `material_ui`
+and alchemist needs no `ThemeData` from us, and `material_ui` ships
+`MaterialUiCompatibilityBridge` should some later dependency need one. The
+enforced rule is a lint against `package:flutter/material.dart` imports under
+`app/lib/features`. Spike B confirmed material_ui 1.1.1 coexists with go_router
+and alchemist before the kit is built out.
 
 ### 6.1 Tokens
 
