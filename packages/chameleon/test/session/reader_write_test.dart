@@ -2,8 +2,11 @@ import 'dart:typed_data';
 
 import 'package:chameleon/src/fake/fake_card.dart';
 import 'package:chameleon/src/fake/fake_device.dart';
+import 'package:chameleon/src/fake/fake_firmware.dart';
+import 'package:chameleon/src/fake/fake_firmware_config.dart';
 import 'package:chameleon/src/model/enums.dart';
 import 'package:chameleon/src/protocol/errors.dart';
+import 'package:chameleon/src/session/cancel_token.dart';
 import 'package:chameleon/src/session/device_session.dart';
 import 'package:test/test.dart';
 
@@ -97,6 +100,26 @@ void main() {
     expect(card.blocks.sublist(4 * 16, 5 * 16), everyElement(0x00));
   });
 
+  test('a sector known only by key B still gets its blocks written', () async {
+    final FakeMf1Card card = FakeMf1Card.classic1k(uid: b(<int>[1, 2, 3, 4]));
+    // Sector 1's key A is not the dictionary's key; only key B still is,
+    // so this exercises the A-then-B fallback in `_writeOneBlock`.
+    card.keys[FakeMf1Card.keyId(1, KeyType.a)] = b(<int>[9, 9, 9, 9, 9, 9]);
+    device.firmware.present(card);
+
+    final result = await s.reader.mf1WriteDump(
+      type: TagType.mifare1k,
+      blocks: dump1k(0x42),
+      candidateKeys: <Uint8List>[FakeMf1Card.defaultKey],
+    );
+
+    expect(result.writeMask[4], isTrue);
+    expect(result.writeMask[5], isTrue);
+    expect(result.writeMask[6], isTrue);
+    expect(card.blocks.sublist(4 * 16, 5 * 16), everyElement(0x42));
+    expect(result.isComplete, isTrue);
+  });
+
   test(
     'mf1WriteDump reports progress per sector and ends in emulator mode',
     () async {
@@ -127,6 +150,75 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test(
+    'cancelling mid-write throws and leaves a partial write in place',
+    () async {
+      final FakeMf1Card card = FakeMf1Card.classic1k(uid: b(<int>[1, 2, 3, 4]));
+      device.firmware.present(card);
+      final CancelToken cancel = CancelToken();
+      final List<int> done = <int>[];
+
+      await expectLater(
+        s.reader.mf1WriteDump(
+          type: TagType.mifare1k,
+          blocks: dump1k(0x9C),
+          candidateKeys: <Uint8List>[FakeMf1Card.defaultKey],
+          cancel: cancel,
+          onProgress: (int d, int _) {
+            done.add(d);
+            if (d == 1) cancel.cancel();
+          },
+        ),
+        throwsA(isA<CommandCancelled>()),
+      );
+
+      expect(done, <int>[1]);
+      // Sector 0's data block was written before the cancel landed; sector 1
+      // never started.
+      expect(card.blocks.sublist(16, 32), everyElement(0x9C));
+      expect(card.blocks.sublist(4 * 16, 5 * 16), everyElement(0x00));
+      expect(s.readerLeaseCount, 0);
+      expect(s.mode.value, DeviceMode.emulator);
+    },
+  );
+
+  test(
+    'a write command missing from the device bails the whole dump',
+    () async {
+      final Set<int> capabilities = FakeFirmwareConfig.defaultCapabilities(
+        DeviceModel.ultra,
+      )..remove(2009); // MF1_WRITE_ONE_BLOCK
+      final FakeDevice noWriteDevice = FakeDevice(
+        firmware: FakeFirmware(FakeFirmwareConfig(capabilities: capabilities)),
+      );
+      final DeviceSession noWriteSession = sessionFor(noWriteDevice);
+      await noWriteSession.open();
+      await awaitBackgroundLoad(noWriteSession);
+      addTearDown(noWriteSession.close);
+
+      final FakeMf1Card card = FakeMf1Card.classic1k(uid: b(<int>[1, 2, 3, 4]));
+      noWriteDevice.firmware.present(card);
+      final List<int> done = <int>[];
+
+      await expectLater(
+        noWriteSession.reader.mf1WriteDump(
+          type: TagType.mifare1k,
+          blocks: dump1k(0x33),
+          candidateKeys: <Uint8List>[FakeMf1Card.defaultKey],
+          onProgress: (int d, int _) => done.add(d),
+        ),
+        throwsA(isA<InvalidCommand>()),
+      );
+
+      // Bailed on the very first write attempt: not even sector 0 finished,
+      // so onProgress never fired and nothing landed on the card.
+      expect(done, isEmpty);
+      expect(card.blocks.sublist(16, 32), everyElement(0x00));
+      expect(noWriteSession.readerLeaseCount, 0);
+      expect(noWriteSession.mode.value, DeviceMode.emulator);
+    },
+  );
 
   test('em410xWriteToT55xx rewrites the card the reader then scans', () async {
     device.firmware.present(

@@ -67,7 +67,7 @@ changes. `close()` is mandatory — it is the only thing that closes them.
 
 ## Tests and coverage
 
-`dart test` runs 327 tests with no hardware. Coverage of the hand-written
+`dart test` runs 330 tests with no hardware. Coverage of the hand-written
 sources (2026-09-03, generated `models.freezed.dart` excluded) is 91.5 % of
 lines: session 96.2 %, facades 97.3 %, codec 95.2 %, dfu 91.4 %, protocol
 91.0 %, commands 89.5 %, fake 88.4 %, transport 84.4 %, dump 82.5 %. The

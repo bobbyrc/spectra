@@ -17,7 +17,9 @@ final class Mf1DumpWriteResult {
   /// One entry per block of the card, true when that block was written.
   final List<bool> writeMask;
 
-  /// One entry per block, true when a write was attempted for it.
+  /// One entry per block, true when that block was not skipped by policy
+  /// (block 0, and a trailer unless the caller's `writeTrailers` asked for
+  /// it) — whether or not the write it was tried with succeeded.
   final List<bool> attemptMask;
 
   /// The key found for each sector, in the shape `mf1ReadDump` reports.

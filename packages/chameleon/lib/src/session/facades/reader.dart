@@ -144,9 +144,22 @@ final class ReaderFacade {
   /// card cannot satisfy locks that sector for good. Skipped blocks are
   /// false in both masks of the result, which is why
   /// [Mf1DumpWriteResult.isComplete] measures written against *attempted*.
+  /// [writeTrailers] is also the one setting a dump read with [mf1ReadDump]
+  /// is not safe to hand straight back here: a real card never returns its
+  /// keys, so a read dump carries key A zeroed out in every trailer, and
+  /// writing trailers from it overwrites key A on the card with zeros too —
+  /// the caller has to patch the trailer bytes back in from the keys it
+  /// used, first.
   ///
   /// A block the card refuses is left false rather than throwing, so one bad
-  /// block costs one block and not the whole write.
+  /// block costs one block and not the whole write. The one exception is the
+  /// device refusing the write command itself — [NotImplemented], or
+  /// [InvalidCommand] when MF1_WRITE_ONE_BLOCK is missing from the device's
+  /// advertised capabilities (a Lite has no 2009; see
+  /// `docs/research/chameleon-protocol.md`) — which is not a fact about one
+  /// block: every remaining block would fail the exact same way, so this
+  /// bails out and rethrows immediately instead of spending the rest of the
+  /// dump's round trips proving that again block by block.
   ///
   /// `hardware-validate` (checklist H3): which key a data block accepts for
   /// a write depends on its access bits, so the key A then key B order used
@@ -302,6 +315,16 @@ final class ReaderFacade {
           cancel: cancel,
         );
         return true;
+      } on NotImplemented {
+        // The firmware does not have MF1_WRITE_ONE_BLOCK at all: every
+        // remaining block would fail identically, so this bails the whole
+        // dump rather than proving that 62 more times.
+        rethrow;
+      } on InvalidCommand {
+        // The real-world shape that actually takes: missing from the
+        // device's advertised capabilities (a Lite has no 2009). Same
+        // bail-out as [NotImplemented].
+        rethrow;
       } on DeviceError {
         // Wrong key for this block, or a card that would not take it:
         // try the other key, then give this one block up.
