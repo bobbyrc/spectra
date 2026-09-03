@@ -265,6 +265,18 @@ void main() {
     expect(notifier.consumeLastDisconnected(), isNull);
   });
 
+  test('markLastDisconnected arms the connect screen preselect with no session '
+      'ever registered', () {
+    final h = harness({});
+    final notifier = h.container.read(sessionsProvider.notifier);
+    expect(h.container.read(sessionsProvider).lastDisconnected, isNull);
+
+    notifier.markLastDisconnected(emulated);
+
+    expect(h.container.read(sessionsProvider).lastDisconnected, emulated);
+    expect(h.container.read(sessionsProvider).sessions, isEmpty);
+  });
+
   test('a failed connect can be retried with a fresh transport', () async {
     var calls = 0;
     final failing = FakeDevice(openError: const PermissionDenied());

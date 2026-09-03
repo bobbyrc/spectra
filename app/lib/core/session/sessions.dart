@@ -198,6 +198,15 @@ class Sessions extends _$Sessions {
     }
   }
 
+  /// Arms [SessionsState.lastDisconnected] for [device] directly, with no
+  /// session ever having been registered for it. Used when a silent
+  /// reconnect (spec 7.4) finds the device but the reconnect attempt itself
+  /// fails: the connect screen still preselects it, exactly as it would for
+  /// a link that dropped on its own.
+  void markLastDisconnected(DiscoveredDevice device) {
+    _setState(state.copyWith(lastDisconnected: device));
+  }
+
   /// Clears and returns the device whose link dropped unexpectedly (spec
   /// 7.4), for the connect screen to preselect once. Null when nothing is
   /// pending.

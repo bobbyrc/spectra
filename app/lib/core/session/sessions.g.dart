@@ -96,7 +96,7 @@ final class SessionsProvider
   }
 }
 
-String _$sessionsHash() => r'588b779d14b84c6796f00854d8a14e1bf10a4155';
+String _$sessionsHash() => r'03e9b02cd40ea43b826a7e88561783165dc97090';
 
 abstract class _$Sessions extends $Notifier<SessionsState> {
   SessionsState build();

@@ -8,16 +8,11 @@ import 'l10n/app_localizations.dart';
 
 /// The application root: the design system's app widget, driven by
 /// `routerProvider`, wrapped in the lifecycle host (spec 7.4).
-class SpectraRoot extends ConsumerStatefulWidget {
+class SpectraRoot extends ConsumerWidget {
   const SpectraRoot({super.key});
 
   @override
-  ConsumerState<SpectraRoot> createState() => _SpectraRootState();
-}
-
-class _SpectraRootState extends ConsumerState<SpectraRoot> {
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AppLifecycleHost(
       child: SpectraApp(
         routerConfig: ref.watch(routerProvider),
