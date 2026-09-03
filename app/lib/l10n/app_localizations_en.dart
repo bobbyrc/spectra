@@ -281,4 +281,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonUpdateFirmware => 'Update firmware';
+
+  @override
+  String get dashboardDisconnect => 'Disconnect';
+
+  @override
+  String get dashboardModel => 'Model';
+
+  @override
+  String get dashboardFirmware => 'Firmware';
+
+  @override
+  String get dashboardGitVersion => 'Build';
+
+  @override
+  String get dashboardChipId => 'Chip ID';
+
+  @override
+  String get dashboardBleAddress => 'Bluetooth address';
+
+  @override
+  String get dashboardActiveSlot => 'Active slot';
+
+  @override
+  String get dashboardModeReader => 'Reader mode';
+
+  @override
+  String get dashboardModeEmulator => 'Emulator mode';
+
+  @override
+  String get dashboardModelUltra => 'Chameleon Ultra';
+
+  @override
+  String get dashboardModelLite => 'Chameleon Lite';
+
+  @override
+  String get dashboardUnknown => 'Unknown';
+
+  @override
+  String get dashboardLimitedTitle => 'This device needs a firmware update';
 }

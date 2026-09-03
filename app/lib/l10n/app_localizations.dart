@@ -585,6 +585,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Update firmware'**
   String get commonUpdateFirmware;
+
+  /// Closes the session with the connected device.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get dashboardDisconnect;
+
+  /// Label for the device model.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get dashboardModel;
+
+  /// Label for the running firmware version.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware'**
+  String get dashboardFirmware;
+
+  /// Label for the firmware git version string.
+  ///
+  /// In en, this message translates to:
+  /// **'Build'**
+  String get dashboardGitVersion;
+
+  /// Label for the device's unique chip identifier.
+  ///
+  /// In en, this message translates to:
+  /// **'Chip ID'**
+  String get dashboardChipId;
+
+  /// Label for the device's BLE address.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth address'**
+  String get dashboardBleAddress;
+
+  /// Label for the slot the device is emulating.
+  ///
+  /// In en, this message translates to:
+  /// **'Active slot'**
+  String get dashboardActiveSlot;
+
+  /// Chip label when the device is in reader mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader mode'**
+  String get dashboardModeReader;
+
+  /// Chip label when the device is emulating.
+  ///
+  /// In en, this message translates to:
+  /// **'Emulator mode'**
+  String get dashboardModeEmulator;
+
+  /// Display name of the Ultra.
+  ///
+  /// In en, this message translates to:
+  /// **'Chameleon Ultra'**
+  String get dashboardModelUltra;
+
+  /// Display name of the Lite.
+  ///
+  /// In en, this message translates to:
+  /// **'Chameleon Lite'**
+  String get dashboardModelLite;
+
+  /// Placeholder for a value the device has not reported.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get dashboardUnknown;
+
+  /// Heading of the reduced dashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'This device needs a firmware update'**
+  String get dashboardLimitedTitle;
 }
 
 class _AppLocalizationsDelegate
