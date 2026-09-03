@@ -44,6 +44,13 @@ void main() {
     );
   });
 
+  test('the update route is reachable with no session, for recovery', () {
+    expect(
+      redirectFor(state: disconnected, location: AppRoutes.update),
+      isNull,
+    );
+  });
+
   test('ready leaves the connect screen for the dashboard', () {
     expect(
       redirectFor(state: ready(), location: AppRoutes.connect),

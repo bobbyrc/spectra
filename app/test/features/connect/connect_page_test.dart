@@ -30,7 +30,7 @@ Widget _localizedApp(Widget child) {
 
 void main() {
   testWidgets('lists the emulated device and connects to it', (tester) async {
-    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
     await tester.pump();
 
     expect(find.text('Connect a device'), findsOneWidget);
@@ -38,21 +38,21 @@ void main() {
 
     await connectToEmulator(tester);
     expect(find.byType(SpectraAppShell), findsOneWidget);
+
+    await settleApp(tester);
   });
 
   testWidgets(
     'a refused permission shows the message and the recovery action',
     (tester) async {
-      await tester.pumpWidget(
-        testApp(
-          transport: (_) => FakeDevice(openError: const PermissionDenied()),
-        ),
+      await pumpTestApp(
+        tester,
+        transport: (_) => FakeDevice(openError: const PermissionDenied()),
       );
       await tester.pump();
 
-      await tapAndAwaitReal(tester, find.text('Emulated Chameleon Ultra'));
-      await tester.pump();
-      await tester.pump();
+      await tester.tap(find.text('Emulated Chameleon Ultra'));
+      await awaitConnectAttempt(tester);
 
       expect(
         find.text('Spectra needs permission to reach the device.'),
@@ -60,58 +60,55 @@ void main() {
       );
       expect(find.text('Open settings'), findsOneWidget);
 
-      await settleAfterConnectPage(tester);
+      await settleApp(tester);
     },
   );
 
   testWidgets('an empty scan explains that the device sleeps', (tester) async {
-    await tester.pumpWidget(testAppWithNoDevices());
+    await pumpTestAppWithNoDevices(tester);
     await tester.pump();
     await tester.pump();
 
     expect(find.textContaining('press a button on the device'), findsOneWidget);
 
-    await settleAfterConnectPage(tester);
+    await settleApp(tester);
   });
 
   testWidgets('a bootloader row offers Recover', (tester) async {
-    await tester.pumpWidget(testAppWithBootloader());
+    await pumpTestAppWithBootloader(tester);
     await tester.pump();
     await tester.pump();
 
     expect(find.text('Recover'), findsOneWidget);
 
-    await settleAfterConnectPage(tester);
+    await settleApp(tester);
   });
 
   testWidgets('retrying a failed connect clears the problem card', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      testApp(
-        transport: (_) => FakeDevice(openError: const PermissionDenied()),
-      ),
+    await pumpTestApp(
+      tester,
+      transport: (_) => FakeDevice(openError: const PermissionDenied()),
     );
     await tester.pump();
 
-    await tapAndAwaitReal(tester, find.text('Emulated Chameleon Ultra'));
-    await tester.pump();
-    await tester.pump();
+    await tester.tap(find.text('Emulated Chameleon Ultra'));
+    await awaitConnectAttempt(tester);
     expect(
       find.text('Spectra needs permission to reach the device.'),
       findsOneWidget,
     );
 
-    await tapAndAwaitReal(tester, find.text('Open settings'));
-    await tester.pump();
-    await tester.pump();
+    await tester.tap(find.text('Open settings'));
+    await awaitConnectAttempt(tester);
 
     expect(
       find.text('Spectra needs permission to reach the device.'),
       findsNothing,
     );
 
-    await settleAfterConnectPage(tester);
+    await settleApp(tester);
   });
 
   testWidgets('ConnectProblemView shows the given instructions directly', (
