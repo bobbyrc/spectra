@@ -272,3 +272,42 @@ dated entry per lesson; keep each one actionable.
 - **Opus returning 529 (overloaded) is not a reason to wait it out.**
   Resume the same agent or switch it to another model rather than retrying
   the same overloaded call in a loop.
+
+## Phase 5 (slots)
+
+- **An autoDispose notifier read with no listener held is torn down before
+  its method runs.** `container.read(provider.notifier)` on an autoDispose
+  provider creates the element, hands back the notifier, and disposes the
+  element immediately since nothing is listening — the notifier's own
+  `state = …` inside the method that follows then throws. Hold `keepAlive`
+  (a `container.listen` plus `addTearDown(sub.close)`) on that exact
+  provider before reading its notifier, not just before reading its value.
+- **`await`ing a `FakeDevice`-backed mutation before pumping deadlocks the
+  test.** `FakeDevice` replies on a real `Timer`, not the test's virtual
+  clock, so the reply never arrives while nothing pumps. Start the mutation,
+  `await tester.pump()`, then `await` it: `final f = editor.rename(...);
+  await tester.pump(); await f;` — never `await editor.rename(...)`
+  directly.
+- **Pre-flight scans catch invented names before they cost a round.** All
+  seven name/API corrections in Phase 5's pre-flight scan (wrong file paths,
+  a nonexistent `readNotifier`, a wrong `busy`-wrapping claim, an unbound
+  `ProviderScope.containerOf` default) would each have cost an implementer
+  a full dispatch-fix-review cycle if left in the brief unverified.
+- **Rulings must be re-read by implementers, not assumed from the plan's own
+  wording.** Two Phase 5 tasks copied the plan's sample text verbatim and
+  missed a ruling that postdated the plan (rulings 10 and 17 both had this
+  happen). When carrying a ruling into a dispatch, paste its replacement
+  text into the brief — a ruling number alone is not enough for an
+  implementer with no memory of the ledger.
+- **A review brief must not add requirements beyond the plan.** Phase 5 hit
+  this twice more after the Phase 4 lesson above: a reviewer flagged
+  "known-but-undiscovered rows" handling and a "rejects whitespace"
+  behaviour that neither the spec nor the plan asked for. Both were false
+  blockers — state every review requirement as a citation, not an
+  inference, same lesson as Phase 4, still not fully internalized.
+- **Serialise implementers on every shared file, not just the obvious
+  ones.** Beyond the ARB and the test harness (Phase 4's lesson), Phase 5
+  added `app/lib/features/slots/state/slot_sense_section.dart` and
+  `app/lib/features/slots/ui/slot_detail_page.dart` (plus its test) to the
+  list of files more than one task touched — queue tasks on these rather
+  than parallelizing.

@@ -70,7 +70,24 @@ lists the emulated Chameleon Ultra alongside any real devices, so
 `cd app && flutter run -d macos` (or any desktop target) reaches a working
 dashboard with no hardware attached.
 
-Next: Phase 5 (slots) — from spec 7.7 step 2 and 8.3.
+Phase 5 (`app/lib/features/slots/`) is complete (2026-09-03): the slots
+grid, the slot editor (rename with byte-level validation, per-sense enable,
+tag type, clear, set active), every mutation written through `SlotsFacade`
+with no re-read, failures rendered through the error catalog, and
+`showSlotPicker` exported from `features/slots/slots.dart` as the public API
+Phase 6 and 7 consume — it returns a wire index (0..7) or `null`, never the
+1..8 the device prints. The test harness gained `keepAlive` (holds a
+listener on an autoDispose provider before it is read), `readProvider`
+(reads through the pumped app's own container), and `openSlots`/`openSlot`
+(drive from the dashboard to a slot or the picker). `core/routing/
+sub_page_scaffold.dart` is the promoted, shared `SubPageScaffold({title,
+body})` that `slots`, `frame_log` and `update` now all use. Gate green:
+`app/test/flows/slot_edit_flow_test.dart` (192 app tests) and
+`app/integration_test/slot_edit_flow_test.dart` (picked up by the existing
+macOS CI `integration` job) edit and save a slot on the emulator.
+
+Next: Phase 6 (cards) — from spec 7.7 steps 3-4, 7.3 and 3.5; the plan is
+already written at `docs/superpowers/plans/2026-09-03-phase-6-cards.md`.
 
 Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
 "Decisions made overnight" below.
@@ -93,14 +110,42 @@ Plans, in `docs/superpowers/plans/`:
   scanners and the platform seams (complete).
 - `2026-09-03-phase-4-app-shell.md`: app shell and connect, from spec
   7.1-7.5, 8.3, 8.4 and 9 (complete).
-- Phase 5 (slots) is written next from spec 7.7 step 2 and 8.3.
-- Phases 6 to 10: write each plan with the writing-plans skill from the spec
+- `2026-09-03-phase-5-slots.md`: slots grid and editor, from spec 7.7 step 2
+  and 8.3 (complete).
+- `2026-09-03-phase-6-cards.md`: read cards, library, dump editor, import
+  (written; next up).
+- Phases 7 to 10: write each plan with the writing-plans skill from the spec
   sections the roadmap lists, when that phase starts.
 
 Execute plans with superpowers:subagent-driven-development. Hardware steps
 need the user's device and never block progress: build against the fake,
 keep `docs/hardware-checklist.md` current, and gate BLE and iOS DFU behind
 the `dfuOverBleEnabled` flag until the user reports the checks passed.
+
+## Decisions made overnight (2026-09-03, Phase 5)
+
+- Tag-type product names (`MIFARE Classic 1K`, `NTAG215`, `EM410x`) are not
+  localized. They live in an exhaustive `switch` in `state/slot_labels.dart`;
+  only the empty placeholder and the two sense names go through ARB.
+- "Clear slot" calls `SlotsFacade.deleteSense`, not `resetToDefault`. That is
+  what "clear the slot" means in the spec; `resetToDefault` is unused and
+  left for a future "reset to a factory tag" action.
+- `showSlotPicker` returns a wire index (0..7), not the 1..8 display number
+  the device prints — documented on the function itself, because an
+  off-by-one there is the one thing Phase 6 and 7 could get silently wrong.
+- `slotNicknameMaxBytes = 32` is redeclared in the app: the SDK's
+  `maxNickBytes` is internal to `packages/chameleon/lib/src` and its check
+  throws `ArgumentError` rather than `ChameleonException`, so the app
+  validates before sending (source: SET_SLOT_TAG_NICK (1007) `slot(1)
+  sense(1) utf8<=32` in `docs/research/chameleon-protocol.md`).
+- The wakelock is held during every slot mutation that writes and saves
+  (`setEnabled`, `rename`, `setTagType`, `deleteSense`, all wrapped in
+  `DeviceSession.busy`) — `setActive` is not wrapped in `busy` and does not
+  hold the wakelock, because a single `SET_ACTIVE_SLOT` is not a long
+  operation under spec 7.4.
+- `SlotProblemView` duplicates `ConnectProblemView` almost line for line.
+  Left slots-local for this phase; promoting a shared `ProblemView` to
+  `core/errors` is a Phase 6 fix-wave item.
 
 ## Decisions made overnight (2026-09-03, Phase 4)
 

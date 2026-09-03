@@ -501,5 +501,78 @@ dump formats and DFU. Rulings taken while executing
   Drift tables themselves so the generated row types never collide with
   these model names.
 
+## Phase 5 decisions (2026-09-03)
+
+- **Tag-type product names are not localized.** `MIFARE Classic 1K`,
+  `NTAG215` and `EM410x` are the names printed on the parts. They live in an
+  exhaustive `switch` in `app/lib/features/slots/state/slot_labels.dart`;
+  only the empty placeholder and the two sense names go through ARB. Spec
+  7.6's rule is about copy, and twenty-four brand names in `app_en.arb`
+  would be noise no translator would touch.
+- **The picker's list of selectable types is derived, not typed.**
+  `selectableTypes(Sense)` filters `TagType.values` by `TagFamily`, so it
+  cannot name a type the SDK does not have. `iso14443_4` and `seos` are
+  excluded because the SDK has no emulator support for them (the whole
+  `CommandRange.iso14443_4` range answers NOT_IMPLEMENTED in `FakeFirmware`
+  and is absent from `FakeFirmwareConfig.defaultCapabilities`).
+- **`ToolSubPageScaffold` was promoted to `core/routing/SubPageScaffold`.**
+  Its own doc comment asked for this check before a third sub-route reused
+  it; a feature may not import another feature's internals (spec 8.4), so
+  `core/` was the only place it could go.
+- **`slotNicknameMaxBytes` is declared in the app.** The SDK's `maxNickBytes`
+  is internal to `packages/chameleon/lib/src`, and its check throws an
+  `ArgumentError` rather than a `ChameleonException`, so the app validates
+  before sending. Source: SET_SLOT_TAG_NICK (1007) `slot(1) sense(1)
+  utf8<=32` in `docs/research/chameleon-protocol.md`.
+- **The picker returns a wire index, not a display number.** Documented on
+  `showSlotPicker`, because the one thing Phase 6 and 7 can get silently
+  wrong is an off-by-one between the 0..7 the facade takes and the 1..8 the
+  device prints.
+- **`setActive` does not hold the wakelock.** In
+  `packages/chameleon/lib/src/session/facades/slots.dart`, `setEnabled`,
+  `rename`, `setTagType`, `resetToDefault`, `deleteSense` and `refresh` are
+  wrapped in `_s.busy` (so `sessionNeedsWakelock`, which polls `isBusy`,
+  holds the wakelock across them); `setActive` sends `SetActiveSlot` and
+  updates the cache with no `busy` wrapper. Spec 7.4 asks for the wakelock
+  during *long* operations and a single `SET_ACTIVE_SLOT` is not one, so
+  this needed no code change — only correcting the phase's internal
+  documentation, which had claimed "every mutation is wrapped in `busy`."
+  The accurate phrasing, used everywhere from here on, is "every mutation
+  that writes and saves."
+- **Test rulings that cost a round each the first time.** (1) An autoDispose
+  provider read with no listener held is torn down before its method runs —
+  `app/test/support/app_harness.dart`'s `keepAlive` (`container.listen(p,
+  (_, _) {})` plus `addTearDown(sub.close)`) must be called, and a few
+  frames pumped, before `readProvider`/`.notifier` reads on `slotsProvider`
+  or `slotEditorProvider(i)`; and it must run *before* anything `await`s
+  that provider's `.future`. (2) `FakeDevice` answers on a real `Timer`, not
+  a virtual clock, so `await`ing a `FakeDevice`-backed mutation before
+  pumping deadlocks the test — the pattern is start the future, `await
+  tester.pump()`, then `await` the future (`final f = editor.rename(...);
+  await tester.pump(); await f;`).
+- **`SlotEditor` ships `@visibleForTesting void debugFail(Object error)`.**
+  `Notifier.state`'s setter is `@visibleForTesting @protected` in riverpod
+  3.4.2, so assigning it from a test is `invalid_use_of_protected_member`, a
+  warning that fails `melos run analyze` (warnings are errors). The error
+  surface test injects a failure through this method instead.
+- **A rapid second mutation drops, it does not queue.** `SlotEditor`'s guard
+  compares an in-flight generation token and discards a call that arrives
+  while another is still running, rather than buffering it — proven by a
+  test asserting exactly one frame reaches the wire by command id (not by
+  list length: `DeviceSession`'s idle poll can add unrelated frames during a
+  multi-second pump, so filtering is required, not enough to count).
+- **Widget-test finders inside a sheet or dialog are scoped to it.**
+  `find.text('Clear')` and a bare `SpectraSlotTile` finder are ambiguous the
+  moment the same screen renders both a grid and a picker sheet, or a tile
+  and a confirmation dialog. The pattern is
+  `find.descendant(of: find.byType(SpectraBottomSheet), matching:
+  find.byType(SpectraSlotTile))` (or `SpectraDialog`), never index
+  arithmetic over an unscoped `findsNWidgets`.
+- **`app_en.arb` is a single-writer resource for the duration of a phase.**
+  Eight of Phase 5's twelve tasks appended ARB keys and regenerated
+  `app_localizations*.dart`; only tasks that add no copy (verified against
+  the task's own file list, not assumed) may run concurrently with an
+  ARB-writing task. Same rule as Phase 4's ruling 18, carried forward.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).
