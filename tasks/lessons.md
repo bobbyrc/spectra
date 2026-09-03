@@ -448,3 +448,36 @@ dated entry per lesson; keep each one actionable.
   existed in its final form and drifted. Treat plan-embedded code as
   illustrative, not authoritative; read the harness source before writing a
   test against it.
+
+## Phase 10 (release)
+
+- **Package with scripts, call them from the workflow.** Every packaging
+  decision that lives in a `.yml` is untestable and unrunnable locally. The
+  scripts under `tool/package/` are asserted on by `test/packaging_test.dart`
+  (and the Android/iOS twins) and can be run by hand on the same inputs CI
+  uses — test them by executing them against fakes, not by reading the
+  `.yml` and hoping.
+- **A secret-gated `if:` in a workflow is a fork trap.** It makes the
+  maintainer's run and a contributor's run produce different artifacts, and
+  the difference only shows up on a release day. Push the decision into the
+  script and let it degrade.
+- **`workflow_call` beats copying a job.** Adding one trigger line to
+  `ci.yml` gave the release the whole check matrix and the macOS integration
+  run without a second copy to keep in sync.
+- **Rehearse a release with `workflow_dispatch` before the tag exists.** The
+  tag is immutable-ish and a failed release run against one is noisy; the
+  dispatch input builds the same thing off a branch.
+- **Skip a platform-bound end-to-end test off its platform, don't delete
+  it.** The macOS `.dmg` packaging test called `hdiutil` unconditionally and
+  died with exit 127 on the Linux CI runner. Guard it with
+  `Platform.isMacOS` (as the Windows and Linux packaging tests already did)
+  rather than removing coverage or making it always-skip.
+- **Keep the RC heading honest in the changelog.** A dated `[1.0.0]` heading
+  written while cutting `v1.0.0-rc.1` is a false claim — nothing has
+  released 1.0.0 yet. The heading stays `[1.0.0-rc.1] - <date>`, and the
+  checker accepts a pre-release version when validating a tag against it.
+- **GitHub runner images drift under you.** Inno Setup and `libfuse2`
+  availability on `ubuntu-latest`/`windows-latest` shifted between two
+  tasks landing in the same phase. Pin their installation explicitly in the
+  workflow (`choco install innosetup`, `apt-get install libfuse2`) instead
+  of assuming the image still carries them.

@@ -179,8 +179,51 @@ macOS `integration` job). Real hardware is required to confirm a device
 setting survives a save and a power cycle; see `docs/hardware-checklist.md`
 H3.
 
-Next: Phase 10 (release) is the only phase left — its close-out and the
-`v1.0.0-rc.1` tag.
+Phase 10 (release) is complete (2026-09-03): release tooling under `tool/` —
+`tool/check_release.dart` reconciles a tag against `app/pubspec.yaml` and
+`CHANGELOG.md` and reports the LICENSE TODO as a warning only, never a
+failure; `tool/print_changelog_entry.dart` extracts one changelog entry for
+the release notes body. `CHANGELOG.md` carries the `[1.0.0-rc.1]` entry an
+RC is validated against (an RC gets no entry of its own). Five packaging
+scripts under `tool/package/` (macOS `.dmg`, Windows installer plus zip,
+Linux AppImage plus tarball, Android `.apk`/`.aab`, iOS `.ipa`) each degrade
+to an unsigned or ad-hoc artifact when its signing secret is absent, so a
+fork or a secretless rehearsal produces the same file list a signed run
+does; Android signing falls back the same way. `.github/workflows/
+release.yml` runs on a `v*` tag push or `workflow_dispatch`, calls `ci.yml`
+through its new `workflow_call` trigger so a release can never ship a tree
+that fails CI, builds all five platforms in release mode, and publishes a
+**draft pre-release** with every artifact attached. The runbook is
+`docs/RELEASING.md`.
+
+v1 status: all ten phases are complete and ticked in the roadmap, CI is
+green on `bobbyrc/chinook`, and `v1.0.0-rc.1` is tagged at the end of this
+run. The hardware checklist's H1, H2 and H3 sections are written and ready
+for the user to run. The LICENSE choice and the twelve signing secrets in
+`docs/RELEASING.md` are the user's to make — no agent chooses a license or
+holds a signing credential. Open backlog, not blocking v1:
+
+- The Phase 7 integration twin `app/integration_test/
+  load_to_slot_flow_test.dart` is committed `skip: true` — it hung on the
+  real engine twice. The widget-test flow is the enforced gate; the twin
+  stays as a documented gap until someone can reproduce the hang.
+- `DfuOrchestrator._find`'s reboot-wait deadline is wall-clock
+  (`DateTime.now()`), not `package:clock`-injected, so it cannot be driven
+  by a virtual clock in a test.
+- The About screen's version string is hand-maintained; adopting
+  `package_info_plus` would read it from the platform build instead.
+- The `usb_serial` vendor override at `third_party/usb_serial/` needs a
+  re-check against upstream before the next release — see the Phase 3 note
+  above.
+- `ReaderFacade` has no MIFARE Ultralight *read* operation, only identify —
+  an SDK gap, not a bug.
+- The reference-app dictionary and card export field names are taken from
+  documented shapes, never a real export; both are H3 checklist items,
+  unverified until the user's report.
+
+Next: v1 is complete; next is the user's morning: run
+`docs/hardware-checklist.md` H1–H3, choose a license, add signing secrets,
+then publish the draft release.
 
 Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
 "Decisions made overnight" below.
@@ -220,6 +263,47 @@ Execute plans with superpowers:subagent-driven-development. Hardware steps
 need the user's device and never block progress: build against the fake,
 keep `docs/hardware-checklist.md` current, and gate BLE and iOS DFU behind
 the `dfuOverBleEnabled` flag until the user reports the checks passed.
+
+## Decisions made overnight (2026-09-03, Phase 10)
+
+- Release artifacts are unsigned-by-default: signing is a script-level
+  decision keyed on the presence of a secret, never a workflow `if:`, so a
+  fork or a secretless rehearsal still produces every artifact.
+- Apple targets build with the version core only (`1.0.0`), because
+  `CFBundleShortVersionString` rejects a pre-release suffix; the RC identity
+  lives in the tag and the artifact names.
+- The iOS artifact is an unsigned `.ipa`. There is no Apple team id in the
+  repo; the TestFlight route is written down in `docs/RELEASING.md` instead
+  of automated.
+- A release candidate gets no changelog entry of its own; it is validated
+  against the entry it is a candidate for.
+- Ruling 10-1: the changelog entry heading is `[1.0.0-rc.1] - 2026-09-03`,
+  not `[1.0.0]` — nothing in this run releases 1.0.0, and a dated `[1.0.0]`
+  heading would be a false claim. The parser accepts pre-release versions;
+  the final release adds its own `[1.0.0]` entry later.
+- Ruling 10-2: no in-app release feed in v1; the update screen takes a
+  local package and links `firmwareReleasesUrl` as plain text instead.
+- Ruling 10-3: the five packaging scripts keep their own natural
+  per-platform argument style rather than a forced common shape; each
+  script's header documents its args and `RUNNER_TEMP`, and the workflow
+  calls each one explicitly.
+- Ruling 10-4: Tasks 7 and 8 (Android and iOS packaging) wrote their tests
+  in their own files (`test/packaging_android_test.dart`,
+  `test/packaging_ios_test.dart`) instead of appending to the shared
+  `test/packaging_test.dart`, so they could run concurrently with the
+  in-flight Task 5 fix and Task 6.
+- Ruling 10-5: the Linux desktop entry's `Icon=` is `dev.spectra.spectra`
+  (the bundle id), matching the brief's own tests, not the shorter
+  `spectra` the dispatch note had suggested.
+- Ruling 10-6: the `ci.yml`/`release.yml` concurrency-group collision found
+  in Task 9's review is documented in `docs/RELEASING.md` rather than
+  changed in `ci.yml` — a release run and a same-branch CI run cannot
+  cancel each other, and the runbook says so instead of restructuring the
+  group keys.
+- CI fix (post-Task-9): the macOS `.dmg` packaging script's end-to-end test
+  ran unconditionally and failed on the Linux CI runner with exit 127
+  (`hdiutil` does not exist off macOS). Fixed by skipping that test unless
+  `Platform.isMacOS`, same as every other platform-bound packaging test.
 
 ## Decisions made overnight (2026-09-03, Phase 8)
 

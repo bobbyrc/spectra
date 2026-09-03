@@ -801,5 +801,43 @@ dump formats and DFU. Rulings taken while executing
   was not re-seeded after a settings reset. All four are fixed on the same
   commits that landed the phase.
 
+## Phase 10 decisions (2026-09-03)
+
+- **Signing degrades in the script, not in the workflow.** GitHub's `secrets`
+  context is awkward to test in a step `if:`, and gating there would mean a
+  fork's release run produces a *different* file list from the maintainer's.
+  Each packaging script reads the secret from its environment and picks
+  signed or ad-hoc itself, printing which. The artifact always exists.
+- **`release.yml` calls `ci.yml` rather than restating it.** A second copy of
+  the `check` job would drift. `workflow_call` was added to `ci.yml` and
+  nothing else changed; under it the `integration` job's
+  `if: github.event_name != 'pull_request'` sees the caller's event, so the
+  release inherits the macOS emulator-mode integration run for free.
+- **Apple builds get the version core.** `CFBundleShortVersionString` must be
+  three dotted numbers, so `ReleaseVersion.appleBuildName` strips the
+  pre-release. Everything else builds `1.0.0-rc.1`.
+- **No `.deb`.** Spec 10 asks for an AppImage; the extra tarball covers the
+  "give me the files" case, and a `.deb` would need a maintained dependency
+  list nobody is going to keep current.
+- **The `.ipa` is unsigned.** Spec 10 defers the mobile stores; without a
+  team id every committed `ExportOptions.plist` would be a placeholder.
+- **The LICENSE TODO warns, never fails.** Choosing a licence is the user's
+  call (AGENTS.md); a release can be rehearsed and an RC cut before it is
+  made, and `docs/RELEASING.md` blocks a public v1.0.0 on it.
+- **A release candidate gets no changelog entry.** `v1.0.0-rc.1` is checked
+  against the `1.0.0` entry, so an RC cannot be cut for a release that has
+  not been written up.
+- **GitHub runner images drift.** The CI `ubuntu-latest` runner's Inno
+  Setup and `libfuse2` availability shifted under the workflow between
+  Task 5 and Task 9 landing; `release.yml` now pins both explicitly
+  (`choco install innosetup` when `ISCC` is absent, `apt-get install
+  libfuse2` before running `appimagetool`) rather than assuming the image
+  still carries them.
+- **A platform-bound end-to-end test must check its own platform first.**
+  The macOS `.dmg` packaging test called `hdiutil` unconditionally and
+  failed with exit 127 on the Linux CI runner; fixed by skipping it unless
+  `Platform.isMacOS`, matching the pattern the Windows and Linux packaging
+  tests already used.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).
