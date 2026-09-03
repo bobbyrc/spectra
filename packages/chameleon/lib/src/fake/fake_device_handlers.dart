@@ -29,20 +29,19 @@ extension FakeDeviceHandlers on FakeFirmware {
       case 1004:
         final s = slots[slotIndex(r.u8())];
         final t = TagType.fromCode(r.u16());
-        if (t.sense == Sense.lf) {
-          s.lfType = t;
-        } else {
-          s.hfType = t;
-        }
+        // The request names no sense, so an undefined type clears both.
+        if (t.sense != Sense.hf) s.lfType = t;
+        if (t.sense != Sense.lf) s.hfType = t;
         slotsSaved = false;
         return okFrame(cmd);
       case 1005:
         final s = slots[slotIndex(r.u8())];
         final t = TagType.fromCode(r.u16());
-        if (t.sense == Sense.lf) {
+        if (t.sense != Sense.hf) {
           s.lfType = t;
           s.lfIds.updateAll((k, v) => Uint8List(v.length));
-        } else {
+        }
+        if (t.sense != Sense.lf) {
           s.hfType = t;
           s.mf1Blocks.fillRange(0, s.mf1Blocks.length, 0);
           s.ntagPages.fillRange(0, s.ntagPages.length, 0);
@@ -116,6 +115,7 @@ extension FakeDeviceHandlers on FakeFirmware {
           s.hfNick = '';
           s.lfNick = '';
         }
+        slotsSaved = false;
         return okFrame(cmd);
       case 1021:
         final s = slots[slotIndex(r.u8())];

@@ -38,8 +38,14 @@ final class FakeFirmwareConfig {
     respondsToCapabilities: false,
   );
 
-  factory FakeFirmwareConfig.legacy01() =>
-      FakeFirmwareConfig(version: const FirmwareVersion(major: 0, minor: 1));
+  /// The 0.1 firmware: no GET_DEVICE_CAPABILITIES, so the session falls back
+  /// to a limited feature set.
+  factory FakeFirmwareConfig.legacy01() => FakeFirmwareConfig(
+    version: const FirmwareVersion(major: 0, minor: 1),
+    gitVersion: 'v0.1.0-fake',
+    respondsToCapabilities: false,
+    settingsVersion: 5,
+  );
 
   final DeviceModel model;
   final FirmwareVersion version;

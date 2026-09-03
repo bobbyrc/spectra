@@ -51,8 +51,18 @@ final class FakeMf1Card extends FakeCard {
     );
   }
 
-  /// The transport key every blank MIFARE Classic ships with.
-  static final Uint8List defaultKey = Uint8List.fromList(List.filled(6, 0xFF));
+  static const List<int> _defaultKeyBytes = [
+    0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
+  ];
+
+  /// The transport key every blank MIFARE Classic ships with. A fresh copy
+  /// each time, so a caller mutating it cannot poison other cards.
+  static Uint8List get defaultKey => Uint8List.fromList(_defaultKeyBytes);
 
   /// Key map id for one sector and key type, e.g. `12B`.
   static String keyId(int sector, KeyType t) =>

@@ -4,6 +4,7 @@ import 'package:chameleon/src/codec/frame.dart';
 import 'package:chameleon/src/commands/device.dart';
 import 'package:chameleon/src/commands/hf_emulator.dart';
 import 'package:chameleon/src/commands/hf_reader.dart';
+import 'package:chameleon/src/commands/lf_emulator.dart';
 import 'package:chameleon/src/commands/lf_reader.dart';
 import 'package:chameleon/src/fake/fake_card.dart';
 import 'package:chameleon/src/fake/fake_firmware.dart';
@@ -49,7 +50,7 @@ void main() {
       Status.invalidCmd,
     );
     expect(run(fw, const GetDeviceSettings()).sleepTimeoutSeconds, isNull);
-    expect(run(fw, const GetSlotTagNick(0, Sense.hf)), isNotNull);
+    expect(run(fw, const GetSlotTagNick(0, Sense.hf)), 'Fake 1K');
   });
 
   test(
@@ -163,6 +164,98 @@ void main() {
     expect(fw.savedSettings.animation, AnimationMode.none);
     run(fw, const ResetSettings());
     expect(run(fw, const GetDeviceSettings()).animation, AnimationMode.full);
+  });
+
+  test('legacy 0.1 refuses capabilities and reports its own version', () {
+    final fw = FakeFirmware(FakeFirmwareConfig.legacy01());
+    final version = run(fw, const GetAppVersion());
+    expect(version.label, '0.1');
+    expect(version.isLegacy, isTrue);
+    expect(run(fw, const GetGitVersion()), 'v0.1.0-fake');
+    expect(
+      fw.handle(const GetDeviceCapabilities().toFrame())!.status,
+      Status.invalidCmd,
+    );
+    expect(run(fw, const GetDeviceSettings()).sleepTimeoutSeconds, isNull);
+  });
+
+  test('GET_ALL_SLOT_NICKS round-trips every slot through the decoder', () {
+    final fw = FakeFirmware();
+    run(fw, const SetSlotTagNick(2, Sense.hf, 'office'));
+    run(fw, const SetSlotTagNick(2, Sense.lf, 'gate'));
+    run(fw, const SetSlotTagNick(7, Sense.lf, 'barrier'));
+    final nicks = run(fw, const GetAllSlotNicks());
+    expect(nicks, hasLength(8));
+    expect(nicks[0], const SlotNicks('Fake 1K', ''));
+    expect(nicks[2], const SlotNicks('office', 'gate'));
+    expect(nicks[7], const SlotNicks('', 'barrier'));
+  });
+
+  test('MF1_CHECK_KEYS_OF_SECTORS finds the presented card keys', () {
+    final fw = FakeFirmware();
+    fw.present(FakeMf1Card.classic1k(uid: b([1, 2, 3, 4])));
+    run(fw, const ChangeDeviceMode(DeviceMode.reader));
+    final result = run(
+      fw,
+      Mf1CheckKeysOfSectors(
+        sectors: {0, 1},
+        keyTypes: {KeyType.a, KeyType.b},
+        keys: [b(List.filled(6, 0xA0)), FakeMf1Card.defaultKey],
+      ),
+    );
+    expect(result.sectors, hasLength(40));
+    expect(result.sectors[0].keyA, FakeMf1Card.defaultKey);
+    expect(result.sectors[0].keyB, FakeMf1Card.defaultKey);
+    expect(result.sectors[1].keyA, FakeMf1Card.defaultKey);
+    // Sector 2 was not in the request mask, so nothing was checked for it.
+    expect(result.sectors[2].keyA, isNull);
+    expect(result.sectors[2].keyB, isNull);
+  });
+
+  test('LF emulator ids round-trip for every family', () {
+    final pairs = <int, (VoidCommand Function(Uint8List), Command<Uint8List>)>{
+      5000: (Em410xSetEmuId.new, const Em410xGetEmuId()),
+      5002: (HidProxSetEmuId.new, const HidProxGetEmuId()),
+      5004: (VikingSetEmuId.new, const VikingGetEmuId()),
+      5006: (PacSetEmuId.new, const PacGetEmuId()),
+      5010: (JablotronSetEmuId.new, const JablotronGetEmuId()),
+      5012: (IdteckSetEmuId.new, const IdteckGetEmuId()),
+    };
+    expect(pairs.keys.toSet(), emuLfIdLengths.keys.toSet());
+    final fw = FakeFirmware();
+    for (final e in pairs.entries) {
+      final length = emuLfIdLengths[e.key]!;
+      final id = b(List.generate(length, (i) => e.key + i));
+      expect(run(fw, e.value.$2), Uint8List(length), reason: 'blank ${e.key}');
+      run(fw, e.value.$1(id));
+      expect(run(fw, e.value.$2), id, reason: 'round trip ${e.key}');
+    }
+  });
+
+  test('LF emulator id of the wrong length answers PAR_ERR', () {
+    final fw = FakeFirmware();
+    expect(
+      fw.handle(Frame(command: 5000, data: b([1, 2])))!.status,
+      Status.parErr,
+    );
+  });
+
+  test('an undefined tag type clears both senses of the slot', () {
+    final fw = FakeFirmware();
+    run(fw, const SetSlotTagType(0, TagType.undefined));
+    expect(
+      run(fw, const GetSlotInfo())[0],
+      const SlotTypes(TagType.undefined, TagType.undefined),
+    );
+  });
+
+  test('WIPE_FDS clears every slot and leaves them unsaved', () {
+    final fw = FakeFirmware();
+    run(fw, const WipeFds());
+    expect(run(fw, const GetSlotInfo())[0].hf, TagType.undefined);
+    expect(run(fw, const GetEnabledSlots())[0].hf, isFalse);
+    expect(run(fw, const GetSlotTagNick(0, Sense.hf)), '');
+    expect(fw.slotsSaved, isFalse);
   });
 
   test('errors surface as typed DeviceError through parseResponse', () {
