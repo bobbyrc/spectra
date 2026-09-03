@@ -67,6 +67,13 @@ final class SlipSerialDfuChannel implements DfuChannel {
       },
       onDone: () => unawaited(_finish()),
     );
+    // The authoritative drop signal: a real transport reports link loss on
+    // `state` and never on `incoming` (see the contract on [Transport]), so
+    // the subscription above is only a secondary path. A close this channel
+    // asked for is not a drop — [_closed] is already set by then.
+    _stateSub = _transport.state.listen((s) {
+      if (s is TransportClosed) _linkClosed(s);
+    });
   }
 
   /// The serial DFU WriteObject opcode. The frame is `[0x08, ...payload]`.
@@ -78,6 +85,7 @@ final class SlipSerialDfuChannel implements DfuChannel {
   final StreamController<Uint8List> _responses =
       StreamController<Uint8List>.broadcast();
   StreamSubscription<Uint8List>? _sub;
+  StreamSubscription<TransportState>? _stateSub;
   Future<void> _writeTail = Future<void>.value();
   bool _closed = false;
   bool _transportClosed = false;
@@ -88,8 +96,9 @@ final class SlipSerialDfuChannel implements DfuChannel {
   /// Decoded SLIP frames from the transport, in order. A broadcast stream:
   /// subscribe before writing, since nothing is buffered for a late
   /// listener. Closes when the transport's [Transport.incoming] ends or the
-  /// channel closes; a transport error surfaces as one error event here
-  /// first, then the stream closes.
+  /// channel closes; a link loss — reported on the transport's
+  /// [Transport.state] as a [TransportClosed] this channel did not ask for
+  /// — surfaces as one error event here first, then the stream closes.
   @override
   Stream<Uint8List> get responses => _responses.stream;
 
@@ -151,6 +160,18 @@ final class SlipSerialDfuChannel implements DfuChannel {
     await _transport.write(frame);
   }
 
+  /// The transport reported it is closed and this channel did not ask for
+  /// it: one error on [responses], then the channel is done.
+  void _linkClosed(TransportClosed closed) {
+    if (_closed) return;
+    if (!_responses.isClosed) {
+      _responses.addError(
+        closed.error ?? const Disconnected('the serial link dropped'),
+      );
+    }
+    unawaited(_finish());
+  }
+
   /// Tears down the channel's own state. Never touches the transport: the
   /// drop paths (an [Transport.incoming] error or its end) run through here
   /// too, and closing an owned transport is [close]'s job so the handle is
@@ -160,6 +181,8 @@ final class SlipSerialDfuChannel implements DfuChannel {
     _closed = true;
     await _sub?.cancel();
     _sub = null;
+    await _stateSub?.cancel();
+    _stateSub = null;
     if (!_responses.isClosed) await _responses.close();
   }
 

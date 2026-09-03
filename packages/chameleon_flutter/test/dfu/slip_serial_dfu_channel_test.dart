@@ -12,6 +12,8 @@ final class _LoopbackTransport implements Transport {
 
   final List<Uint8List> written = <Uint8List>[];
   final _incoming = StreamController<Uint8List>.broadcast();
+  final _state = StreamController<TransportState>.broadcast();
+  TransportState _current = const TransportOpen();
   bool closed = false;
 
   /// When set, [write] waits on this before recording the bytes, so a test
@@ -20,6 +22,19 @@ final class _LoopbackTransport implements Transport {
 
   void deliver(List<int> bytes) => _incoming.add(Uint8List.fromList(bytes));
 
+  /// The cable came out, reported the way a conforming transport reports it
+  /// (F32): on [state], with [incoming] left open and error-free.
+  void dropLink([TransportError? error]) {
+    _current = TransportClosed(
+      CloseCause.linkLost,
+      error: error ?? const Disconnected('the cable came out'),
+    );
+    _state.add(_current);
+  }
+
+  /// Deliberately breaks the [Transport] contract by putting an error on
+  /// [incoming]. No real transport does this; the channel keeps a defensive
+  /// path for it and these are the tests that exercise it.
   void fail(Object error) => _incoming.addError(error);
 
   Future<void> endIncoming() => _incoming.close();
@@ -29,9 +44,9 @@ final class _LoopbackTransport implements Transport {
   @override
   Stream<Uint8List> get incoming => _incoming.stream;
   @override
-  Stream<TransportState> get state => const Stream<TransportState>.empty();
+  Stream<TransportState> get state => _state.stream;
   @override
-  TransportState get currentState => const TransportOpen();
+  TransportState get currentState => _current;
   @override
   final int maxWriteLength;
   @override
@@ -40,6 +55,11 @@ final class _LoopbackTransport implements Transport {
   Future<void> close() async {
     if (closed) return;
     closed = true;
+    _current = const TransportClosed(CloseCause.requested);
+    if (!_state.isClosed) {
+      _state.add(_current);
+      await _state.close();
+    }
     if (!_incoming.isClosed) await _incoming.close();
   }
 
@@ -151,7 +171,7 @@ void main() {
     );
   });
 
-  test('a transport error ends responses with one Disconnected', () async {
+  test('a link loss on state ends responses with one Disconnected', () async {
     final t = _LoopbackTransport();
     final channel = SlipSerialDfuChannel(t);
     final events = <Object>[];
@@ -162,7 +182,9 @@ void main() {
       onDone: () => done = true,
     );
 
-    t.fail(const Disconnected('the cable came out'));
+    // The real signal: `state` says the link is gone while `incoming` stays
+    // open and silent, exactly as SerialTransport and BleTransport behave.
+    t.dropLink();
     await Future<void>.delayed(Duration.zero);
 
     expect(events, hasLength(1));
@@ -173,6 +195,46 @@ void main() {
       throwsA(isA<Disconnected>()),
     );
   });
+
+  test('the channel closing its own transport reports no drop', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t, ownsTransport: true);
+    final events = <Object>[];
+    channel.responses.listen(events.add, onError: events.add);
+
+    await channel.close();
+    await Future<void>.delayed(Duration.zero);
+
+    // close() puts TransportClosed(requested) on `state`; that is this
+    // channel's own doing and must not surface as a link failure.
+    expect(events, isEmpty);
+  });
+
+  test(
+    'a non-conforming error on incoming ends responses with one Disconnected',
+    () async {
+      final t = _LoopbackTransport();
+      final channel = SlipSerialDfuChannel(t);
+      final events = <Object>[];
+      var done = false;
+      channel.responses.listen(
+        events.add,
+        onError: events.add,
+        onDone: () => done = true,
+      );
+
+      t.fail(const Disconnected('the cable came out'));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.single, isA<Disconnected>());
+      expect(done, isTrue);
+      await expectLater(
+        channel.writeControl(Uint8List.fromList(const [1])),
+        throwsA(isA<Disconnected>()),
+      );
+    },
+  );
 
   test('a non-transport error surfaces as Disconnected', () async {
     final t = _LoopbackTransport();
