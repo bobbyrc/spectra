@@ -249,6 +249,10 @@ final class CommandDispatcher {
       return;
     }
     if (s is TransportClosed) {
+      // A close the transport has already moved past: the event was queued
+      // before a reopen and delivered after it. Failing on it would kill
+      // commands queued against the live link.
+      if (_transport.currentState is TransportOpen) return;
       _closed = true;
       _failAll(
         Disconnected(s.error?.message ?? 'transport closed (${s.cause.name})'),

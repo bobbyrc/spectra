@@ -21,6 +21,13 @@ part 'session_handshake.dart';
 ///
 /// The handshake and the tolerant background load live in the
 /// `session_handshake.dart` part, so this file stays the state machine.
+///
+/// A terminal transport close (anything but the reboot an [SessionUpdating]
+/// session asked for) releases the dispatcher and the transport subscription
+/// on its own, but deliberately leaves the state streams open so the app can
+/// still read the last known state. [close] is therefore mandatory for every
+/// session, disconnected or not: it is the only thing that closes
+/// [connectionState] and its siblings.
 final class DeviceSession {
   DeviceSession(
     this.transport, {
@@ -63,6 +70,13 @@ final class DeviceSession {
   StreamSubscription<TransportState>? _transportSub;
   DateTime? _readyAt;
 
+  /// The in-flight [open], so a second call joins it rather than running a
+  /// second handshake down the same transport.
+  Future<void>? _opening;
+
+  /// [close] was called; a session is not reopenable.
+  bool _shutDown = false;
+
   // Filled in by the polling task; the hooks exist here so the state machine
   // can stop the poll from one place.
   Timer? _pollTimer;
@@ -77,7 +91,28 @@ final class DeviceSession {
 
   /// Opens the transport and runs the handshake. Throws, leaving the session
   /// disconnected, when either fails.
+  ///
+  /// Re-entrant calls join the open already in flight; opening a session that
+  /// is already connected, or one that has been closed, is a programming
+  /// error and throws [StateError].
   Future<void> open() async {
+    final pending = _opening;
+    if (pending != null) return pending;
+    if (_shutDown) throw StateError('this session has been closed');
+    final state = connectionState.value;
+    if (state is! SessionDisconnected) {
+      throw StateError('session is already ${state.runtimeType}');
+    }
+    final opening = _open();
+    _opening = opening;
+    try {
+      await opening;
+    } finally {
+      _opening = null;
+    }
+  }
+
+  Future<void> _open() async {
     connectionState.set(const SessionConnecting());
     try {
       await transport.open();
@@ -151,9 +186,8 @@ final class DeviceSession {
     if (connectionState.value is! SessionDisconnected) {
       connectionState.set(const SessionDisconnected(DisconnectCause.requested));
     }
-    await _transportSub?.cancel();
-    _transportSub = null;
-    await _dispatcher.dispose();
+    _shutDown = true;
+    await _releaseTransport();
     await _closeStreams();
   }
 
@@ -166,6 +200,16 @@ final class DeviceSession {
     final next = stateAfterClose(s, current);
     if (identical(next, current)) return;
     if (current is! SessionDisconnected) connectionState.set(next);
+    // Terminal: nothing more will come down this link. Release the dispatcher
+    // and the subscription now, but leave the state streams to [close].
+    unawaited(_releaseTransport());
+  }
+
+  /// Drops everything tied to the transport. Idempotent.
+  Future<void> _releaseTransport() async {
+    await _transportSub?.cancel();
+    _transportSub = null;
+    await _dispatcher.dispose();
   }
 
   void _reportBackground(ChameleonException e) {

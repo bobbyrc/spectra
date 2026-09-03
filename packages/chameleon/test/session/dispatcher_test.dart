@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:chameleon/src/codec/frame.dart';
 import 'package:chameleon/src/commands/device.dart';
 import 'package:chameleon/src/fake/fake_device.dart';
+import 'package:chameleon/src/fake/fake_firmware.dart';
 import 'package:chameleon/src/protocol/errors.dart';
 import 'package:chameleon/src/session/cancel_token.dart';
 import 'package:chameleon/src/session/dispatcher.dart';
@@ -274,6 +275,24 @@ void main() {
     await d.dispose();
   });
 
+  test('a close superseded by a reopen does not fail later commands', () async {
+    final t = _ManualTransport();
+    final d = CommandDispatcher(t);
+    await t.open();
+    await Future<void>.delayed(Duration.zero);
+    final pending = d.send(const GetAppVersion().toFrame(), timeout: patient);
+    await Future<void>.delayed(Duration.zero);
+    // A close queued before the reopen, delivered after it: the transport is
+    // open now, so the stale event must not fail the command in flight.
+    t.emit(const TransportClosed(CloseCause.linkLost));
+    await Future<void>.delayed(Duration.zero);
+    t.deliver(FakeFirmware().handle(const GetAppVersion().toFrame())!.encode());
+    final f = await pending;
+    expect(f!.command, 1000);
+    expect(t.writes, hasLength(1));
+    await d.dispose();
+  });
+
   test('completed commands release their cancel registrations', () async {
     final token = CancelToken();
     for (var i = 0; i < 3; i++) {
@@ -336,4 +355,44 @@ final class _StubTransport implements Transport {
     // Never completes.
     return Completer<void>().future;
   }
+}
+
+/// A transport whose state stream and current state are driven by hand, so a
+/// test can deliver a state event the transport has already moved past.
+final class _ManualTransport implements Transport {
+  final StreamController<Uint8List> _incoming = StreamController.broadcast();
+  final StreamController<TransportState> _state = StreamController.broadcast();
+  final List<Uint8List> writes = [];
+  TransportState _current = const TransportClosed(CloseCause.requested);
+
+  void emit(TransportState s) => _state.add(s);
+
+  void deliver(Uint8List bytes) => _incoming.add(bytes);
+
+  @override
+  TransportKind get kind => TransportKind.fake;
+
+  @override
+  Stream<Uint8List> get incoming => _incoming.stream;
+
+  @override
+  Stream<TransportState> get state => _state.stream;
+
+  @override
+  TransportState get currentState => _current;
+
+  @override
+  Future<void> open() async {
+    _current = const TransportOpen();
+    emit(_current);
+  }
+
+  @override
+  Future<void> close() async {
+    _current = const TransportClosed(CloseCause.requested);
+    emit(_current);
+  }
+
+  @override
+  Future<void> write(Uint8List bytes) async => writes.add(bytes);
 }

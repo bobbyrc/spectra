@@ -1,5 +1,8 @@
 part of 'device_session.dart';
 
+/// The firmware has eight emulation slots, fixed by the protocol.
+const int slotCount = 8;
+
 /// The connect handshake and the tolerant background load (spec 4.3).
 ///
 /// Only three commands gate readiness: capabilities (1035), app version
@@ -46,12 +49,17 @@ extension SessionHandshake on DeviceSession {
     _startPolling();
   }
 
+  /// Any answer but a usable capability list means the firmware predates
+  /// GET_DEVICE_CAPABILITIES: a refusal, a timeout and a payload that does not
+  /// decode are all "no capabilities", not a failed connection. A transport
+  /// error is different in kind — the link is gone — and is rethrown so the
+  /// session lands disconnected rather than limited.
   Future<Capabilities?> _capabilitiesOrNull() async {
     try {
       return await _sendRaw(const GetDeviceCapabilities());
-    } on DeviceError {
-      return null;
-    } on CommandTimeout {
+    } on TransportError {
+      rethrow;
+    } on ChameleonException {
       return null;
     }
   }
@@ -59,6 +67,8 @@ extension SessionHandshake on DeviceSession {
   Future<FirmwareVersion?> _versionOrNull() async {
     try {
       return await _sendRaw(const GetAppVersion());
+    } on TransportError {
+      rethrow;
     } on ChameleonException {
       return null;
     }
@@ -118,14 +128,14 @@ extension SessionHandshake on DeviceSession {
       nicks = await send(const GetAllSlotNicks());
     } else {
       nicks = [];
-      for (var i = 0; i < 8; i++) {
+      for (var i = 0; i < slotCount; i++) {
         final hf = await _nickOrEmpty(i, Sense.hf);
         final lf = await _nickOrEmpty(i, Sense.lf);
         nicks.add(SlotNicks(hf, lf));
       }
     }
     final list = List.generate(
-      8,
+      slotCount,
       (i) => Slot(
         index: i,
         hfType: types[i].hf,

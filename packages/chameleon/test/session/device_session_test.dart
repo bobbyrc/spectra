@@ -150,6 +150,18 @@ void main() {
       );
       await s.send(const EnterBootloader(), allowLimited: true);
       expect(device.firmware.bootloaderRequested, isTrue);
+      // The device reboots without answering: the close that follows was
+      // asked for, so it is reported as expected rather than as a link loss.
+      await settle();
+      expect(
+        s.connectionState.value,
+        isA<SessionDisconnected>().having(
+          (d) => d.cause,
+          'cause',
+          DisconnectCause.expected,
+        ),
+      );
+      await s.close();
     },
   );
 
@@ -177,6 +189,43 @@ void main() {
       (s.connectionState.value as SessionDisconnected).cause,
       DisconnectCause.unexpected,
     );
+    await s.close();
+  });
+
+  test(
+    'a lost link releases the transport and refuses later commands',
+    () async {
+      final device = FakeDevice();
+      final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+      await s.open();
+      await device.simulateLinkLoss();
+      await settle();
+      await expectLater(
+        s.send(const GetActiveSlot()),
+        throwsA(isA<SessionNotReady>()),
+      );
+      // The dispatcher went with the link, but the last known state is still
+      // readable and close() is still safe.
+      expect(s.deviceInfo.value, isNotNull);
+      await s.close();
+      expect(s.connectionState.value, isA<SessionDisconnected>());
+    },
+  );
+
+  test('opening twice is a programming error', () async {
+    final s = sessionFor(FakeFirmwareConfig.ultra22());
+    await s.open();
+    await expectLater(s.open(), throwsA(isA<StateError>()));
+    await s.close();
+    await expectLater(s.open(), throwsA(isA<StateError>()));
+  });
+
+  test('concurrent opens share one handshake', () async {
+    final device = FakeDevice();
+    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    await Future.wait([s.open(), s.open()]);
+    expect(s.connectionState.value, isA<SessionReady>());
+    expect(device.received.where((f) => f.command == 1035), hasLength(1));
     await s.close();
   });
 
