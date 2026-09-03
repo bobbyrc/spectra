@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:chameleon/src/dfu/dfu_channel.dart';
@@ -14,6 +15,7 @@ import 'package:chameleon/src/session/connection_state.dart';
 import 'package:chameleon/src/session/device_session.dart';
 import 'package:chameleon/src/transport/scanner.dart';
 import 'package:chameleon/src/transport/transport.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:test/test.dart';
 
 import 'proto_builder.dart';
@@ -61,6 +63,29 @@ void main() {
   }
 
   setUp(channels.clear);
+
+  test('a whole run finishes under a virtual clock', () {
+    // Regression: the reboot watcher and the scan passes used to await their
+    // subscriptions' `cancel()`. `Transport.state` is a broadcast stream and
+    // a broadcast subscription's cancel future never completes when time is
+    // virtual — the only kind of time a Flutter widget test has — so a run
+    // that passes every test above (real time) hung there forever.
+    fakeAsync((async) {
+      final device = FakeDevice();
+      final s = sessionFor(device);
+      DfuEvent? last;
+      unawaited(
+        s.open().then(
+          (_) =>
+              orchestratorFor(device)
+                  .run(session: s, package: package(bin))
+                  .forEach((e) => last = e),
+        ),
+      );
+      async.elapse(const Duration(seconds: 10));
+      expect(last, isA<DfuCompleted>(), reason: 'run() never finished');
+    });
+  });
 
   test('updates a connected device end to end and finds it again', () async {
     final device = FakeDevice();

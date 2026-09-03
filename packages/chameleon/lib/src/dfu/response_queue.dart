@@ -71,5 +71,13 @@ final class ResponseQueue<T> {
     return c.future.whenComplete(timer.cancel);
   }
 
-  Future<void> cancel() => _sub.cancel();
+  /// Stops listening.
+  ///
+  /// The returned future completes immediately; the subscription's own
+  /// `cancel()` is started and deliberately not awaited. On a broadcast
+  /// stream — which is what every [DfuChannel.responses] is — that future
+  /// never completes under a fake clock, so awaiting it hangs any Flutter
+  /// widget test that runs a transfer (the same reason `DeviceSession` and
+  /// `CommandDispatcher` stopped awaiting theirs).
+  Future<void> cancel() async => unawaited(_sub.cancel());
 }

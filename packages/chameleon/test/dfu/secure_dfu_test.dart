@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:chameleon/src/dfu/dfu_opcodes.dart';
@@ -8,6 +9,7 @@ import 'package:chameleon/src/dfu/fake_dfu_channel.dart';
 import 'package:chameleon/src/dfu/secure_dfu.dart';
 import 'package:chameleon/src/protocol/errors.dart';
 import 'package:chameleon/src/session/cancel_token.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:test/test.dart';
 
 import 'proto_builder.dart';
@@ -22,6 +24,22 @@ void main() {
   final bin = Uint8List.fromList(
     List.generate(10 * 1024 + 37, (i) => (i * 7) & 0xFF),
   );
+
+  test('a transfer finishes under a virtual clock', () {
+    // Regression: `ResponseQueue.cancel()` used to await the subscription's
+    // own `cancel()`. `DfuChannel.responses` is a broadcast stream, and a
+    // broadcast subscription's cancel future never completes when time is
+    // virtual — which is the only kind of time a Flutter widget test has, so
+    // `run()` hung forever after its last progress report there while every
+    // test in this file (real time) passed.
+    fakeAsync((async) {
+      final ch = FakeDfuChannel(FakeBootloader(maxObjectSize: 4096));
+      var finished = false;
+      unawaited(SecureDfu(ch).run(image(bin)).then((_) => finished = true));
+      async.elapse(const Duration(seconds: 5));
+      expect(finished, isTrue, reason: 'SecureDfu.run never completed');
+    });
+  });
 
   test('flashes a firmware image in objects and 20-byte packets', () async {
     final bl = FakeBootloader(maxObjectSize: 4096);
