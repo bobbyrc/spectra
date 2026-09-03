@@ -34,9 +34,22 @@ formats, and Nordic Secure DFU with an orchestrator and recovery path. 294
 tests, no hardware needed; 91.5% line coverage of the hand-written sources.
 See `packages/chameleon/README.md`.
 
-Next: Phase 3 (transports) — the plan
-`docs/superpowers/plans/2026-09-03-phase-3-transports.md` already exists;
-the Phase 4 plan is being written.
+Phase 3 (`packages/chameleon_flutter`) is complete (2026-09-03): BLE and
+serial transports behind the `BleAdapter`/`SerialPortAdapter` seams,
+`BleScanner`/`SerialScanner`, `BleDfuChannel`/`SlipSerialDfuChannel`,
+`ChameleonTransports.defaultScanners`/`transportFor`, the transport contract
+suite (tagged `hardware` for the real-device run), and the `serial_probe`
+example app for hardware handoff H1. The H1 section of
+`docs/hardware-checklist.md` is written and every item is still pending the
+user's report; the serial control-line default is `SerialControlLineMode
+.dtrOnly`, provisionally, until H1 comes back. BLE DFU stays behind the
+`dfuOverBleEnabled` flag until H2. Run the hardware checks with
+`flutter test --tags hardware --run-skipped test/contract` from
+`packages/chameleon_flutter`.
+
+Next: Phase 4 (app shell) — the plan
+`docs/superpowers/plans/2026-09-03-phase-4-app-shell.md` exists with
+pre-flight rulings recorded.
 
 Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
 "Decisions made overnight" below.
@@ -56,8 +69,10 @@ Plans, in `docs/superpowers/plans/`:
 - `2026-09-03-phase-2-design-system.md`: the design system on `spectra_ui`
   (complete).
 - `2026-09-03-phase-3-transports.md`: USB serial and BLE transports,
-  scanners and the platform seams. Next step.
-- Phases 4 to 10: write each plan with the writing-plans skill from the spec
+  scanners and the platform seams (complete).
+- `2026-09-03-phase-4-app-shell.md`: app shell and connect, from spec
+  7.1-7.5, 8.3, 8.4 and 9. Next step.
+- Phases 5 to 10: write each plan with the writing-plans skill from the spec
   sections the roadmap lists, when that phase starts.
 
 Execute plans with superpowers:subagent-driven-development. Hardware steps
@@ -91,6 +106,15 @@ the `dfuOverBleEnabled` flag until the user reports the checks passed.
   See `docs/research/DECISIONS.md`, Phase 3, for the two things that were
   tried and ruled out first and why. Re-check for a fixed upstream release
   before shipping and drop the override then.
+- The serial DFU write-object frame is opcode `0x08` plus raw data with no
+  length prefix, taken from nrfutil's `dfu_transport_serial.py` — the Phase 3
+  plan's length-prefixed sketch was wrong. `SecureDfu` does not yet query
+  GetSerialMTU (`0x07`), so serial DFU uses a conservative `maxDataWrite`;
+  that query is a Phase 8 follow-up.
+- `FakeDevice.open()` now throws `Disconnected` after `close()` (single-use,
+  matching the real transports); the contract suite found the gap.
+- The Phase 3 example app keeps the `serial_probe` name.
+- The example's emulator row is behind `--dart-define=SPECTRA_EMULATOR=true`.
 
 ## Decisions already made (do not re-ask)
 

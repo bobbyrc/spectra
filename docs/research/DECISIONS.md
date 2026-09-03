@@ -306,5 +306,60 @@ dump formats and DFU. Rulings taken while executing
   Re-check whether a maintained `usb_serial` release fixes this before
   Phase 3 tags this the "expert path" release, and drop the override then.
 
+- **`TransportState` gained `TransportPermissionDenied` and
+  `TransportAdapterOff`.** Spec 5.1 requires the BLE transport to report
+  both, and the app routes on `TransportState`, so they belong in the SDK's
+  sealed family rather than in a side channel. Additive: nothing switches
+  exhaustively on `TransportState`.
+- **Every native package sits behind an adapter interface.** `BleAdapter`,
+  `SerialPortAdapter` and `SerialPortHandle` are declared in
+  `chameleon_flutter`; `universal_ble`, `libserialport_plus` and
+  `usb_serial` are each imported by exactly one file. This is what makes
+  chunking, retry, backoff, state mapping, error mapping and pairing
+  detection unit-testable with no device and no plugin channel. The cost is
+  one thin wrapper class per package; the alternative was leaving the whole
+  of spec 5.1 and 5.2 untested until hardware existed.
+- **Native error codes collapse at the adapter boundary.**
+  `universal_ble`'s 61 `UniversalBleErrorCode` values map to eight
+  `BleFailure` values, and `SerialPortException`'s platform-dependent
+  numeric codes to five `SerialFailure` values (with the message text as a
+  fallback, because libserialport sometimes reports a generic code with a
+  specific string). Transports map those to the SDK's `TransportError`
+  types plus a `TransportGuidance` value.
+- **User-facing guidance is a typed enum, not text.** `TransportGuidance`
+  says *which* instruction to show (Linux dialout group, ModemManager,
+  Windows pairing, macOS serial entitlement, ...); the wording lives in the
+  app's ARB files per spec 7.6, so `chameleon_flutter` ships no strings.
+- **The serial control-line default is `SerialControlLineMode.dtrOnly`,
+  provisionally.** `docs/research/chameleon-protocol.md` says "Assert DTR
+  after open. No flow control.", which the reference-app notes contradict.
+  The mode is a constructor parameter and both are exercised; H1 asks the
+  user which works, and the default changes if the answer says so. Until
+  then this is `hardware-validate`, not settled.
+- **Package versions pinned in Phase 3:** `universal_ble` 2.2.0,
+  `usb_serial` 0.5.2, `libserialport_plus` 1.0.4 (unchanged from Spike A).
+- **The serial DFU write-object frame is opcode `0x08` plus raw data, with
+  no length prefix.** Taken from nrfutil's `dfu_transport_serial.py`
+  (`DfuTransportSerial.send_data`/`__write_object` framing over the SLIP
+  transport), not from the Phase 3 plan's sketch, which had invented a
+  length-prefixed frame that does not match nrfutil's actual wire format.
+  `SecureDfu` does not yet send GetSerialMTU (`0x07`) to size writes, so
+  serial DFU uses a conservative fixed `maxDataWrite` until that query is
+  added in Phase 8.
+- **`dart_test.yaml`'s `skip:` on the `hardware` tag means `flutter test
+  --tags hardware` alone runs nothing.** The tag is configured `skip:
+  "no device attached"` so the default `flutter test` run is unambiguous
+  (no silently-skipped hardware tests mixed into a normal green run); the
+  hardware command has to add `--run-skipped` to actually execute those
+  tests, and every place that documents the command says so.
+- **The transport contract suite runs three times: once against
+  `FakeDevice`, once against `BleTransport` over a fake `BleAdapter`, and
+  once against `SerialTransport` over a fake `SerialPortAdapter` (ruling
+  F15).** Running the same behavioral contract through both real transport
+  classes over their fakes, not just through `FakeDevice` directly, is what
+  caught the `FakeDevice.open()`-after-`close()` reopen bug — a bug in the
+  fake's lifecycle, not in either transport, that a `FakeDevice`-only run
+  would have missed.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).

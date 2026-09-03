@@ -193,3 +193,39 @@ dated entry per lesson; keep each one actionable.
   async load is a guess that fails on a slow machine and wastes time on a
   fast one; a helper that polls the state the load produces (and throws when
   it never arrives) says what the test is actually waiting for.
+- **Never assume a BLE MTU.** The Chameleon firmware requests 247 but the
+  platform decides. Ask with `requestMtu`, use `mtu - 3` for the ATT
+  overhead, and fall back to 20 when the platform will not answer.
+- **A plugin package cannot own the app's platform files.** Spec 5.7 assigns
+  the manifest, plist and entitlements to `chameleon_flutter`, but they can
+  only live in `app/` and in the example. A workspace-root test that reads
+  the files is the enforcement.
+- **`universal_ble` and `usb_serial` cannot be unit-tested directly.** Both
+  go through a plugin channel that throws `MissingPluginException` under
+  `flutter test`. Wrap them in an interface this repo owns; the wrapper is
+  the untestable part, and it is a dozen lines with no logic.
+- **A plan's wire-format sketch is not a source.** The Phase 3 plan invented
+  a length-prefixed serial DFU write-object frame; the real one (nrfutil's
+  `dfu_transport_serial.py`) is opcode plus raw data, no length prefix. Cite
+  upstream source lines (file + function) for any byte layout in a plan, or
+  the implementer will faithfully build the wrong thing.
+- **A `skip:`'d test tag silently makes the documented command a no-op.**
+  `dart_test.yaml` skips the `hardware` tag by default, so the "run the
+  hardware checks" command as first written (`flutter test --tags
+  hardware`) executed nothing and reported success. When a tag is
+  `skip:`, document `--run-skipped` right next to the command, not as a
+  footnote.
+- **Plan sketches of facade/method names drift from the landed API.**
+  Names a plan proposes for a later task's consumption (a Phase 1 facade
+  method, a barrel export) can be stale by the time that task runs.
+  Implementers must read the landed file for the real name, not trust the
+  plan's sketch; reviewers must check names against that file too.
+- **Parallel implementers in one worktree need disjoint file sets.**
+  Touching only the files a task owns, `git commit --only <paths>`, and
+  formatting only your own files are not optional courtesies — earlier in
+  this project a repo-wide `dart format` by one agent silently discarded
+  another agent's uncommitted work.
+- **A round trip through a write-through cache proves nothing.** Reading
+  back a value the SDK cached on write only confirms the cache wrote what
+  it was told; call `slots.refresh()` (or the equivalent device read) to
+  prove the device actually has it.
