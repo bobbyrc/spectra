@@ -60,7 +60,7 @@ forbidden import.
 
 | Package | May depend on | Must not depend on |
 |---|---|---|
-| chameleon | Dart SDK, meta, collection, freezed, archive (zip reading) | flutter, any plugin |
+| chameleon | Dart SDK, meta, collection, freezed, archive (zip reading), crypto (DFU init-packet hash) | flutter, any plugin |
 | chameleon_flutter | chameleon, flutter, universal_ble, libserialport_plus, usb_serial | spectra_ui, app |
 | spectra_ui | flutter, material_ui, google_fonts, flutter_animate, flutter_localizations | chameleon, chameleon_flutter |
 | app | all three packages, riverpod, go_router, drift, flutter_localizations, wakelock_plus | nothing further restricted |
