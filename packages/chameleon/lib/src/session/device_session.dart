@@ -12,15 +12,18 @@ import '../transport/transport.dart';
 import 'cancel_token.dart';
 import 'connection_state.dart';
 import 'dispatcher.dart';
+import 'reader_lease.dart';
 import 'state_stream.dart';
 
 part 'session_handshake.dart';
+part 'session_polling.dart';
 
 /// Owns one connection: the state machine, the cached device state and the
 /// one place commands are sent (spec 4.3).
 ///
 /// The handshake and the tolerant background load live in the
-/// `session_handshake.dart` part, so this file stays the state machine.
+/// `session_handshake.dart` part, and the reader lease, busy tracking and the
+/// idle poll in `session_polling.dart`, so this file stays the state machine.
 ///
 /// A terminal transport close (anything but the reboot an [SessionUpdating]
 /// session asked for) releases the dispatcher and the transport subscription
@@ -77,9 +80,12 @@ final class DeviceSession {
   /// [close] was called; a session is not reopenable.
   bool _shutDown = false;
 
-  // Filled in by the polling task; the hooks exist here so the state machine
-  // can stop the poll from one place.
+  // Owned by the `session_polling.dart` part: an extension cannot hold state,
+  // so the lease count, the busy depth and the poll timer live here.
   Timer? _pollTimer;
+  int _leases = 0;
+  int _busy = 0;
+  bool _polling = false;
 
   bool get isReady => connectionState.value is SessionReady;
 
@@ -227,12 +233,5 @@ final class DeviceSession {
       mode.close(),
       if (!_backgroundErrors.isClosed) _backgroundErrors.close(),
     ]);
-  }
-
-  void _startPolling() {}
-
-  void _stopPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = null;
   }
 }

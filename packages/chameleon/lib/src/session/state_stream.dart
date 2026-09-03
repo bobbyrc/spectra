@@ -34,5 +34,12 @@ final class StateStream<T> {
     if (!_changes.isClosed) _changes.add(v);
   }
 
+  /// [set], but silent when the value has not changed. The idle poll uses
+  /// this so re-reading unchanged device state wakes no listener.
+  void setIfChanged(T v) {
+    if (v == _value) return;
+    set(v);
+  }
+
   Future<void> close() => _changes.close();
 }
