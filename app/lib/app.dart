@@ -16,6 +16,11 @@ class SpectraRoot extends ConsumerWidget {
     return AppLifecycleHost(
       child: SpectraApp(
         routerConfig: ref.watch(routerProvider),
+        // Not `title:`: this widget sits above the app's own
+        // `Localizations`, so the name can only be resolved from a context
+        // inside it.
+        onGenerateTitle: (BuildContext context) =>
+            AppLocalizations.of(context).appTitle,
         extraDelegates: const <LocalizationsDelegate<Object?>>[
           AppLocalizations.delegate,
         ],

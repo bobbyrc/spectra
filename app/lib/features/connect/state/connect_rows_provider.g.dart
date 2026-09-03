@@ -54,6 +54,10 @@ String _$knownDevicesHash() => r'8ce47e14525a4e5533c7165eaa87ca0129de1dce';
 /// against what the app remembers (spec 4.2), with the device whose link
 /// just dropped unexpectedly (spec 7.4) preselected. This never reconnects
 /// on its own — it only flags the row for the UI to highlight.
+/// [discoveryProvider] already unions the manual ports (spec 5.2) into its
+/// own device list, so this must not add them a second time: a manual port
+/// no scanner reports would otherwise merge into a row of two identical
+/// devices.
 
 @ProviderFor(connectRows)
 final connectRowsProvider = ConnectRowsProvider._();
@@ -62,6 +66,10 @@ final connectRowsProvider = ConnectRowsProvider._();
 /// against what the app remembers (spec 4.2), with the device whose link
 /// just dropped unexpectedly (spec 7.4) preselected. This never reconnects
 /// on its own — it only flags the row for the UI to highlight.
+/// [discoveryProvider] already unions the manual ports (spec 5.2) into its
+/// own device list, so this must not add them a second time: a manual port
+/// no scanner reports would otherwise merge into a row of two identical
+/// devices.
 
 final class ConnectRowsProvider
     extends
@@ -75,6 +83,10 @@ final class ConnectRowsProvider
   /// against what the app remembers (spec 4.2), with the device whose link
   /// just dropped unexpectedly (spec 7.4) preselected. This never reconnects
   /// on its own — it only flags the row for the UI to highlight.
+  /// [discoveryProvider] already unions the manual ports (spec 5.2) into its
+  /// own device list, so this must not add them a second time: a manual port
+  /// no scanner reports would otherwise merge into a row of two identical
+  /// devices.
   ConnectRowsProvider._()
     : super(
         from: null,
@@ -108,4 +120,4 @@ final class ConnectRowsProvider
   }
 }
 
-String _$connectRowsHash() => r'9dacb2f9995d254859ec670002e50a8758c15668';
+String _$connectRowsHash() => r'44c22eb6b52750eef04c7580ba06b0ef66fd895e';

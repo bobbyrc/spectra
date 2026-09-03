@@ -53,11 +53,22 @@ final class WakelockController {
   bool get held => _held;
 
   /// One evaluation. Idempotent: the gateway is only touched on a change.
+  ///
+  /// A gateway that throws — `wakelock_plus` raising `MissingPluginException`
+  /// on a platform or a test binding with no plugin behind it — is
+  /// swallowed: [poll] runs off a bare `Timer` callback, so an escaping
+  /// error is an unhandled async error that fails the whole app (or the
+  /// whole test), and a screen that dims is not worth that. The flag is
+  /// left as the attempt intended, so the next change still tries.
   Future<void> poll() async {
     final want = shouldHold();
     if (want == _held) return;
     _held = want;
-    await (want ? gateway.enable() : gateway.disable());
+    try {
+      await (want ? gateway.enable() : gateway.disable());
+    } on Object {
+      // Deliberately ignored; see the doc comment.
+    }
   }
 
   void start() {
@@ -70,15 +81,21 @@ final class WakelockController {
     _timer = null;
     if (_held) {
       _held = false;
-      unawaited(gateway.disable());
+      unawaited(gateway.disable().catchError((Object _) {}));
     }
   }
 }
 
+/// The gateway seam as a provider, so a widget test can stub the plugin
+/// out at the app root instead of every test tripping over a real method
+/// channel.
+@Riverpod(keepAlive: true)
+WakelockGateway wakelockGateway(Ref ref) => const WakelockPlusGateway();
+
 @Riverpod(keepAlive: true)
 WakelockController wakelock(Ref ref) {
   final controller = WakelockController(
-    gateway: const WakelockPlusGateway(),
+    gateway: ref.read(wakelockGatewayProvider),
     shouldHold: () => sessionNeedsWakelock(
       ref.read(activeSessionProvider)?.session,
       ref.read(connectionStatusProvider),

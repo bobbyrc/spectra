@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meta/meta.dart';
 import 'package:spectra/app.dart';
 import 'package:spectra/core/discovery/scanners.dart';
+import 'package:spectra/core/lifecycle/wakelock.dart';
 import 'package:spectra/core/session/reconnect.dart';
 import 'package:spectra/core/session/sessions.dart';
 import 'package:spectra/data/database/database_providers.dart';
@@ -15,12 +16,17 @@ import 'package:spectra/data/database/spectra_database.dart';
 /// root only — this is that root. The database is real Drift, in memory, so
 /// the real queries run; the transport is a FakeDevice, so the real
 /// DeviceSession runs (spec 8.6).
-List<Override> appOverrides({Transport Function(DiscoveredDevice)? transport}) {
+List<Override> appOverrides({
+  Transport Function(DiscoveredDevice)? transport,
+  List<DeviceScanner>? scanners,
+}) {
   final db = SpectraDatabase.memory();
   addTearDown(db.close);
   return <Override>[
     databaseProvider.overrideWithValue(db),
-    scannersProvider.overrideWithValue(<DeviceScanner>[FakeScanner()]),
+    scannersProvider.overrideWithValue(
+      scanners ?? <DeviceScanner>[FakeScanner()],
+    ),
     if (transport != null)
       transportFactoryProvider.overrideWithValue(transport),
     // Zeroes DeviceSession's real 5s battery-read delay so
@@ -34,7 +40,18 @@ List<Override> appOverrides({Transport Function(DiscoveredDevice)? transport}) {
     reconnectDiscoveryTimeoutProvider.overrideWithValue(
       const Duration(milliseconds: 20),
     ),
+    // No `wakelock_plus` method channel under a widget test: the real
+    // gateway would raise MissingPluginException from the poll timer.
+    wakelockGatewayProvider.overrideWithValue(const _NoOpWakelockGateway()),
   ];
+}
+
+final class _NoOpWakelockGateway implements WakelockGateway {
+  const _NoOpWakelockGateway();
+  @override
+  Future<void> enable() async {}
+  @override
+  Future<void> disable() async {}
 }
 
 Widget testApp({Transport Function(DiscoveredDevice)? transport}) =>
@@ -95,22 +112,19 @@ final class StaticScanner implements DeviceScanner {
   Stream<List<DiscoveredDevice>> scan() => Stream.value(devices);
 }
 
+/// [testApp] with [scanner] in place of the fake one: the same root
+/// overrides (the in-memory database, the zeroed battery delay, the stubbed
+/// wakelock gateway), with the scanner list swapped last so it wins.
 Widget testAppWithScanner(
   DeviceScanner scanner, {
   Transport Function(DiscoveredDevice)? transport,
-}) {
-  final db = SpectraDatabase.memory();
-  addTearDown(db.close);
-  return ProviderScope(
-    overrides: <Override>[
-      databaseProvider.overrideWithValue(db),
-      scannersProvider.overrideWithValue(<DeviceScanner>[scanner]),
-      if (transport != null)
-        transportFactoryProvider.overrideWithValue(transport),
-    ],
-    child: const SpectraRoot(),
-  );
-}
+}) => ProviderScope(
+  overrides: appOverrides(
+    transport: transport,
+    scanners: <DeviceScanner>[scanner],
+  ),
+  child: const SpectraRoot(),
+);
 
 Widget testAppWithBootloader() => testAppWithScanner(
   const StaticScanner(<DiscoveredDevice>[FakeScanner.emulatedBootloader]),

@@ -1,4 +1,5 @@
 import 'package:chameleon/chameleon.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/core/lifecycle/wakelock.dart';
 
@@ -10,7 +11,29 @@ final class RecordingGateway implements WakelockGateway {
   Future<void> disable() async => calls.add(false);
 }
 
+/// A gateway with no plugin behind it, like a widget test's binding.
+final class _ThrowingGateway implements WakelockGateway {
+  @override
+  Future<void> enable() async => throw MissingPluginException('no plugin');
+  @override
+  Future<void> disable() async => throw MissingPluginException('no plugin');
+}
+
 void main() {
+  test('a gateway with no plugin behind it does not escape poll', () async {
+    final controller = WakelockController(
+      gateway: _ThrowingGateway(),
+      shouldHold: () => true,
+    );
+
+    // An escaping error here would be an unhandled async error off the
+    // poll timer, which fails the app (and this test) outright.
+    await controller.poll();
+
+    expect(controller.held, isTrue);
+    controller.stop();
+  });
+
   test('holds while asked to and releases once when no longer asked', () async {
     var wanted = false;
     final gateway = RecordingGateway();

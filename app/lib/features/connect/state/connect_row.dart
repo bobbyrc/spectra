@@ -94,7 +94,14 @@ List<ConnectRow> mergeConnectRows({
   rows.sort((a, b) {
     if (a.isPreselected != b.isPreselected) return a.isPreselected ? -1 : 1;
     if (a.isKnown != b.isKnown) return a.isKnown ? -1 : 1;
-    if (a.isKnown && b.isKnown) return b.lastSeen!.compareTo(a.lastSeen!);
+    if (a.isKnown && b.isKnown) {
+      final byLastSeen = b.lastSeen!.compareTo(a.lastSeen!);
+      // Drift stores `lastSeen` at second precision, so two devices
+      // remembered in the same second tie; the key breaks it, so the order
+      // is at least stable from one rebuild to the next.
+      if (byLastSeen != 0) return byLastSeen;
+      return a.key.compareTo(b.key);
+    }
     return a.name.compareTo(b.name);
   });
   return List<ConnectRow>.unmodifiable(rows);

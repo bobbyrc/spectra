@@ -119,4 +119,50 @@ void main() {
     expect(rows.first.devices, contains(usb));
     expect(rows.last.isPreselected, isFalse);
   });
+
+  test('two devices last seen in the same second sort deterministically', () {
+    // Drift keeps `lastSeen` at second precision, so this tie is a real
+    // one; the row key breaks it, so the list does not shuffle between
+    // rebuilds.
+    final at = DateTime.utc(2026, 9, 3);
+    final known = <KnownDevice>[
+      KnownDevice(
+        identity: const DeviceIdentity('chip-2'),
+        displayName: 'Second',
+        transports: const <KnownTransport>[
+          KnownTransport(
+            kind: TransportKind.usb,
+            transportId: '/dev/cu.usbmodem2',
+          ),
+        ],
+        lastSeen: at,
+      ),
+      KnownDevice(
+        identity: const DeviceIdentity('chip-1'),
+        displayName: 'First',
+        transports: const <KnownTransport>[
+          KnownTransport(
+            kind: TransportKind.usb,
+            transportId: '/dev/cu.usbmodem1',
+          ),
+        ],
+        lastSeen: at,
+      ),
+    ];
+
+    final forwards = mergeConnectRows(
+      discovered: const <DiscoveredDevice>[usb, otherUsb],
+      known: known,
+    );
+    final backwards = mergeConnectRows(
+      discovered: const <DiscoveredDevice>[otherUsb, usb],
+      known: known.reversed.toList(),
+    );
+
+    expect(
+      forwards.map((r) => r.key).toList(),
+      backwards.map((r) => r.key).toList(),
+    );
+    expect(forwards.first.key, 'id:chip-1');
+  });
 }

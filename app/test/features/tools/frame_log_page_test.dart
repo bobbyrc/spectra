@@ -77,7 +77,7 @@ void main() {
     });
   });
 
-  testWidgets('shows the newest entry once a full ring buffer rotates', (
+  testWidgetsApp('shows the newest entry once a full ring buffer rotates', (
     tester,
   ) async {
     final StreamController<List<FrameLogEntry>> controller =
@@ -108,7 +108,7 @@ void main() {
     expect(find.textContaining('cmd=1001'), findsNothing);
   });
 
-  testWidgets('shows a back button that returns to Tools', (tester) async {
+  testWidgetsApp('shows a back button that returns to Tools', (tester) async {
     await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
     await connectToEmulator(tester);
     await openFrameLog(tester);
@@ -125,11 +125,11 @@ void main() {
       find.text('Everything sent to and received from the device.'),
       findsOneWidget,
     );
-
-    await settleApp(tester);
   });
 
-  testWidgets('lists frames after a handshake and copies them', (tester) async {
+  testWidgetsApp('lists frames after a handshake and copies them', (
+    tester,
+  ) async {
     final List<MethodCall> clipboard = <MethodCall>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
@@ -155,7 +155,5 @@ void main() {
     await tester.tap(find.text('Copy'));
     await tester.pump();
     expect(clipboard, hasLength(1));
-
-    await settleApp(tester);
   });
 }

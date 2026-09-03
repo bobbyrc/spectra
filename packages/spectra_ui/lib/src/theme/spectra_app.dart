@@ -12,6 +12,7 @@ class SpectraApp extends StatelessWidget {
   const SpectraApp({
     required this.routerConfig,
     this.title = 'Spectra',
+    this.onGenerateTitle,
     this.themeMode = ThemeMode.system,
     this.extraDelegates = const <LocalizationsDelegate<Object?>>[],
     this.supportedLocales,
@@ -21,7 +22,13 @@ class SpectraApp extends StatelessWidget {
   });
 
   final RouterConfig<Object> routerConfig;
+
+  /// The window/task-switcher title. [onGenerateTitle] wins when given.
   final String title;
+
+  /// A localized title, built under the app's own [Localizations] — which
+  /// [title] cannot be, since it is read above them.
+  final String Function(BuildContext)? onGenerateTitle;
   final ThemeMode themeMode;
 
   /// Delegates the app adds on top of the kit's own — a feature package's
@@ -45,6 +52,7 @@ class SpectraApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: title,
+      onGenerateTitle: onGenerateTitle,
       debugShowCheckedModeBanner: false,
       theme: spectraThemeData(SpectraColors.light, Brightness.light),
       darkTheme: spectraThemeData(SpectraColors.dark, Brightness.dark),
