@@ -99,6 +99,71 @@ void main() {
       );
       expect(v.map((e) => e.rule), contains('sdk-internals'));
     });
+
+    test('drift_flutter counts as drift outside data', () {
+      final v = checkFile(
+        packageName: 'spectra',
+        relativePath: 'lib/features/cards/state/cards_notifier.dart',
+        imports: ['package:drift_flutter/drift_flutter.dart'],
+      );
+      expect(v.map((e) => e.rule), contains('drift-in-data-only'));
+    });
+
+    test('app structural rules do not apply to test paths', () {
+      final v = checkFile(
+        packageName: 'spectra',
+        relativePath: 'integration_test/flow_test.dart',
+        imports: [
+          'package:drift/drift.dart',
+          'package:spectra/features/slots/state/slots_notifier.dart',
+        ],
+      );
+      expect(v, isEmpty);
+    });
+  });
+
+  group('relative imports in the app package', () {
+    test('relative import into another feature internals fires', () {
+      final v = checkFile(
+        packageName: 'spectra',
+        relativePath: 'lib/features/cards/ui/x.dart',
+        imports: ['../../slots/state/n.dart'],
+      );
+      expect(v.map((e) => e.rule), contains('feature-internals'));
+    });
+
+    test('relative import of another feature barrel is clean', () {
+      final v = checkFile(
+        packageName: 'spectra',
+        relativePath: 'lib/features/cards/ui/x.dart',
+        imports: ['../../slots/slots.dart'],
+      );
+      expect(v, isEmpty);
+    });
+
+    test('relative import of data is clean for a feature', () {
+      final v = checkFile(
+        packageName: 'spectra',
+        relativePath: 'lib/features/cards/ui/x.dart',
+        imports: ['../../../data/cards_repository.dart'],
+      );
+      expect(v, isEmpty);
+    });
+
+    test(
+      'direct drift import still fires alongside a relative data import',
+      () {
+        final v = checkFile(
+          packageName: 'spectra',
+          relativePath: 'lib/features/cards/state/x.dart',
+          imports: [
+            '../../../data/cards_repository.dart',
+            'package:drift/drift.dart',
+          ],
+        );
+        expect(v.map((e) => e.rule), contains('drift-in-data-only'));
+      },
+    );
   });
 
   test('extracts imports from source text', () {

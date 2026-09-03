@@ -7,6 +7,7 @@ const _members = {
   'chameleon_flutter': 'packages/chameleon_flutter',
   'spectra_ui': 'packages/spectra_ui',
   'spectra_ui_gallery': 'packages/spectra_ui/example',
+  'serial_probe': 'packages/chameleon_flutter/example',
   'spectra': 'app',
 };
 

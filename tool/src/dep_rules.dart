@@ -13,6 +13,13 @@ final class Violation {
 }
 
 /// Packages each workspace member may import, besides itself and `dart:`.
+///
+/// This is a deliberate superset of the spec section 2 table: `crypto` and
+/// `freezed_annotation` for `chameleon`, `intl` for `spectra_ui`, and
+/// `go_router` for the gallery are needed in practice even though the table
+/// doesn't list them. `freezed` (the generator) is never imported by source,
+/// only run via build_runner, so it is absent here on purpose. See
+/// `docs/research/DECISIONS.md` for the reasoning.
 const Map<String, Set<String>> allowlists = {
   'chameleon': {
     'meta',
@@ -37,6 +44,12 @@ const Map<String, Set<String>> allowlists = {
     'intl',
   },
   'spectra_ui_gallery': {'flutter', 'spectra_ui', 'material_ui', 'go_router'},
+  'serial_probe': {
+    'flutter',
+    'chameleon',
+    'chameleon_flutter',
+    'libserialport_plus',
+  },
 };
 
 /// Packages any member may import from `test/` or `integration_test/`.
@@ -73,15 +86,55 @@ String? _packageOf(String import) {
 bool _isTestPath(String p) =>
     p.startsWith('test/') || p.startsWith('integration_test/');
 
+/// Resolves a relative import (e.g. `'../../slots/slots.dart'`) written in
+/// [relativePath] to a path from the package root, normalising `.` and
+/// `..` segments. No `package:path` dependency needed for this.
+String _resolveRelativeImport(String relativePath, String imp) {
+  final lastSlash = relativePath.lastIndexOf('/');
+  final fileDir = lastSlash < 0 ? '' : relativePath.substring(0, lastSlash);
+  final segments = fileDir.isEmpty ? <String>[] : fileDir.split('/');
+  for (final part in imp.split('/')) {
+    if (part.isEmpty || part == '.') continue;
+    if (part == '..') {
+      if (segments.isNotEmpty) segments.removeLast();
+    } else {
+      segments.add(part);
+    }
+  }
+  return segments.join('/');
+}
+
+/// For the app package, resolves a relative import written in
+/// [relativePath] to the `package:spectra/...` form the structural rules
+/// expect, so those rules see through relative imports the same way they
+/// see `package:` imports. Returns null when the import isn't relative or
+/// doesn't resolve under `lib/`.
+String? _resolveAppRelativeImport(String relativePath, String imp) {
+  if (imp.startsWith('dart:')) return null;
+  final resolved = _resolveRelativeImport(relativePath, imp);
+  if (!resolved.startsWith('lib/')) return null;
+  return 'package:$appPackage/${resolved.substring('lib/'.length)}';
+}
+
 List<Violation> checkFile({
   required String packageName,
   required String relativePath,
   required List<String> imports,
 }) {
   final out = <Violation>[];
+  final isTest = _isTestPath(relativePath);
   for (final imp in imports) {
     final pkg = _packageOf(imp);
-    if (pkg == null) continue; // dart: or relative
+    if (pkg == null) {
+      // dart: or relative import.
+      if (packageName == appPackage && !isTest) {
+        final synthImp = _resolveAppRelativeImport(relativePath, imp);
+        if (synthImp != null) {
+          out.addAll(_checkApp(relativePath, synthImp, appPackage));
+        }
+      }
+      continue;
+    }
 
     if (pkg == 'chameleon' &&
         imp.startsWith('package:chameleon/src/') &&
@@ -97,7 +150,7 @@ List<Violation> checkFile({
     }
 
     if (packageName == appPackage) {
-      out.addAll(_checkApp(relativePath, imp, pkg));
+      if (!isTest) out.addAll(_checkApp(relativePath, imp, pkg));
       continue;
     }
 
@@ -134,7 +187,8 @@ List<Violation> _checkApp(String path, String imp, String pkg) {
       ),
     );
   }
-  if (pkg == 'drift' && !path.startsWith('lib/data/')) {
+  if ((pkg == 'drift' || pkg.startsWith('drift_')) &&
+      !path.startsWith('lib/data/')) {
     out.add(
       Violation(
         'drift-in-data-only',
