@@ -280,4 +280,23 @@ void main() {
       throwsA(isA<SessionNotReady>()),
     );
   });
+
+  test('the first battery read waits out the battery delay', () async {
+    // The firmware reports garbage for the first seconds after power-up, so
+    // the background load holds GET_BATTERY_INFO (1025) back that long.
+    final device = FakeDevice();
+    final s = DeviceSession(
+      device,
+      idlePollInterval: const Duration(days: 1),
+      batteryDelay: const Duration(milliseconds: 200),
+    );
+    await s.open();
+    await settle();
+    expect(device.received.where((f) => f.command == 1025), isEmpty);
+    expect(s.battery.value, isNull);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    expect(device.received.where((f) => f.command == 1025), hasLength(1));
+    expect(s.battery.value, isNotNull);
+    await s.close();
+  });
 }
