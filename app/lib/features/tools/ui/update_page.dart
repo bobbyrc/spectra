@@ -82,7 +82,7 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
                 // transport id belongs to a target we could not find, so
                 // the generic "nothing to update" copy replaces it instead.
                 recover == null
-                    ? l10n.updateNoTarget
+                    ? l10n.updateRecoverTargetMissing
                     : l10n.updateRecoverTarget(widget.recoverTransportId!),
               ),
             ),

@@ -147,6 +147,6 @@ class AppSettingsSection extends ConsumerWidget {
       ClipboardData(text: exportDictionariesJson(dictionaries)),
     );
     if (!context.mounted) return;
-    messenger.showSnackBar(SnackBar(content: Text(l10n.dictExported)));
+    messenger.showSnackBar(SnackBar(content: Text(l10n.dictExportedAll)));
   }
 }

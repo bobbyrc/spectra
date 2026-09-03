@@ -124,7 +124,7 @@ final class DictionaryLibraryProvider
   DictionaryLibrary create() => DictionaryLibrary();
 }
 
-String _$dictionaryLibraryHash() => r'0d384cc9c48910867aea88c38c8bdaf92662cced';
+String _$dictionaryLibraryHash() => r'541e3c75d7a96d63665c1be96e28ba986c282c63';
 
 /// Every write to the dictionaries, as an [AsyncValue] the screen renders.
 ///

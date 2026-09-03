@@ -144,6 +144,6 @@ void main() {
     final Map<String, Object?> exported =
         jsonDecode(args['text']! as String) as Map<String, Object?>;
     expect(exported['dictionaries'], isNotEmpty);
-    expect(find.text('List copied to the clipboard.'), findsOneWidget);
+    expect(find.text('All key lists copied to the clipboard.'), findsOneWidget);
   });
 }

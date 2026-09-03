@@ -695,6 +695,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'If the device is not listed, hold button B while plugging in the USB cable to enter the bootloader from any state.';
 
   @override
+  String get updateRecoverTargetMissing =>
+      'That bootloader is no longer listed. Plug it in again, or go back to Connect.';
+
+  @override
   String get updateBleNotice =>
       'Bluetooth firmware update is pending hardware validation and is switched off in this build.';
 
@@ -1079,6 +1083,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dictExported => 'List copied to the clipboard.';
+
+  @override
+  String get dictExportedAll => 'All key lists copied to the clipboard.';
 
   @override
   String get settingsDeviceTitle => 'Device';

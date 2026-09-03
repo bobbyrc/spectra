@@ -91,7 +91,7 @@ final class DeviceSettingsControllerProvider
 }
 
 String _$deviceSettingsControllerHash() =>
-    r'07f6a91df9a6d85ecbfe9b5e9eee87b0b7c2a81f';
+    r'a2e2852cca8c6d3ba9bdf7577108e4c661830927';
 
 /// Every device-settings change, as state the screen renders (spec 7.7 step
 /// 7, spec 8.1).

@@ -174,16 +174,22 @@ void main() {
     await tester.tap(find.text('Load package'));
     await pumpFrames(tester);
 
-    // The "nothing to update" copy appears twice: once as the stale-target
-    // card that would otherwise have named the unresolved transport id, and
-    // once from the unrelated "no device connected" card below it — neither
-    // ever names the raw transport id.
+    // The stale-target card gets its own words (updateRecoverTargetMissing)
+    // rather than reusing the unrelated "no device connected" card's
+    // (updateNoTarget) below it — neither ever names the raw transport id.
+    expect(
+      find.text(
+        'That bootloader is no longer listed. Plug it in again, or go '
+        'back to Connect.',
+      ),
+      findsOneWidget,
+    );
     expect(
       find.text(
         'Connect a device, or choose a device in the bootloader on '
         'the connect screen.',
       ),
-      findsNWidgets(2),
+      findsOneWidget,
     );
     expect(
       find.textContaining('a-bootloader-nobody-is-reporting'),

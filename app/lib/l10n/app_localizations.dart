@@ -1174,6 +1174,12 @@ abstract class AppLocalizations {
   /// **'If the device is not listed, hold button B while plugging in the USB cable to enter the bootloader from any state.'**
   String get updateRecoverInstructions;
 
+  /// A ?recover= link (or Recover tap) whose bootloader transport id is no longer in the discovery list — distinct from updateNoTarget, which is the page's own generic nothing-connected copy.
+  ///
+  /// In en, this message translates to:
+  /// **'That bootloader is no longer listed. Plug it in again, or go back to Connect.'**
+  String get updateRecoverTargetMissing;
+
   /// Shown while dfuOverBleEnabled is false.
   ///
   /// In en, this message translates to:
@@ -1851,6 +1857,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'List copied to the clipboard.'**
   String get dictExported;
+
+  /// Confirms the app-settings whole-library export, distinct from dictExported's single-list copy.
+  ///
+  /// In en, this message translates to:
+  /// **'All key lists copied to the clipboard.'**
+  String get dictExportedAll;
 
   /// Section header above the connected device's settings.
   ///
