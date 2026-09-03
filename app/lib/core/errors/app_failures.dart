@@ -25,12 +25,36 @@ final class SlotLoadVerificationFailed implements Exception {
       'SlotLoadVerificationFailed: the device stored different $what';
 }
 
-/// A stored dump's length does not match what [type] needs.
+/// `UpdateController.start` was asked to flash with no connected device and
+/// no bootloader picked (the recovery entry) — nothing to flash.
 ///
-/// Raised before any device step, by the load-to-slot and write-to-card
-/// controllers, when a saved dump was never valid for the type it claims —
-/// not a device malfunction, so it gets its own words rather than the
-/// unexpected-error fallback (ruling 4).
+/// Not a [DfuError]: `ErrorCatalog` collapses every `DfuError` to one
+/// generic string, so a hand-written message here would never reach the
+/// user. This gets its own catalog arm instead.
+// TODO(phase-8 Task 9): dedicated copy instead of reusing errorDfu.
+final class UpdateNoTarget implements Exception {
+  const UpdateNoTarget();
+
+  @override
+  String toString() =>
+      'UpdateNoTarget: connect a device, or choose one in the bootloader';
+}
+
+/// `UpdateController.start` was asked to flash a bootloader reached over
+/// BLE while `dfuOverBleEnabled` is off (roadmap hardware handoff H2).
+///
+/// Same reasoning as [UpdateNoTarget]: a distinct type so the catalog (and
+/// Task 9/10's copy) can tell this apart from every other `DfuError`.
+// TODO(phase-8 Task 9): dedicated copy instead of reusing errorDfu.
+final class UpdateBleDisabled implements Exception {
+  const UpdateBleDisabled();
+
+  @override
+  String toString() =>
+      'UpdateBleDisabled: Bluetooth firmware update is disabled until '
+      'hardware handoff H2 passes (dfuOverBleEnabled)';
+}
+
 /// `DeviceSettingsController.setSleepTimeout` was asked for a value outside
 /// the firmware's 5..60 second range.
 ///
@@ -51,6 +75,12 @@ final class SleepTimeoutOutOfRange implements Exception {
       'SleepTimeoutOutOfRange: $seconds is outside 5..60 seconds';
 }
 
+/// A stored dump's length does not match what [type] needs.
+///
+/// Raised before any device step, by the load-to-slot and write-to-card
+/// controllers, when a saved dump was never valid for the type it claims —
+/// not a device malfunction, so it gets its own words rather than the
+/// unexpected-error fallback (ruling 4).
 final class CardDumpLengthMismatch implements Exception {
   const CardDumpLengthMismatch({
     required this.type,

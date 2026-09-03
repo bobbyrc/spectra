@@ -32,6 +32,22 @@ final class ErrorCatalog {
         detail: error.toString(),
       );
     }
+    // TODO(phase-8 Task 9): dedicated copy for these two instead of
+    // reusing errorDfu — see app_failures.dart.
+    if (error is UpdateNoTarget) {
+      return ErrorPresentation(
+        message: _l10n.errorDfu,
+        recovery: ErrorRecovery.retry,
+        detail: error.toString(),
+      );
+    }
+    if (error is UpdateBleDisabled) {
+      return ErrorPresentation(
+        message: _l10n.errorDfu,
+        recovery: ErrorRecovery.none,
+        detail: error.toString(),
+      );
+    }
     // TODO(phase-9 Task 11): dedicated copy instead of reusing
     // errorParameter — see app_failures.dart.
     if (error is SleepTimeoutOutOfRange) {

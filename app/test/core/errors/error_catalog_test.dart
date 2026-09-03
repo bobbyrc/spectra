@@ -119,6 +119,24 @@ void main() {
     }
   });
 
+  test('an update with nothing to flash is retryable, and says so', () {
+    final l10n = AppLocalizationsEn();
+    final p = catalog.describe(const UpdateNoTarget());
+    // TODO(phase-8 Task 9): its own copy, not errorDfu.
+    expect(p.message, l10n.errorDfu);
+    expect(p.recovery, ErrorRecovery.retry);
+    expect(p.detail, contains('bootloader'));
+  });
+
+  test('a BLE update refused by the flag offers no retry', () {
+    final l10n = AppLocalizationsEn();
+    final p = catalog.describe(const UpdateBleDisabled());
+    // TODO(phase-8 Task 9): its own copy, not errorDfu.
+    expect(p.message, l10n.errorDfu);
+    expect(p.recovery, ErrorRecovery.none);
+    expect(p.detail, contains('dfuOverBleEnabled'));
+  });
+
   test('a failed slot verification gets its own words', () {
     final l10n = AppLocalizationsEn();
     final p = catalog.describe(
