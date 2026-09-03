@@ -28,12 +28,14 @@ part of 'load_to_slot_controller.dart';
 /// (ruling 4): a stored row of the wrong size was never a valid dump, and
 /// half-writing it would leave the slot worse than it started.
 ///
-/// A MIFARE Classic dump with an all-zero sector trailer — the shape a read
-/// leaves behind for a sector it never authenticated — is refused the same
-/// way, but as [SlotLoadState.unreadSectors] rather than [SlotLoadState
-/// .error]: nothing is wrong with the request, the caller just has not
-/// confirmed it yet (ruling 23). Passing `confirmUnread: true` proceeds
-/// anyway; the caller is expected to have shown the sector list first.
+/// A MIFARE Classic dump with a trailer whose key A is all zero — the shape
+/// a read dump carries for every sector, since a real card never returns
+/// its keys, not only the ones a read never recovered (`write_target.dart`'s
+/// `unreadSectors`, ruling 27) — is refused the same way, but as
+/// [SlotLoadState.unreadSectors] rather than [SlotLoadState.error]: nothing
+/// is wrong with the request, the caller just has not confirmed it yet
+/// (ruling 23). Passing `confirmUnread: true` proceeds anyway; the caller
+/// is expected to have shown the sector list first.
 ///
 /// There is no wakelock code here and there must not be: `writeMf1Blocks`
 /// and `readMf1Blocks` run inside `DeviceSession.busy`, as does every
@@ -70,12 +72,14 @@ final slotLoaderProvider = SlotLoaderProvider._();
 /// (ruling 4): a stored row of the wrong size was never a valid dump, and
 /// half-writing it would leave the slot worse than it started.
 ///
-/// A MIFARE Classic dump with an all-zero sector trailer — the shape a read
-/// leaves behind for a sector it never authenticated — is refused the same
-/// way, but as [SlotLoadState.unreadSectors] rather than [SlotLoadState
-/// .error]: nothing is wrong with the request, the caller just has not
-/// confirmed it yet (ruling 23). Passing `confirmUnread: true` proceeds
-/// anyway; the caller is expected to have shown the sector list first.
+/// A MIFARE Classic dump with a trailer whose key A is all zero — the shape
+/// a read dump carries for every sector, since a real card never returns
+/// its keys, not only the ones a read never recovered (`write_target.dart`'s
+/// `unreadSectors`, ruling 27) — is refused the same way, but as
+/// [SlotLoadState.unreadSectors] rather than [SlotLoadState.error]: nothing
+/// is wrong with the request, the caller just has not confirmed it yet
+/// (ruling 23). Passing `confirmUnread: true` proceeds anyway; the caller
+/// is expected to have shown the sector list first.
 ///
 /// There is no wakelock code here and there must not be: `writeMf1Blocks`
 /// and `readMf1Blocks` run inside `DeviceSession.busy`, as does every
@@ -110,12 +114,14 @@ final class SlotLoaderProvider
   /// (ruling 4): a stored row of the wrong size was never a valid dump, and
   /// half-writing it would leave the slot worse than it started.
   ///
-  /// A MIFARE Classic dump with an all-zero sector trailer — the shape a read
-  /// leaves behind for a sector it never authenticated — is refused the same
-  /// way, but as [SlotLoadState.unreadSectors] rather than [SlotLoadState
-  /// .error]: nothing is wrong with the request, the caller just has not
-  /// confirmed it yet (ruling 23). Passing `confirmUnread: true` proceeds
-  /// anyway; the caller is expected to have shown the sector list first.
+  /// A MIFARE Classic dump with a trailer whose key A is all zero — the shape
+  /// a read dump carries for every sector, since a real card never returns
+  /// its keys, not only the ones a read never recovered (`write_target.dart`'s
+  /// `unreadSectors`, ruling 27) — is refused the same way, but as
+  /// [SlotLoadState.unreadSectors] rather than [SlotLoadState.error]: nothing
+  /// is wrong with the request, the caller just has not confirmed it yet
+  /// (ruling 23). Passing `confirmUnread: true` proceeds anyway; the caller
+  /// is expected to have shown the sector list first.
   ///
   /// There is no wakelock code here and there must not be: `writeMf1Blocks`
   /// and `readMf1Blocks` run inside `DeviceSession.busy`, as does every
@@ -155,7 +161,7 @@ final class SlotLoaderProvider
   }
 }
 
-String _$slotLoaderHash() => r'56d03b4e48d23b65698262c9803f685501191938';
+String _$slotLoaderHash() => r'f75df6e2392b395b4b65722b2eb293a6adf5f6d5';
 
 /// Spec 7.7 step 5: load a dump into one of the eight slots.
 ///
@@ -177,12 +183,14 @@ String _$slotLoaderHash() => r'56d03b4e48d23b65698262c9803f685501191938';
 /// (ruling 4): a stored row of the wrong size was never a valid dump, and
 /// half-writing it would leave the slot worse than it started.
 ///
-/// A MIFARE Classic dump with an all-zero sector trailer — the shape a read
-/// leaves behind for a sector it never authenticated — is refused the same
-/// way, but as [SlotLoadState.unreadSectors] rather than [SlotLoadState
-/// .error]: nothing is wrong with the request, the caller just has not
-/// confirmed it yet (ruling 23). Passing `confirmUnread: true` proceeds
-/// anyway; the caller is expected to have shown the sector list first.
+/// A MIFARE Classic dump with a trailer whose key A is all zero — the shape
+/// a read dump carries for every sector, since a real card never returns
+/// its keys, not only the ones a read never recovered (`write_target.dart`'s
+/// `unreadSectors`, ruling 27) — is refused the same way, but as
+/// [SlotLoadState.unreadSectors] rather than [SlotLoadState.error]: nothing
+/// is wrong with the request, the caller just has not confirmed it yet
+/// (ruling 23). Passing `confirmUnread: true` proceeds anyway; the caller
+/// is expected to have shown the sector list first.
 ///
 /// There is no wakelock code here and there must not be: `writeMf1Blocks`
 /// and `readMf1Blocks` run inside `DeviceSession.busy`, as does every

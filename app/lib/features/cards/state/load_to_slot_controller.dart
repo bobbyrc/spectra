@@ -44,9 +44,10 @@ final class SlotLoadState {
   /// wrong, there is simply nothing to do.
   final bool unsupported;
 
-  /// Classic-only (Phase 7 ruling 23): the sector indexes whose trailer
-  /// block is sixteen zero bytes — a read dump's mark for "this sector's
-  /// keys were never recovered". Non-null and non-empty means [SlotLoader
+  /// Classic-only (Phase 7 ruling 23): the sector indexes `write_target
+  /// .dart`'s `unreadSectors` flags — trailer key A all zero, which a read
+  /// dump carries for every sector, recovered or not (ruling 27). Non-null
+  /// and non-empty means [SlotLoader
   /// .load] stopped short of touching the device and is waiting for a
   /// second call with `confirmUnread: true`; the sheet renders this as a
   /// warning naming the sectors, never silently loading a partial card.
@@ -73,12 +74,14 @@ final class SlotLoadState {
 /// (ruling 4): a stored row of the wrong size was never a valid dump, and
 /// half-writing it would leave the slot worse than it started.
 ///
-/// A MIFARE Classic dump with an all-zero sector trailer — the shape a read
-/// leaves behind for a sector it never authenticated — is refused the same
-/// way, but as [SlotLoadState.unreadSectors] rather than [SlotLoadState
-/// .error]: nothing is wrong with the request, the caller just has not
-/// confirmed it yet (ruling 23). Passing `confirmUnread: true` proceeds
-/// anyway; the caller is expected to have shown the sector list first.
+/// A MIFARE Classic dump with a trailer whose key A is all zero — the shape
+/// a read dump carries for every sector, since a real card never returns
+/// its keys, not only the ones a read never recovered (`write_target.dart`'s
+/// `unreadSectors`, ruling 27) — is refused the same way, but as
+/// [SlotLoadState.unreadSectors] rather than [SlotLoadState.error]: nothing
+/// is wrong with the request, the caller just has not confirmed it yet
+/// (ruling 23). Passing `confirmUnread: true` proceeds anyway; the caller
+/// is expected to have shown the sector list first.
 ///
 /// There is no wakelock code here and there must not be: `writeMf1Blocks`
 /// and `readMf1Blocks` run inside `DeviceSession.busy`, as does every
@@ -140,7 +143,7 @@ class SlotLoader extends _$SlotLoader {
     }
 
     if (method == SlotLoadMethod.mifareClassicBlocks && !confirmUnread) {
-      final List<int> unread = _unreadSectors(type, bytes);
+      final List<int> unread = unreadSectors(type, bytes);
       if (unread.isNotEmpty) {
         state = SlotLoadState(unreadSectors: unread);
         return;
@@ -246,26 +249,6 @@ class SlotLoader extends _$SlotLoader {
       if (a[i] != b[i]) return false;
     }
     return true;
-  }
-
-  /// The sector indexes of [type] whose trailer block in [blocks] is
-  /// sixteen zero bytes. Pure and device-free, so the check runs before
-  /// `activeSessionProvider` is even consulted.
-  static List<int> _unreadSectors(TagType type, Uint8List blocks) {
-    final int sectors = MifareGeometry.sectorCount(type);
-    final List<int> unread = <int>[];
-    for (int s = 0; s < sectors; s++) {
-      final int start = MifareGeometry.trailerOf(s) * 16;
-      bool allZero = true;
-      for (int i = 0; i < 16; i++) {
-        if (blocks[start + i] != 0) {
-          allZero = false;
-          break;
-        }
-      }
-      if (allZero) unread.add(s);
-    }
-    return unread;
   }
 
   /// A progress step. Guarded like every other post-`await` assignment: the

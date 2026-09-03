@@ -133,4 +133,53 @@ void main() {
       expect(tag.ats, isEmpty);
     });
   });
+
+  group('unreadSectors', () {
+    // A trailer's real shape: FF×6 key A, FF 07 80 69 access bits, FF×6
+    // key B — the same layout `FakeMf1Card.classic1k` presents.
+    Uint8List trailerBlock({List<int>? keyA}) => Uint8List.fromList(<int>[
+      ...keyA ?? const <int>[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
+      0xFF,
+      0x07,
+      0x80,
+      0x69,
+      0xFF,
+      0xFF,
+      0xFF,
+      0xFF,
+      0xFF,
+      0xFF,
+    ]);
+
+    Uint8List classicWith(Uint8List sector0Trailer) {
+      final Uint8List blocks = Uint8List(64 * 16);
+      // Sector 0's trailer is block 3.
+      blocks.setRange(3 * 16, 4 * 16, sector0Trailer);
+      // Every other sector keeps a normal, fully-known trailer so only
+      // sector 0's flag depends on what the test passes in.
+      for (int s = 1; s < 16; s++) {
+        final int start = (s * 4 + 3) * 16;
+        blocks.setRange(start, start + 16, trailerBlock());
+      }
+      return blocks;
+    }
+
+    test('an all-zero trailer is unread (never authenticated)', () {
+      final Uint8List blocks = classicWith(Uint8List(16));
+      expect(unreadSectors(TagType.mifare1k, blocks), <int>[0]);
+    });
+
+    test('key A zero with real key B and access bits is unread — the real '
+        'shape of a read dump (ruling 27)', () {
+      final Uint8List blocks = classicWith(
+        trailerBlock(keyA: const <int>[0, 0, 0, 0, 0, 0]),
+      );
+      expect(unreadSectors(TagType.mifare1k, blocks), <int>[0]);
+    });
+
+    test('a real key A is read, not unread', () {
+      final Uint8List blocks = classicWith(trailerBlock());
+      expect(unreadSectors(TagType.mifare1k, blocks), isEmpty);
+    });
+  });
 }

@@ -150,3 +150,37 @@ Hf14aTag antiCollForClassic(Uint8List blocks) => Hf14aTag(
   sak: blocks[5],
   ats: Uint8List(0),
 );
+
+/// The sector indexes of [type] whose trailer in [blocks] carries an
+/// all-zero key A (the trailer block's first six bytes).
+///
+/// Not "the whole trailer is sixteen zero bytes": `ReaderFacade
+/// .mf1ReadDump`'s doc (`packages/chameleon/lib/src/session/facades/
+/// reader.dart`) says a real card never returns its keys, so a *read* dump
+/// carries key A zeroed out while key B and the access bits are the real
+/// values recovered from the card — that shape has to trip this check too,
+/// or `writeTrailers: true` against an ordinary read dump sails through the
+/// gate and overwrites every sector's real key A with `000000000000` on
+/// write. Checking only key A's six bytes catches that case and still
+/// catches the fully-zeroed trailer a never-authenticated sector leaves
+/// behind (Phase 7 ruling 27; the all-zero shape is a subset of "key A is
+/// zero").
+///
+/// Shared by [SlotLoader.load] and [CardWriter.write] (ruling 23): both
+/// refuse to touch a sector this flags until the caller confirms.
+List<int> unreadSectors(TagType type, Uint8List blocks) {
+  final int sectors = MifareGeometry.sectorCount(type);
+  final List<int> unread = <int>[];
+  for (int s = 0; s < sectors; s++) {
+    final int start = MifareGeometry.trailerOf(s) * 16;
+    bool keyAZero = true;
+    for (int i = 0; i < 6; i++) {
+      if (blocks[start + i] != 0) {
+        keyAZero = false;
+        break;
+      }
+    }
+    if (keyAZero) unread.add(s);
+  }
+  return unread;
+}

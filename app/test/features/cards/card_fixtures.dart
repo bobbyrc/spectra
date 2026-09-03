@@ -34,3 +34,23 @@ Uint8List classic1kDataOnly({Uint8List? uid}) {
   }
   return blocks;
 }
+
+/// A MIFARE Classic 1K dump as a real card's *read* actually carries it
+/// (Phase 7 ruling 27): the same UID and non-trailer data as
+/// [classic1kFilled], but every trailer's key A (the block's first six
+/// bytes only) zeroed out, with key B and the access bits left as the real
+/// recovered values. `ReaderFacade.mf1ReadDump`'s doc
+/// (`packages/chameleon/lib/src/session/facades/reader.dart`) says a real
+/// card never returns its keys, so this is what *every* trailer of an
+/// actual read dump looks like — not [classic1kDataOnly]'s fully-zeroed
+/// shape, which only a sector a read never authenticated leaves behind.
+/// Both shapes must trip `write_target.dart`'s `unreadSectors`.
+Uint8List classic1kKeyAZeroed({Uint8List? uid}) {
+  final Uint8List blocks = Uint8List.fromList(classic1kFilled(uid: uid));
+  final int sectors = MifareGeometry.sectorCount(TagType.mifare1k);
+  for (int s = 0; s < sectors; s++) {
+    final int trailerStart = MifareGeometry.trailerOf(s) * 16;
+    blocks.fillRange(trailerStart, trailerStart + 6, 0);
+  }
+  return blocks;
+}

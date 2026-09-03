@@ -39,15 +39,52 @@ Future<CardWriter> openWriter(WidgetTester tester) async {
   return readProvider(tester, cardWriterProvider.notifier);
 }
 
+/// A fresh app with a single [FakeMf1Card] in the field, returning the
+/// writer *and* the card object itself so a test can read the card's own
+/// bytes back after a write — not just the result masks — to prove the
+/// write actually landed on the card.
+Future<(CardWriter, FakeMf1Card)> openWriterWithMf1Card(
+  WidgetTester tester,
+) async {
+  useDesktopSurface(tester);
+  final FakeMf1Card card = FakeMf1Card.classic1k(uid: demoMifareUid);
+  final FakeFirmware firmware = FakeFirmware()..present(card);
+  await pumpTestApp(tester, transport: (_) => FakeDevice(firmware: firmware));
+  await connectToEmulator(tester);
+  keepAlive(tester, cardWriterProvider);
+  await pumpFrames(tester);
+  return (readProvider(tester, cardWriterProvider.notifier), card);
+}
+
+/// A fresh app with a single [FakeLfCard] in the field (EM410X_SCAN, command
+/// id 3000 — the same id `demo_cards.dart` scripts), returning the writer
+/// and the card so a test can read its id bytes back after a write.
+Future<(CardWriter, FakeLfCard)> openWriterWithLfCard(
+  WidgetTester tester,
+  Uint8List startingId,
+) async {
+  useDesktopSurface(tester);
+  final FakeLfCard card = FakeLfCard(3000, startingId);
+  final FakeFirmware firmware = FakeFirmware()..present(card);
+  await pumpTestApp(tester, transport: (_) => FakeDevice(firmware: firmware));
+  await connectToEmulator(tester);
+  keepAlive(tester, cardWriterProvider);
+  await pumpFrames(tester);
+  return (readProvider(tester, cardWriterProvider.notifier), card);
+}
+
 void main() {
   testWidgetsApp('writes a MIFARE Classic dump onto the card in the field', (
     tester,
   ) async {
-    final CardWriter writer = await openWriter(tester);
+    final (CardWriter writer, FakeMf1Card card) = await openWriterWithMf1Card(
+      tester,
+    );
+    final Uint8List dump = _withDataFill(classic1kFilled(), 0x7E);
 
     final Future<void> pending = writer.write(
       type: TagType.mifare1k,
-      bytes: _withDataFill(classic1kFilled(), 0x7E),
+      bytes: dump,
     );
     await pumpFrames(tester, count: 40);
     await pending;
@@ -59,6 +96,11 @@ void main() {
     expect(state.busy, isFalse);
     expect(state.attempted, 47); // 64 blocks less block 0 and 16 trailers.
     expect(state.written, 47);
+    // The card itself now holds what was written, not just the masks that
+    // say so: block 0 and every trailer were already identical between
+    // [card] and [dump] (same UID, same default trailer), so this is a
+    // whole-card comparison, not just the data blocks.
+    expect(card.blocks, dump);
   });
 
   testWidgetsApp('trailers are skipped by default', (tester) async {
@@ -135,6 +177,29 @@ void main() {
       expect(confirmedState.error, isNull);
       expect(confirmedState.unreadSectors, isNull);
       expect(confirmedState.attempted, 63);
+    },
+  );
+
+  testWidgetsApp(
+    'a real read dump (key A zeroed, key B and access bits intact) with '
+    'trailers opted in is refused too (ruling 27)',
+    (tester) async {
+      final CardWriter writer = await openWriter(tester);
+      final Uint8List keyAZeroed = classic1kKeyAZeroed();
+
+      final Future<void> refused = writer.write(
+        type: TagType.mifare1k,
+        bytes: keyAZeroed,
+        writeTrailers: true,
+      );
+      await pumpFrames(tester);
+      await refused;
+
+      final CardWriteState state = readProvider(tester, cardWriterProvider);
+      expect(state.unreadSectors, isNotNull);
+      expect(state.unreadSectors, isNotEmpty);
+      expect(state.error, isNull);
+      expect(state.isDone, isFalse);
     },
   );
 
@@ -298,11 +363,28 @@ void main() {
   testWidgetsApp('writes an EM410x id to the T55xx in the field', (
     tester,
   ) async {
-    final CardWriter writer = await openWriter(tester);
+    final Uint8List startingId = Uint8List.fromList(<int>[
+      0x11,
+      0x22,
+      0x33,
+      0x44,
+      0x55,
+    ]);
+    final Uint8List newId = Uint8List.fromList(<int>[
+      0xAA,
+      0xBB,
+      0xCC,
+      0xDD,
+      0xEE,
+    ]);
+    final (CardWriter writer, FakeLfCard card) = await openWriterWithLfCard(
+      tester,
+      startingId,
+    );
 
     final Future<void> pending = writer.write(
       type: TagType.em410x,
-      bytes: Uint8List.fromList(<int>[0xAA, 0xBB, 0xCC, 0xDD, 0xEE]),
+      bytes: newId,
     );
     await pumpFrames(tester, count: 20);
     await pending;
@@ -312,6 +394,8 @@ void main() {
     expect(state.error, isNull);
     expect(state.written, 1);
     expect(state.attempted, 1);
+    // The card's own id changed, not just the result masks.
+    expect(card.idBytes, newId);
   });
 
   testWidgetsApp('an Ultralight dump is a typed unsupported state', (

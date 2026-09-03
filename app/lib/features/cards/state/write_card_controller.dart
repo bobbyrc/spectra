@@ -62,9 +62,11 @@ final class CardWriteState {
 
   /// Classic-only (ruling 23): set when the caller asked to
   /// [CardWriter.write] with `writeTrailers: true` against a dump whose
-  /// sector trailers are still the all-zero mark a read leaves for a
-  /// sector it never authenticated. Writing those blocks would put sixteen
-  /// zero bytes in place of key A on the card, so the write stops here and
+  /// sector trailers `write_target.dart`'s `unreadSectors` flags — key A
+  /// all zero, which is the mark a *read* dump carries for every sector
+  /// (a real card never returns its keys), not only the ones a read never
+  /// authenticated (ruling 27). Writing those blocks would put six zero
+  /// bytes in place of the card's real key A, so the write stops here and
   /// waits for a second call with `confirmUnread: true` — the caller is
   /// expected to have shown this sector list first.
   final List<int>? unreadSectors;
@@ -166,7 +168,7 @@ class CardWriter extends _$CardWriter {
     if (method == CardWriteMethod.mifareClassicBlocks &&
         writeTrailers &&
         !confirmUnread) {
-      final List<int> unread = _unreadSectors(type, bytes);
+      final List<int> unread = unreadSectors(type, bytes);
       if (unread.isNotEmpty) {
         state = CardWriteState(unreadSectors: unread);
         return;
@@ -260,26 +262,5 @@ class CardWriter extends _$CardWriter {
       oldKeys: defaultT55xxOldKeys(),
     );
     return (1, 1);
-  }
-
-  /// The sector indexes of [type] whose trailer block in [blocks] is
-  /// sixteen zero bytes. Pure and device-free, so the check runs before
-  /// `activeSessionProvider` is even consulted — the same helper
-  /// `SlotLoader._unreadSectors` carries for the load path (ruling 23).
-  static List<int> _unreadSectors(TagType type, Uint8List blocks) {
-    final int sectors = MifareGeometry.sectorCount(type);
-    final List<int> unread = <int>[];
-    for (int s = 0; s < sectors; s++) {
-      final int start = MifareGeometry.trailerOf(s) * 16;
-      bool allZero = true;
-      for (int i = 0; i < 16; i++) {
-        if (blocks[start + i] != 0) {
-          allZero = false;
-          break;
-        }
-      }
-      if (allZero) unread.add(s);
-    }
-    return unread;
   }
 }

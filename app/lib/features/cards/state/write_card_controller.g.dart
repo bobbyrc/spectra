@@ -170,7 +170,7 @@ final class CardWriterProvider
   }
 }
 
-String _$cardWriterHash() => r'1cc80e1f45c09c5ce9a6e19f5bb2aef007673433';
+String _$cardWriterHash() => r'74e8d5ead9b58a02cc58f384c8ed5269017397f8';
 
 /// Spec 7.7 step 5: write a saved dump back onto a physical card.
 ///
