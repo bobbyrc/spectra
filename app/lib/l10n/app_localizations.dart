@@ -1767,6 +1767,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The keys in it are removed from Spectra. Cards and slots are untouched.'**
   String get dictDeleteBody;
+
+  /// Opens the key list import sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get dictImport;
+
+  /// Title of the import sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Import key lists'**
+  String get dictImportTitle;
+
+  /// Explains what may be pasted.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a key list: one key per line, or a JSON export from Spectra or the reference app.'**
+  String get dictImportHint;
+
+  /// Label of the import text field.
+  ///
+  /// In en, this message translates to:
+  /// **'Pasted text'**
+  String get dictImportLabel;
+
+  /// Runs the import.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get dictImportConfirm;
+
+  /// The pasted text is neither keys nor a known JSON shape.
+  ///
+  /// In en, this message translates to:
+  /// **'That is not a key list Spectra can read.'**
+  String get dictImportNotReadable;
+
+  /// The paste parsed but held no keys.
+  ///
+  /// In en, this message translates to:
+  /// **'There are no keys in that text.'**
+  String get dictImportNoKeys;
+
+  /// A key in the paste is malformed.
+  ///
+  /// In en, this message translates to:
+  /// **'One of those keys is not 12 hexadecimal characters.'**
+  String get dictImportBadKey;
+
+  /// Confirms how many key lists were imported.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {Imported {count} list.} other {Imported {count} lists.}}'**
+  String dictImported(int count);
+
+  /// Copies a key list to the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy list'**
+  String get dictExport;
+
+  /// Confirms the copy.
+  ///
+  /// In en, this message translates to:
+  /// **'List copied to the clipboard.'**
+  String get dictExported;
 }
 
 class _AppLocalizationsDelegate

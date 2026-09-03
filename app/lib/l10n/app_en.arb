@@ -664,5 +664,30 @@
   "dictDeleteTitle": "Delete this list?",
   "@dictDeleteTitle": {"description": "Title of the delete confirmation."},
   "dictDeleteBody": "The keys in it are removed from Spectra. Cards and slots are untouched.",
-  "@dictDeleteBody": {"description": "Body of the delete confirmation."}
+  "@dictDeleteBody": {"description": "Body of the delete confirmation."},
+  "dictImport": "Import",
+  "@dictImport": {"description": "Opens the key list import sheet."},
+  "dictImportTitle": "Import key lists",
+  "@dictImportTitle": {"description": "Title of the import sheet."},
+  "dictImportHint": "Paste a key list: one key per line, or a JSON export from Spectra or the reference app.",
+  "@dictImportHint": {"description": "Explains what may be pasted."},
+  "dictImportLabel": "Pasted text",
+  "@dictImportLabel": {"description": "Label of the import text field."},
+  "dictImportConfirm": "Import",
+  "@dictImportConfirm": {"description": "Runs the import."},
+  "dictImportNotReadable": "That is not a key list Spectra can read.",
+  "@dictImportNotReadable": {"description": "The pasted text is neither keys nor a known JSON shape."},
+  "dictImportNoKeys": "There are no keys in that text.",
+  "@dictImportNoKeys": {"description": "The paste parsed but held no keys."},
+  "dictImportBadKey": "One of those keys is not 12 hexadecimal characters.",
+  "@dictImportBadKey": {"description": "A key in the paste is malformed."},
+  "dictImported": "{count, plural, one {Imported {count} list.} other {Imported {count} lists.}}",
+  "@dictImported": {
+    "description": "Confirms how many key lists were imported.",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "dictExport": "Copy list",
+  "@dictExport": {"description": "Copies a key list to the clipboard."},
+  "dictExported": "List copied to the clipboard.",
+  "@dictExported": {"description": "Confirms the copy."}
 }

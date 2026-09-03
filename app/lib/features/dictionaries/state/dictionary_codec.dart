@@ -127,6 +127,16 @@ ImportedDictionary _readDictionary(Object? entry) {
       'a dictionary entry has no "keys" list',
     );
   }
+  if (keys.isEmpty) {
+    // An entry can be well-formed JSON and still carry a `"keys": []`
+    // list — that is a readable dictionary with nothing in it, not a
+    // parse failure, so it gets the same `noKeys` problem an empty `.dic`
+    // paste gets rather than silently becoming an empty dictionary.
+    throw const DictionaryImportException(
+      DictionaryImportProblem.noKeys,
+      'a dictionary entry has an empty "keys" list',
+    );
+  }
   final String name = entry['name']?.toString().trim() ?? '';
   return ImportedDictionary(
     name: name.isEmpty ? null : name,

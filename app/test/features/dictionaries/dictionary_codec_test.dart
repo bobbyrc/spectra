@@ -107,6 +107,19 @@ void main() {
       );
     });
 
+    test('rejects a dictionary entry with an empty "keys" list', () {
+      expect(
+        () => parseDictionaries('{"name":"Empty","keys":[]}'),
+        throwsA(
+          isA<DictionaryImportException>().having(
+            (DictionaryImportException e) => e.problem,
+            'problem',
+            DictionaryImportProblem.noKeys,
+          ),
+        ),
+      );
+    });
+
     test('rejects JSON that holds no keys at all', () {
       expect(
         () => parseDictionaries('{"dictionaries":[]}'),

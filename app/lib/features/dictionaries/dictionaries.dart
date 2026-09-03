@@ -19,3 +19,5 @@ export 'state/selected_dictionary.dart'
 export 'ui/dictionaries_page.dart'
     show DictionariesPage, dictionaryDisplayName, showDictionaryNameSheet;
 export 'ui/dictionary_detail_page.dart' show DictionaryDetailPage;
+export 'ui/dictionary_import_sheet.dart'
+    show importProblemMessage, showDictionaryImportSheet;

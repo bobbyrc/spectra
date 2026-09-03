@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -14,6 +14,7 @@ import '../../../data/data.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/built_in_keys.dart';
 import '../state/dictionaries_provider.dart';
+import '../state/dictionary_codec.dart';
 import 'dictionaries_page.dart';
 
 /// One key list (spec 7.7 step 7). Layout only: every mutation goes through
@@ -100,6 +101,13 @@ class DictionaryDetailPage extends ConsumerWidget {
                               _duplicate(context, library, dictionary, l10n),
                             ),
                     ),
+                    SpectraButton(
+                      label: l10n.dictExport,
+                      variant: SpectraButtonVariant.secondary,
+                      onPressed: busy
+                          ? null
+                          : () => unawaited(_export(context, dictionary, l10n)),
+                    ),
                     if (!readOnly)
                       SpectraButton(
                         label: l10n.dictDelete,
@@ -180,6 +188,23 @@ class DictionaryDetailPage extends ConsumerWidget {
     // name, since the built-in list this ran from never changes id.
     final String? newId = await library.duplicate(dictionary, name);
     if (newId != null) router.go(AppRoutes.dictionary(newId));
+  }
+
+  Future<void> _export(
+    BuildContext context,
+    KeyDictionary dictionary,
+    AppLocalizations l10n,
+  ) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    // The `.dic` form, not the JSON one: a single list copied out is
+    // overwhelmingly going into another tool, and every one of them reads
+    // one key per line. `exportDictionariesJson` is what a whole-library
+    // export would use.
+    await Clipboard.setData(
+      ClipboardData(text: exportDictionaryDic(dictionary)),
+    );
+    if (!context.mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(l10n.dictExported)));
   }
 
   Future<void> _delete(

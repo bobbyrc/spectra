@@ -4,13 +4,21 @@ import '../theme/spectra_theme.dart';
 import '../tokens/spacing.dart';
 import '../tokens/typography.dart';
 
-/// A labelled single-line input over `material_ui`'s [TextField].
+/// A labelled input over `material_ui`'s [TextField], single-line by
+/// default.
 ///
 /// The field carries no `Semantics` wrapper of its own: [TextField] already
 /// publishes a text-field node, and [InputDecoration.labelText] becomes that
 /// node's label, so wrapping it would announce the label twice. Pass
 /// [semanticsLabel] only when the visible label is not what a screen reader
 /// should read.
+///
+/// [maxLines] defaults to 1, [TextField]'s own default — every existing
+/// caller is unaffected. A single-line [TextField] denies the newline
+/// character outright (`FilteringTextInputFormatter.singleLineFormatter`),
+/// which silently glues a multi-line paste into one line; pass a larger
+/// [maxLines] (or null, to grow without bound) for a field that has to
+/// accept one item per line, such as a pasted key list.
 class SpectraTextField extends StatelessWidget {
   const SpectraTextField({
     required this.label,
@@ -27,6 +35,8 @@ class SpectraTextField extends StatelessWidget {
     this.autofocus = false,
     this.readOnly = false,
     this.semanticsLabel,
+    this.maxLines = 1,
+    this.minLines,
     super.key,
   });
 
@@ -42,6 +52,16 @@ class SpectraTextField extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
   final FocusNode? focusNode;
   final bool autofocus;
+
+  /// How many lines tall the field grows. 1 (the default) keeps the
+  /// single-line behavior every existing caller relies on; null lets the
+  /// field grow without bound, for a paste of arbitrary length.
+  final int? maxLines;
+
+  /// The field's minimum height in lines, when [maxLines] allows more than
+  /// one. Null keeps [TextField]'s own default (one line tall until typed
+  /// into).
+  final int? minLines;
 
   /// Shows the value but takes no edits; unlike `enabled: false` it stays
   /// focusable and selectable.
@@ -69,6 +89,8 @@ class SpectraTextField extends StatelessWidget {
       textInputAction: textInputAction,
       focusNode: focusNode,
       autofocus: autofocus,
+      maxLines: maxLines,
+      minLines: minLines,
       style: SpectraTypography.body.copyWith(color: theme.colors.textPrimary),
       decoration: InputDecoration(
         // When the caller overrides the announcement, the visible label is

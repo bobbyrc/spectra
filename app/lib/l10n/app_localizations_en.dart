@@ -1023,4 +1023,48 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dictDeleteBody =>
       'The keys in it are removed from Spectra. Cards and slots are untouched.';
+
+  @override
+  String get dictImport => 'Import';
+
+  @override
+  String get dictImportTitle => 'Import key lists';
+
+  @override
+  String get dictImportHint =>
+      'Paste a key list: one key per line, or a JSON export from Spectra or the reference app.';
+
+  @override
+  String get dictImportLabel => 'Pasted text';
+
+  @override
+  String get dictImportConfirm => 'Import';
+
+  @override
+  String get dictImportNotReadable =>
+      'That is not a key list Spectra can read.';
+
+  @override
+  String get dictImportNoKeys => 'There are no keys in that text.';
+
+  @override
+  String get dictImportBadKey =>
+      'One of those keys is not 12 hexadecimal characters.';
+
+  @override
+  String dictImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Imported $count lists.',
+      one: 'Imported $count list.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dictExport => 'Copy list';
+
+  @override
+  String get dictExported => 'List copied to the clipboard.';
 }

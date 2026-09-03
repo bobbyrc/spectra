@@ -13,6 +13,7 @@ import '../../../l10n/app_localizations.dart';
 import '../state/built_in_keys.dart';
 import '../state/dictionaries_provider.dart';
 import '../state/selected_dictionary.dart';
+import 'dictionary_import_sheet.dart';
 
 /// Spec 7.7 step 7: the key lists. Layout only — every mutation goes
 /// through [DictionaryLibrary], and the selection is [SelectedDictionaryId].
@@ -40,6 +41,16 @@ class DictionariesPage extends ConsumerWidget {
             title: l10n.dictTitle,
             actionLabel: l10n.dictNew,
             onAction: busy ? null : () => unawaited(_create(context, ref)),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: SpectraSpacing.md),
+            child: SpectraButton(
+              label: l10n.dictImport,
+              variant: SpectraButtonVariant.secondary,
+              onPressed: busy
+                  ? null
+                  : () => unawaited(showDictionaryImportSheet(context)),
+            ),
           ),
           if (write.hasError)
             Padding(
