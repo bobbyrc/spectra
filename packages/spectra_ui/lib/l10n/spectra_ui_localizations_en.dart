@@ -25,6 +25,11 @@ class SpectraUiLocalizationsEn extends SpectraUiLocalizations {
   String get hexViewerEmpty => 'No data';
 
   @override
+  String hexViewerSummary(int count) {
+    return '$count bytes';
+  }
+
+  @override
   String get slotTileEmpty => 'Empty';
 
   @override

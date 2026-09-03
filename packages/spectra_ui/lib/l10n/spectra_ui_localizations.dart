@@ -127,6 +127,12 @@ abstract class SpectraUiLocalizations {
   /// **'No data'**
   String get hexViewerEmpty;
 
+  /// Semantics summary announced for the whole hex viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} bytes'**
+  String hexViewerSummary(int count);
+
   /// A slot with no tag configured.
   ///
   /// In en, this message translates to:

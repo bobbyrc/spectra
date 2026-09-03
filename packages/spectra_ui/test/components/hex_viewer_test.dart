@@ -53,9 +53,59 @@ void main() {
     expect(find.text('04'), findsOneWidget);
     expect(find.text('1F'), findsOneWidget);
     expect(find.text('EF'), findsOneWidget);
-    // A double space marks the group break before the fifth byte.
-    expect(find.text('  '), findsOneWidget);
+    // A double space marks the group break before the fifth byte, and also
+    // pads the missing bytes of the short row out to bytesPerRow width.
+    expect(find.text('  '), findsWidgets);
   });
+
+  testWidgets('a short final row keeps the ASCII gutter aligned', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      spectraHarness(
+        width: 640,
+        height: 260,
+        child: SpectraHexViewer(bytes: _bytes(20), bytesPerRow: 16),
+      ),
+    );
+    // _bytes only ever produces values below 0x20, so every byte renders as
+    // '.' in the ASCII gutter: 16 dots for the full first row, 4 for the
+    // short second row. The first row's ASCII text and the second (short,
+    // padded) row's ASCII text must start at the same x offset for the
+    // gutter to line up.
+    final double firstRowLeft = tester.getTopLeft(find.text('.' * 16)).dx;
+    final double secondRowLeft = tester.getTopLeft(find.text('.' * 4)).dx;
+    expect(secondRowLeft, firstRowLeft);
+  });
+
+  testWidgets(
+    'announces a byte-count summary and the label of a highlighted range',
+    (tester) async {
+      await tester.pumpWidget(
+        spectraHarness(
+          width: 640,
+          height: 220,
+          child: SpectraHexViewer(
+            bytes: _bytes(8),
+            bytesPerRow: 8,
+            groupSize: 8,
+            highlights: const <SpectraHexHighlight>[
+              SpectraHexHighlight(
+                start: 2,
+                length: 2,
+                color: Color(0xFF00FF00),
+                label: 'Key A',
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(find.bySemanticsLabel('8 bytes'), findsOneWidget);
+      // The highlighted byte's own text also contributes to the merged
+      // node label, so match the highlight label as a substring.
+      expect(find.bySemanticsLabel(RegExp('Key A')), findsWidgets);
+    },
+  );
 
   testWidgets('renders the ASCII gutter with dots for unprintables', (
     tester,

@@ -10,6 +10,11 @@
   "@hexViewerAsciiHeader": {"description": "Column header above the ASCII gutter."},
   "hexViewerEmpty": "No data",
   "@hexViewerEmpty": {"description": "Shown when a hex viewer is given zero bytes."},
+  "hexViewerSummary": "{count} bytes",
+  "@hexViewerSummary": {
+    "description": "Semantics summary announced for the whole hex viewer.",
+    "placeholders": {"count": {"type": "int"}}
+  },
   "slotTileEmpty": "Empty",
   "@slotTileEmpty": {"description": "A slot with no tag configured."},
   "slotTileDisabled": "Disabled",

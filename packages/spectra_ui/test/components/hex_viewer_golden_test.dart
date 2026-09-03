@@ -46,6 +46,17 @@ void main() {
             height: 120,
             child: SpectraHexViewer(bytes: Uint8List(0)),
           ),
+          spectraScenario(
+            name: 'a short final row pads to keep the ASCII gutter aligned',
+            brightness: brightness,
+            width: 900,
+            height: 160,
+            child: SpectraHexViewer(
+              bytes: Uint8List.fromList(
+                List<int>.generate(20, (int i) => (i * 7 + 0x20) & 0xFF),
+              ),
+            ),
+          ),
         ],
       ),
     );

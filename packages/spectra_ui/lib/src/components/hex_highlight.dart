@@ -1,6 +1,10 @@
 import 'package:flutter/widgets.dart' show Color;
 
 /// A byte range the hex viewer tints, such as a sector key or a UID.
+///
+/// When two highlights overlap the same byte, whichever appears first in
+/// the viewer's `highlights` list wins; later entries covering that byte
+/// are not shown.
 final class SpectraHexHighlight {
   const SpectraHexHighlight({
     required this.start,
