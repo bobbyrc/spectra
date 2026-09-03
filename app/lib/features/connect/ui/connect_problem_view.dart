@@ -15,7 +15,10 @@ import '../../../l10n/app_localizations.dart';
 /// [instructions] is supplied by the caller — null in Phase 4. Once real
 /// transports are wired, `ConnectPage` will fill it in from
 /// `GuidedTransport.guidance` via `ErrorCatalog.guidance()`; this widget has
-/// no transport of its own to ask.
+/// no transport of its own to ask. Falls back to
+/// `ErrorPresentation.instructions` (the catalog's own guidance, when it has
+/// any) so a future catalog value that fills that field is not silently
+/// dropped just because the caller passed nothing.
 class ConnectProblemView extends StatelessWidget {
   const ConnectProblemView({
     required this.error,
@@ -37,9 +40,10 @@ class ConnectProblemView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(p.message),
-          if (instructions != null) ...<Widget>[
+          if ((instructions ?? p.instructions)
+              case final String shown) ...<Widget>[
             const SizedBox(height: SpectraSpacing.sm),
-            Text(instructions!),
+            Text(shown),
           ],
           const SizedBox(height: SpectraSpacing.md),
           SpectraDisclosure(

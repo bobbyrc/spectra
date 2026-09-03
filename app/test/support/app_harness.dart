@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meta/meta.dart';
 import 'package:spectra/app.dart';
 import 'package:spectra/core/discovery/scanners.dart';
 import 'package:spectra/core/session/sessions.dart';
@@ -82,20 +83,22 @@ final class StaticScanner implements DeviceScanner {
   Stream<List<DiscoveredDevice>> scan() => Stream.value(devices);
 }
 
-Widget testAppWithScanner(DeviceScanner scanner) {
+Widget testAppWithScanner(
+  DeviceScanner scanner, {
+  Transport Function(DiscoveredDevice)? transport,
+}) {
   final db = SpectraDatabase.memory();
   addTearDown(db.close);
   return ProviderScope(
     overrides: <Override>[
       databaseProvider.overrideWithValue(db),
       scannersProvider.overrideWithValue(<DeviceScanner>[scanner]),
+      if (transport != null)
+        transportFactoryProvider.overrideWithValue(transport),
     ],
     child: const SpectraRoot(),
   );
 }
-
-Widget testAppWithNoDevices() =>
-    testAppWithScanner(const StaticScanner(<DiscoveredDevice>[]));
 
 Widget testAppWithBootloader() => testAppWithScanner(
   const StaticScanner(<DiscoveredDevice>[FakeScanner.emulatedBootloader]),
@@ -105,8 +108,9 @@ Widget testAppWithBootloader() => testAppWithScanner(
 /// obligation applies.
 Future<void> pumpTestAppWithScanner(
   WidgetTester tester,
-  DeviceScanner scanner,
-) => tester.pumpWidget(testAppWithScanner(scanner));
+  DeviceScanner scanner, {
+  Transport Function(DiscoveredDevice)? transport,
+}) => tester.pumpWidget(testAppWithScanner(scanner, transport: transport));
 
 Future<void> pumpTestAppWithNoDevices(WidgetTester tester) =>
     pumpTestAppWithScanner(tester, const StaticScanner(<DiscoveredDevice>[]));
@@ -162,4 +166,29 @@ Future<void> settleApp(WidgetTester tester) async {
   for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 10));
   }
+}
+
+/// [testWidgets], with [settleApp]'s obligation (its own doc comment)
+/// enforced by construction instead of left to every call site to remember.
+/// [body] runs in a `try`/`finally` with `await settleApp(tester);` in the
+/// `finally`, so it runs whether [body] passes, fails an expectation, or
+/// throws — the same place [settleApp] itself requires it to run: inside
+/// the test body, before `testWidgets` returns, per its own doc comment.
+///
+/// A test that never pumps the app root (e.g. a direct component test
+/// under a plain `MaterialApp`) can still use this — `settleApp` unmounting
+/// an already-torn-down or unrelated tree and pumping a few idle frames is
+/// harmless.
+@isTest
+void testWidgetsApp(
+  String description,
+  Future<void> Function(WidgetTester tester) body,
+) {
+  testWidgets(description, (tester) async {
+    try {
+      await body(tester);
+    } finally {
+      await settleApp(tester);
+    }
+  });
 }

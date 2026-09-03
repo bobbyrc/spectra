@@ -19,18 +19,16 @@ void main() {
     ]);
   });
 
-  testWidgets('the app opens on the connect screen with no session', (
+  testWidgetsApp('the app opens on the connect screen with no session', (
     tester,
   ) async {
     await pumpTestApp(tester);
     await tester.pump();
     expect(find.text('Connect a device'), findsOneWidget);
     expect(find.byType(SpectraAppShell), findsNothing);
-
-    await settleApp(tester);
   });
 
-  testWidgets('connecting to the emulated device shows the shell', (
+  testWidgetsApp('connecting to the emulated device shows the shell', (
     tester,
   ) async {
     await pumpTestApp(tester, transport: (_) => FakeDevice());
@@ -40,11 +38,9 @@ void main() {
 
     expect(find.byType(SpectraAppShell), findsOneWidget);
     expect(find.text('Device'), findsWidgets);
-
-    await settleApp(tester);
   });
 
-  testWidgets('the shell switches tabs without leaving the shell', (
+  testWidgetsApp('the shell switches tabs without leaving the shell', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 900);
@@ -61,7 +57,5 @@ void main() {
 
     expect(find.byType(SpectraAppShell), findsOneWidget);
     expect(find.textContaining('Phase 5'), findsOneWidget);
-
-    await settleApp(tester);
   });
 }

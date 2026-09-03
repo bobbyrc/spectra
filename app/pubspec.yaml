@@ -49,6 +49,10 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Direct dependency for `@isTest` on `testWidgetsApp`
+  # (test/support/app_harness.dart) — was only a transitive dependency of
+  # flutter_test before.
+  meta: ^1.19.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

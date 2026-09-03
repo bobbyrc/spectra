@@ -8,11 +8,9 @@ void main() {
     expect(AppLocalizationsEn().appTitle, 'Spectra');
   });
 
-  testWidgets('the root boots inside a ProviderScope', (tester) async {
+  testWidgetsApp('the root boots inside a ProviderScope', (tester) async {
     await pumpTestApp(tester);
     await tester.pump();
     expect(find.text('Connect a device'), findsOneWidget);
-
-    await settleApp(tester);
   });
 }

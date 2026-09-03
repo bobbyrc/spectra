@@ -9,8 +9,15 @@ import '../state/connect_row.dart';
 /// device sitting in its bootloader, recover (spec 5.5).
 ///
 /// [ConnectRow.isPreselected] (spec 7.4 — the device whose link just
-/// dropped) renders as this tile's selected state: an accent border, since
-/// `SpectraListTile` has no selection variant of its own (ruling 6).
+/// dropped) renders as this tile's selected state: an accent border plus
+/// `Semantics(selected: true)`, since `SpectraListTile` has no selection
+/// variant of its own (ruling 6).
+///
+/// [onConnect] and [onRecover] are nullable so the page can disable every
+/// row while a connect attempt is in flight (finding 3, fix round 2):
+/// `null` disables both this tile's `onTap` and, for a bootloader row, its
+/// Recover button, so a second row cannot open a second transport under the
+/// first attempt.
 class ConnectRowTile extends StatelessWidget {
   const ConnectRowTile({
     required this.row,
@@ -20,8 +27,8 @@ class ConnectRowTile extends StatelessWidget {
   });
 
   final ConnectRow row;
-  final VoidCallback onConnect;
-  final VoidCallback onRecover;
+  final VoidCallback? onConnect;
+  final VoidCallback? onRecover;
 
   @override
   Widget build(BuildContext context) {
@@ -47,12 +54,15 @@ class ConnectRowTile extends StatelessWidget {
     );
 
     if (!row.isPreselected) return tile;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colors.accent, width: 2),
-        borderRadius: BorderRadius.circular(SpectraSpacing.md),
+    return Semantics(
+      selected: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colors.accent, width: 2),
+          borderRadius: BorderRadius.circular(SpectraSpacing.md),
+        ),
+        child: tile,
       ),
-      child: tile,
     );
   }
 

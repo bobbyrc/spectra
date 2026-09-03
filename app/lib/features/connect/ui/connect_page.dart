@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -15,16 +17,48 @@ import 'manual_port_field.dart';
 
 /// The full-screen connect route (spec 7.7 step 1). Layout only: the merge
 /// is `connectRowsProvider` and the action is `connectControllerProvider`.
-class ConnectPage extends ConsumerWidget {
+///
+/// A [ConsumerStatefulWidget] rather than a [ConsumerWidget] purely to hold
+/// [_ConnectPageState._attemptStarted] (fix round 2, finding 3):
+/// `connectControllerProvider`'s `build()` is async, so its very first
+/// frame already reports `AsyncLoading` before any row has ever been
+/// tapped — gating on `connect.isLoading` alone would flash the
+/// "Connecting…" indicator on every visit to this screen. Tracking "has an
+/// attempt actually been started" locally, set the moment a tile is
+/// tapped, distinguishes that first-frame loading from a real attempt
+/// without touching `ConnectController` (out of scope this round).
+class ConnectPage extends ConsumerStatefulWidget {
   const ConnectPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConnectPage> createState() => _ConnectPageState();
+}
+
+class _ConnectPageState extends ConsumerState<ConnectPage> {
+  bool _attemptStarted = false;
+
+  void _connect(ConnectRow row) {
+    setState(() => _attemptStarted = true);
+    unawaited(
+      ref.read(connectControllerProvider.notifier).connect(row.preferred),
+    );
+  }
+
+  void _reconnectLast() {
+    setState(() => _attemptStarted = true);
+    unawaited(ref.read(connectControllerProvider.notifier).reconnectLast());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final List<ConnectRow> rows = ref.watch(connectRowsProvider);
     final AsyncValue<DiscoveryState> discovery = ref.watch(discoveryProvider);
     final AsyncValue<void> connect = ref.watch(connectControllerProvider);
     final Object? problem = connect.error ?? discovery.value?.error;
+    // See the class doc: only a real, started attempt gates the spinner and
+    // disables the rows, never the controller's own async-build loading.
+    final bool connecting = _attemptStarted && connect.isLoading;
 
     return Scaffold(
       body: SafeArea(
@@ -34,7 +68,7 @@ class ConnectPage extends ConsumerWidget {
             SpectraSectionHeader(title: l10n.connectTitle),
             Text(l10n.connectSubtitle),
             const SizedBox(height: SpectraSpacing.lg),
-            if (connect.isLoading)
+            if (connecting)
               SpectraProgressIndicator(label: l10n.connectConnecting),
             if (problem != null)
               ConnectProblemView(
@@ -50,12 +84,15 @@ class ConnectPage extends ConsumerWidget {
             for (final ConnectRow row in rows)
               ConnectRowTile(
                 row: row,
-                onConnect: () => ref
-                    .read(connectControllerProvider.notifier)
-                    .connect(row.preferred),
-                onRecover: () =>
-                    GoRouter.of(context)
-                        .go(AppRoutes.recover(row.preferred.transportId)),
+                // Finding 3: null while an attempt is in flight, so every
+                // row is disabled and a second tap cannot open a second
+                // transport under the first attempt.
+                onConnect: connecting ? null : () => _connect(row),
+                onRecover: connecting
+                    ? null
+                    : () =>
+                          GoRouter.of(context)
+                              .go(AppRoutes.recover(row.preferred.transportId)),
               ),
             if (rows.isEmpty)
               SpectraCard(
@@ -69,8 +106,7 @@ class ConnectPage extends ConsumerWidget {
             SpectraButton(
               label: l10n.connectReconnectLast,
               variant: SpectraButtonVariant.secondary,
-              onPressed: () =>
-                  ref.read(connectControllerProvider.notifier).reconnectLast(),
+              onPressed: connecting ? null : _reconnectLast,
             ),
             const SizedBox(height: SpectraSpacing.md),
             const ManualPortField(),
