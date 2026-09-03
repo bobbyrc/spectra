@@ -1,7 +1,7 @@
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_riverpod/misc.dart' show Override, ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meta/meta.dart';
 import 'package:spectra/app.dart';
@@ -11,6 +11,7 @@ import 'package:spectra/core/session/reconnect.dart';
 import 'package:spectra/core/session/sessions.dart';
 import 'package:spectra/data/database/database_providers.dart';
 import 'package:spectra/data/database/spectra_database.dart';
+import 'package:spectra_ui/spectra_ui.dart';
 
 /// The overrides every widget test uses. Spec 7.1: overrides live at the app
 /// root only — this is that root. The database is real Drift, in memory, so
@@ -217,4 +218,55 @@ void testWidgetsApp(
       await settleApp(tester);
     }
   });
+}
+
+/// Reads a provider from inside a pumped app, without a second container.
+/// The app root's own `ProviderScope` keeps autoDispose providers alive
+/// (ruling 20), so this never has to await a `.future`.
+T readProvider<T>(WidgetTester tester, ProviderListenable<T> provider) =>
+    ProviderScope.containerOf(
+      tester.element(find.byType(SpectraRoot)),
+      listen: false,
+    ).read(provider);
+
+/// Keeps an autoDispose provider alive for the rest of the test.
+///
+/// `slotViewsProvider` (and any provider like it) watches a stream provider
+/// nothing in `lib/` subscribes to; without a listener a bare
+/// [readProvider] would see the stream's `AsyncLoading` first frame and get
+/// back whatever a screen shows for that (an empty list, here). Call this,
+/// pump a couple of frames so the stream's current value lands, then read.
+/// Production code must never be made keepAlive just to make this
+/// unnecessary — that would change what ships to make a test easier.
+ProviderSubscription<T> keepAlive<T>(
+  WidgetTester tester,
+  ProviderListenable<T> provider,
+) {
+  final container = ProviderScope.containerOf(
+    tester.element(find.byType(SpectraRoot)),
+    listen: false,
+  );
+  final sub = container.listen(provider, (_, _) {});
+  addTearDown(sub.close);
+  return sub;
+}
+
+Future<void> _pumpFrames(WidgetTester tester, [int frames = 10]) async {
+  for (var i = 0; i < frames; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+/// Opens the Slots tab. The shell is wide enough in tests that the
+/// destination is a rail item.
+Future<void> openSlots(WidgetTester tester) async {
+  await tester.tap(find.text('Slots').last);
+  await _pumpFrames(tester);
+}
+
+/// Taps the tile for the given one-based slot number and waits for the
+/// detail route.
+Future<void> openSlot(WidgetTester tester, int number) async {
+  await tester.tap(find.byType(SpectraSlotTile).at(number - 1));
+  await _pumpFrames(tester);
 }

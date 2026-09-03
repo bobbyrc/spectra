@@ -1,6 +1,7 @@
 import 'package:chameleon/chameleon.dart';
 
 import '../../../l10n/app_localizations.dart';
+import 'slot_view.dart';
 
 /// How a slot's SDK enums become words.
 ///
@@ -66,4 +67,10 @@ List<TagType> selectableTypes(Sense sense) => TagType.values
             Sense.none => false,
           },
     )
+    .toList(growable: false);
+
+/// The type labels a slot tile shows, HF first, empty for an empty slot.
+List<String> slotTypeLabels(SlotView view, AppLocalizations l10n) => view
+    .presentTypes
+    .map((TagType t) => tagTypeLabel(t, l10n))
     .toList(growable: false);
