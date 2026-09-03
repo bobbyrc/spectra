@@ -54,3 +54,27 @@ Uint8List classic1kKeyAZeroed({Uint8List? uid}) {
   }
   return blocks;
 }
+
+/// An NTAG215 dump: 135 pages of four bytes, with a plausible page 0-2
+/// header (the seven-byte UID and its two block-check bytes, then the
+/// internal byte and the lock bytes) and a recognisable fill everywhere
+/// else.
+///
+/// Length is what the load path actually checks — `expectedDumpLength`
+/// resolves it through `DumpFormats.ultralightPageCount` — so this is built
+/// from that same table rather than a literal 540, and a fixture that is
+/// merely "long enough" can never sneak past.
+Uint8List ntag215Pages() {
+  final int pages = DumpFormats.ultralightPageCount(TagType.ntag215);
+  final Uint8List bytes = Uint8List(pages * 4);
+  bytes.setRange(0, 9, <int>[
+    0x04, 0x11, 0x22, // UID bytes 0-2
+    0x33, // BCC0
+    0x44, 0x55, 0x66, 0x77, // UID bytes 3-6
+    0x88, // BCC1
+  ]);
+  for (int page = 4; page < pages; page++) {
+    bytes.fillRange(page * 4, page * 4 + 4, 0xA5);
+  }
+  return bytes;
+}

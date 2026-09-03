@@ -21,6 +21,35 @@ Future<SlotLoader> openLoader(WidgetTester tester) async {
   return readProvider(tester, slotLoaderProvider.notifier);
 }
 
+/// Runs [pending] to completion, corrupting the emulation memory the load
+/// just wrote as soon as the write command [writeCommand] has been sent.
+///
+/// This is how the verification step is put under test without a device
+/// that lies: the slot's stored bytes are made to diverge from the bytes
+/// the load handed it, which is exactly the condition `SlotLoader._load`
+/// raises `SlotLoadVerificationFailed` for. The mutation is timed off
+/// `FakeDevice.received` — the request frame is recorded synchronously by
+/// `write()` — so it lands after the data write and before the read-back,
+/// with no reliance on how many pumps either takes.
+Future<void> corruptAfterWrite(
+  WidgetTester tester,
+  FakeDevice device,
+  Future<void> pending,
+  int writeCommand,
+  void Function(FakeSlot slot) corrupt,
+) async {
+  bool done = false;
+  for (int i = 0; i < 200; i++) {
+    await tester.pump(const Duration(milliseconds: 10));
+    if (!done && device.received.any((Frame f) => f.command == writeCommand)) {
+      corrupt(device.firmware.slot);
+      done = true;
+    }
+  }
+  expect(done, isTrue, reason: 'the load never sent command $writeCommand');
+  await pending;
+}
+
 void main() {
   testWidgetsApp('loads a MIFARE Classic dump into a slot and verifies it', (
     tester,
@@ -107,6 +136,156 @@ void main() {
     final List<SlotView> views = readProvider(tester, slotViewsProvider);
     expect(views[4].slot.lfType, TagType.em410x);
     expect(views[4].slot.lfNick, 'Gate fob');
+  });
+
+  testWidgetsApp('loads an NTAG215 dump into a slot', (tester) async {
+    final SlotLoader loader = await openLoader(tester);
+    final Uint8List pages = ntag215Pages();
+
+    final Future<void> pending = loader.load(
+      slotIndex: 6,
+      type: TagType.ntag215,
+      bytes: pages,
+      name: 'Hotel key',
+      fallbackLabel: 'NTAG215',
+    );
+    await pumpFrames(tester, count: 30);
+    await pending;
+    await pumpFrames(tester);
+
+    final SlotLoadState state = readProvider(tester, slotLoaderProvider);
+    expect(state.error, isNull);
+    expect(state.done, isTrue);
+    // No `setAntiColl`: the firmware derives the emulated anti-collision
+    // answer from pages 0-2 of the data itself
+    // (`SlotLoadMethod.ultralightPages`).
+    final List<SlotView> views = readProvider(tester, slotViewsProvider);
+    expect(views[6].slot.hfType, TagType.ntag215);
+    expect(views[6].slot.hfNick, 'Hotel key');
+    expect(views[6].slot.hfEnabled, isTrue);
+  });
+
+  group('a read-back that disagrees with the dump fails verification', () {
+    testWidgetsApp('MIFARE Classic, through readMf1Blocks', (tester) async {
+      // Real latency, so the load's commands land across several pumps and
+      // the corruption can be timed between two of them; with the default
+      // zero latency the whole load resolves inside one pump.
+      final FakeDevice device = FakeDevice(
+        latency: const Duration(milliseconds: 20),
+      );
+      useDesktopSurface(tester);
+      await pumpTestApp(tester, transport: (_) => device);
+      await connectToEmulator(tester);
+      keepAlive(tester, slotLoaderProvider);
+      keepAlive(tester, slotViewsProvider);
+      await pumpFrames(tester);
+      final SlotLoader loader = readProvider(
+        tester,
+        slotLoaderProvider.notifier,
+      );
+
+      await corruptAfterWrite(
+        tester,
+        device,
+        loader.load(
+          slotIndex: 2,
+          type: TagType.mifare1k,
+          bytes: classic1kFilled(),
+          name: 'Office badge',
+          fallbackLabel: 'MIFARE Classic 1K',
+        ),
+        4000, // MF1_WRITE_EMU_BLOCK_DATA
+        (FakeSlot slot) => slot.mf1Blocks[32] ^= 0xFF,
+      );
+
+      final SlotLoadState state = readProvider(tester, slotLoaderProvider);
+      expect(state.done, isFalse);
+      expect(state.error, isA<SlotLoadVerificationFailed>());
+      expect(
+        (state.error! as SlotLoadVerificationFailed).what,
+        'the emulated blocks',
+      );
+    });
+
+    testWidgetsApp('NTAG215, through readNtagPages', (tester) async {
+      // Real latency, so the load's commands land across several pumps and
+      // the corruption can be timed between two of them; with the default
+      // zero latency the whole load resolves inside one pump.
+      final FakeDevice device = FakeDevice(
+        latency: const Duration(milliseconds: 20),
+      );
+      useDesktopSurface(tester);
+      await pumpTestApp(tester, transport: (_) => device);
+      await connectToEmulator(tester);
+      keepAlive(tester, slotLoaderProvider);
+      keepAlive(tester, slotViewsProvider);
+      await pumpFrames(tester);
+      final SlotLoader loader = readProvider(
+        tester,
+        slotLoaderProvider.notifier,
+      );
+
+      await corruptAfterWrite(
+        tester,
+        device,
+        loader.load(
+          slotIndex: 6,
+          type: TagType.ntag215,
+          bytes: ntag215Pages(),
+          name: 'Hotel key',
+          fallbackLabel: 'NTAG215',
+        ),
+        4022, // MF0_NTAG_WRITE_EMU_PAGE_DATA
+        (FakeSlot slot) => slot.ntagPages[40] ^= 0xFF,
+      );
+
+      final SlotLoadState state = readProvider(tester, slotLoaderProvider);
+      expect(state.done, isFalse);
+      expect(
+        (state.error! as SlotLoadVerificationFailed).what,
+        'the emulated pages',
+      );
+    });
+
+    testWidgetsApp('EM410x, through getLfId', (tester) async {
+      // Real latency, so the load's commands land across several pumps and
+      // the corruption can be timed between two of them; with the default
+      // zero latency the whole load resolves inside one pump.
+      final FakeDevice device = FakeDevice(
+        latency: const Duration(milliseconds: 20),
+      );
+      useDesktopSurface(tester);
+      await pumpTestApp(tester, transport: (_) => device);
+      await connectToEmulator(tester);
+      keepAlive(tester, slotLoaderProvider);
+      keepAlive(tester, slotViewsProvider);
+      await pumpFrames(tester);
+      final SlotLoader loader = readProvider(
+        tester,
+        slotLoaderProvider.notifier,
+      );
+
+      await corruptAfterWrite(
+        tester,
+        device,
+        loader.load(
+          slotIndex: 4,
+          type: TagType.em410x,
+          bytes: Uint8List.fromList(<int>[1, 2, 3, 4, 5]),
+          name: 'Gate fob',
+          fallbackLabel: 'EM410x',
+        ),
+        5000, // SET_EM410X_EMU_ID
+        (FakeSlot slot) => slot.lfIds[5000]![0] ^= 0xFF,
+      );
+
+      final SlotLoadState state = readProvider(tester, slotLoaderProvider);
+      expect(state.done, isFalse);
+      expect(
+        (state.error! as SlotLoadVerificationFailed).what,
+        'the stored id',
+      );
+    });
   });
 
   testWidgetsApp('an unsupported type never touches the device', (
