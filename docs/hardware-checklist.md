@@ -10,7 +10,7 @@ from a clean CI run alone.
 
 - [ ] pending: serial enumeration with the device plugged in shows VID
       `0x6868` / PID `0x8686` and manufacturer "Proxgrind". Command:
-      `cd packages/chameleon_flutter/example && mise x -- flutter run -d macos`,
+      `cd packages/chameleon_flutter/example && export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH" && mise x -- flutter run -d macos`,
       then observe the port list.
 - [ ] pending: whether opening the port requires the
       `com.apple.security.device.serial` entitlement. Both entitlements

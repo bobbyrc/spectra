@@ -88,6 +88,11 @@ Read these before proposing architecture or writing protocol code.
 - Commit messages: imperative subject, short body explaining why.
 - This is a git worktree; run commands from the worktree root and never use
   bare `git stash`.
+- On this Mac, `mise x --` does not put Flutter 3.47.2 first on PATH because
+  fvm's Dart precedes it. Run
+  `export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"` in the
+  same shell command before any `dart`, `flutter` or `melos` invocation
+  (`mise x -- ...` is then harmless).
 
 ## Session note
 

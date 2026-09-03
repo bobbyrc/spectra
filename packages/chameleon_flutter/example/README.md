@@ -8,5 +8,5 @@ libserialport on macOS, Windows and Linux — see `docs/research/spikes.md`.
 Phase 3 replaces this with the real serial transport example.
 
 ```
-mise x -- flutter run -d macos
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH" && mise x -- flutter run -d macos
 ```
