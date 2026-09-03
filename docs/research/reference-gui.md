@@ -1,0 +1,12 @@
+# Reference GUI (GameTec-live/ChameleonUltraGUI) key facts
+- License GPL-3.0. Flutter stable, provider ChangeNotifier, no router, shared_preferences persistence.
+- BLE: flutter_reactive_ble. Desktop serial: forked flutter_libserialport. Android USB: forked usb_serial. No web.
+- Connector: AbstractSerial base; NativeSerial, MobileSerial, BLESerial, composites AndroidSerial/MacOSSerial, EmulatorSerial (fake).
+- Serial: 115200 8N1, RTS/CTS+DTR/DSR. Filter by manufacturer "Proxgrind" / "chameleon". DFU VID 0x1915. USB VID/PID 0x6868/0x8686. DFU PID 0x521f.
+- BLE: Nordic UART 6E400001-..., DFU service FE59 (ctrl 8EC90001, data 8EC90002). Name prefix ChameleonUltra/ChameleonLite; CU-/CL- = DFU bootloader. Connect retry up to 5.
+- Frame: SOF 0x11, LRC, cmd u16 BE, status u16 BE, len u16 BE (cap 4096), header LRC, payload, trailing LRC. Queue/lock, match by cmd id, 5s timeout + 1 retry.
+- DFU: hand-written Nordic Secure DFU; SLIP on serial, raw on BLE; chunk 20B iOS/macOS BLE, 128 elsewhere; verify bin hash against .dat manifest. Firmware from RfidResearchGroup nightly (nightly.link) or releases: ultra-dfu-app.zip / lite-dfu-app.zip. Local zip supported.
+- Recovery: darkside, nested, static nested, hardnested, static-encrypted nested, mfkey32/64 via native C FFI (crapto1, hardnested).
+- Features: Connect, Home, Slot Manager, Saved Cards (folders/colors, dump editor, NDEF), Read Card (HF MFC/UL/14A; LF EM410x/HID/Viking/PAC/IoProx), Write Card (gen1a/2/3, UL, EM410x/T55xx), Tools (dict download, T55xx pw cleaner, LF/HF sniff), Settings (theme, 26 locales, import/export JSON+QR), Device settings (LED, buttons, sleep, BLE pairing PIN).
+- Platform quirks: Android USB_DEVICE_ATTACHED filter + BT perms; iOS BLE only; macOS sandbox with serial+bluetooth entitlements; Windows COM access-denied issues -> manual port dialog; Linux dialout group + ModemManager conflict.
+- Pain points: Windows serial, iOS DFU bricks/timeouts, BLE flakiness on Android, pairing UX.

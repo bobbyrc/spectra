@@ -1,0 +1,11 @@
+# Flutter ecosystem (Sept 2026) key facts
+- Local: FVM stable = Flutter 3.32.5 / Dart 3.8.1. Latest stable 3.47.1 / Dart 3.13.1. Upgrade via fvm before scaffolding.
+- 3.47: Impeller default on desktop; material_ui 1.0 / cupertino_ui 1.0 opt-in packages, in-SDK material slated for deprecation Nov; SwiftPM default since 3.44; iOS 15+/macOS 12+; UIScene mandatory. Macros cancelled; build_runner remains.
+- BLE: universal_ble 2.2.0 (all 5 platforms, verified, BSD-3). flutter_blue_plus has paid license for larger for-profits; Windows only via community pkg. flutter_reactive_ble mobile only.
+- Serial: libserialport_plus 1.0.4 (desktop+Android via build hooks) but Android needs usb_serial 0.5.2 (UsbManager). iOS none.
+- DFU: nordic_dfu 8.0.1 (Android/iOS/macOS). Windows/Linux: pure-Dart Secure DFU over universal_ble (nrf_ble_dfu 1.0.0 as starting point, or own ~500 LOC).
+- State: Riverpod 3.4.2 + riverpod_generator. Routing: go_router 18 (maintenance but official). Persistence: Drift 2.34 (Isar dead, hive dead). Codegen: freezed 4 + json_serializable.
+- UI: google_fonts 8.2, dynamic_color 2.1, flutter_animate 4.5, window_manager 0.5.2, macos_window_utils 1.9. flutter_adaptive_scaffold discontinued -> hand-roll.
+- Testing: alchemist 0.14 goldens, mocktail, integration_test; patrol no Win/Linux.
+- Monorepo: pub workspaces + melos 8.6 (config in root pubspec).
+- CI: subosito/flutter-action matrix; macOS notarytool; Windows Azure Artifact Signing; Linux Flatpak/AppImage.
