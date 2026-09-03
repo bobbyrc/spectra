@@ -29,9 +29,7 @@ class SpectraApp extends StatelessWidget {
       darkTheme: spectraThemeData(SpectraColors.dark, Brightness.dark),
       themeMode: themeMode,
       routerConfig: routerConfig,
-      localizationsDelegates: const <LocalizationsDelegate<Object?>>[
-        SpectraUiLocalizations.delegate,
-      ],
+      localizationsDelegates: SpectraUiLocalizations.localizationsDelegates,
       supportedLocales: SpectraUiLocalizations.supportedLocales,
       builder: (BuildContext context, Widget? child) {
         final Brightness brightness = Theme.of(context).brightness;

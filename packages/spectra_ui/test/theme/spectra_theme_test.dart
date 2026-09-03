@@ -65,6 +65,10 @@ void main() {
     expect(Theme.of(inner).colorScheme.primary, SpectraColors.light.accent);
     expect(SpectraTheme.of(inner).colors.accent, SpectraColors.light.accent);
     expect(SpectraUiLocalizations.of(inner).cancel, 'Cancel');
+    expect(
+      Localizations.of<MaterialLocalizations>(inner, MaterialLocalizations),
+      isNotNull,
+    );
   });
 }
 
