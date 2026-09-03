@@ -27,4 +27,23 @@ void main() {
     expect(a, b);
     expect(a.hashCode, b.hashCode);
   });
+
+  test('constructor copies the data array', () {
+    final source = Uint8List.fromList([1, 2, 3]);
+    final frame = Frame(command: 1, data: source);
+    final before = Frame(command: 1, data: Uint8List.fromList([1, 2, 3]));
+    source[0] = 0xFF;
+    expect(frame.data, [1, 2, 3]);
+    expect(frame, before);
+  });
+
+  test('encode throws when data exceeds the max length', () {
+    final frame = Frame(command: 1, data: Uint8List(4097));
+    expect(() => frame.encode(), throwsArgumentError);
+  });
+
+  test('encode succeeds at exactly the max length', () {
+    final bytes = Frame(command: 1, data: Uint8List(4096)).encode();
+    expect(bytes.length, frameHeaderLength + 4096 + 1);
+  });
 }

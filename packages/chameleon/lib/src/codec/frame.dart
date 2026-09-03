@@ -11,7 +11,7 @@ const int frameMaxDataLength = 4096;
 /// One protocol frame, either direction. Requests carry status 0.
 final class Frame {
   Frame({required this.command, this.status = 0, Uint8List? data})
-    : data = data ?? Uint8List(0);
+    : data = data == null ? Uint8List(0) : Uint8List.fromList(data);
 
   final int command;
   final int status;
