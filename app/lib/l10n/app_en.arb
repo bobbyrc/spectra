@@ -321,6 +321,55 @@
   "@cardsEditNotEditable": {"description": "Shown for a dump with no editable layout."},
   "cardsPickerTitle": "Choose a card",
   "@cardsPickerTitle": {"description": "Title of the card picker sheet other features open."},
+  "cardsLoadToSlot": "Load into a slot",
+  "@cardsLoadToSlot": {"description": "Action on a saved card: put it into an emulation slot."},
+  "cardsLoadTitle": "Load into slot {number}",
+  "@cardsLoadTitle": {
+    "description": "Title of the load-to-slot sheet; the one-based slot number.",
+    "placeholders": {"number": {"type": "int"}}
+  },
+  "cardsLoadPrompt": "{name} will replace whatever slot {number} holds on the {type} side.",
+  "@cardsLoadPrompt": {
+    "description": "What loading will do, before it is confirmed.",
+    "placeholders": {"name": {"type": "String"}, "number": {"type": "int"}, "type": {"type": "String"}}
+  },
+  "cardsLoadActivates": "Slot {number} becomes the slot the device emulates.",
+  "@cardsLoadActivates": {
+    "description": "Confirm-step note: loading makes the target slot active on the device; the previously active slot is not restored.",
+    "placeholders": {"number": {"type": "int"}}
+  },
+  "cardsLoadOtherSenseStaysLive": "Slot {number}'s {sense} side already emulates {type}; it stays enabled, so both sides will be live after this load.",
+  "@cardsLoadOtherSenseStaysLive": {
+    "description": "Confirm-step warning shown when the target slot's other sense already has a tag type enabled.",
+    "placeholders": {"number": {"type": "int"}, "sense": {"type": "String"}, "type": {"type": "String"}}
+  },
+  "cardsLoadConfirm": "Load",
+  "@cardsLoadConfirm": {"description": "Starts the load."},
+  "cardsLoadProgress": "Writing the card into the slot…",
+  "@cardsLoadProgress": {"description": "Progress label while a slot is being loaded."},
+  "cardsLoadVerifying": "Checking what the device stored…",
+  "@cardsLoadVerifying": {"description": "Progress label for the read-back at the end of a load."},
+  "cardsLoadDone": "Loaded into slot {number}.",
+  "@cardsLoadDone": {
+    "description": "Shown when a load finished and the read-back matched.",
+    "placeholders": {"number": {"type": "int"}}
+  },
+  "cardsLoadUnsupported": "Spectra cannot emulate this tag type yet.",
+  "@cardsLoadUnsupported": {"description": "Shown for a tag type with no emulator write."},
+  "cardsLoadedToSlot": "Loaded into slot {number}.",
+  "@cardsLoadedToSlot": {
+    "description": "Confirmation shown on the screen behind the sheet after a load.",
+    "placeholders": {"number": {"type": "int"}}
+  },
+  "cardsLoadUnreadSectorsTitle": "Some sectors have no known key",
+  "@cardsLoadUnreadSectorsTitle": {"description": "Heading of the unread-sector-trailer warning before a load."},
+  "cardsLoadUnreadSectorsBody": "{count, plural, one {Sector {sectors} was never read; it will load blank.} other {Sectors {sectors} were never read; they will load blank.}}",
+  "@cardsLoadUnreadSectorsBody": {
+    "description": "Names the sector trailers a saved dump has no recovered key for.",
+    "placeholders": {"count": {"type": "int"}, "sectors": {"type": "String"}}
+  },
+  "cardsLoadUnreadSectorsConfirm": "Load anyway",
+  "@cardsLoadUnreadSectorsConfirm": {"description": "Proceeds with a load despite the unread sectors."},
   "comingSoonSettings": "Settings arrive in Phase 9.",
   "@comingSoonSettings": {"description": "Placeholder body of the Settings tab."},
   "comingSoonUpdate": "Firmware update arrives in Phase 8.",
@@ -444,5 +493,7 @@
   "slotSaving": "Saving to the device…",
   "@slotSaving": {"description": "Progress label while a slot change is in flight."},
   "commonCancel": "Cancel",
-  "@commonCancel": {"description": "Dismisses a dialog without acting."}
+  "@commonCancel": {"description": "Dismisses a dialog without acting."},
+  "commonClose": "Close",
+  "@commonClose": {"description": "Dismisses a sheet that has finished."}
 }

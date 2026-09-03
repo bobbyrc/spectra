@@ -514,6 +514,69 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsPickerTitle => 'Choose a card';
 
   @override
+  String get cardsLoadToSlot => 'Load into a slot';
+
+  @override
+  String cardsLoadTitle(int number) {
+    return 'Load into slot $number';
+  }
+
+  @override
+  String cardsLoadPrompt(String name, int number, String type) {
+    return '$name will replace whatever slot $number holds on the $type side.';
+  }
+
+  @override
+  String cardsLoadActivates(int number) {
+    return 'Slot $number becomes the slot the device emulates.';
+  }
+
+  @override
+  String cardsLoadOtherSenseStaysLive(int number, String sense, String type) {
+    return 'Slot $number\'s $sense side already emulates $type; it stays enabled, so both sides will be live after this load.';
+  }
+
+  @override
+  String get cardsLoadConfirm => 'Load';
+
+  @override
+  String get cardsLoadProgress => 'Writing the card into the slot…';
+
+  @override
+  String get cardsLoadVerifying => 'Checking what the device stored…';
+
+  @override
+  String cardsLoadDone(int number) {
+    return 'Loaded into slot $number.';
+  }
+
+  @override
+  String get cardsLoadUnsupported =>
+      'Spectra cannot emulate this tag type yet.';
+
+  @override
+  String cardsLoadedToSlot(int number) {
+    return 'Loaded into slot $number.';
+  }
+
+  @override
+  String get cardsLoadUnreadSectorsTitle => 'Some sectors have no known key';
+
+  @override
+  String cardsLoadUnreadSectorsBody(int count, String sectors) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Sectors $sectors were never read; they will load blank.',
+      one: 'Sector $sectors was never read; it will load blank.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get cardsLoadUnreadSectorsConfirm => 'Load anyway';
+
+  @override
   String get comingSoonSettings => 'Settings arrive in Phase 9.';
 
   @override
@@ -698,4 +761,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonCancel => 'Cancel';
+
+  @override
+  String get commonClose => 'Close';
 }

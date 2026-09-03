@@ -910,6 +910,90 @@ abstract class AppLocalizations {
   /// **'Choose a card'**
   String get cardsPickerTitle;
 
+  /// Action on a saved card: put it into an emulation slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Load into a slot'**
+  String get cardsLoadToSlot;
+
+  /// Title of the load-to-slot sheet; the one-based slot number.
+  ///
+  /// In en, this message translates to:
+  /// **'Load into slot {number}'**
+  String cardsLoadTitle(int number);
+
+  /// What loading will do, before it is confirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} will replace whatever slot {number} holds on the {type} side.'**
+  String cardsLoadPrompt(String name, int number, String type);
+
+  /// Confirm-step note: loading makes the target slot active on the device; the previously active slot is not restored.
+  ///
+  /// In en, this message translates to:
+  /// **'Slot {number} becomes the slot the device emulates.'**
+  String cardsLoadActivates(int number);
+
+  /// Confirm-step warning shown when the target slot's other sense already has a tag type enabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Slot {number}\'s {sense} side already emulates {type}; it stays enabled, so both sides will be live after this load.'**
+  String cardsLoadOtherSenseStaysLive(int number, String sense, String type);
+
+  /// Starts the load.
+  ///
+  /// In en, this message translates to:
+  /// **'Load'**
+  String get cardsLoadConfirm;
+
+  /// Progress label while a slot is being loaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing the card into the slot…'**
+  String get cardsLoadProgress;
+
+  /// Progress label for the read-back at the end of a load.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking what the device stored…'**
+  String get cardsLoadVerifying;
+
+  /// Shown when a load finished and the read-back matched.
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded into slot {number}.'**
+  String cardsLoadDone(int number);
+
+  /// Shown for a tag type with no emulator write.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectra cannot emulate this tag type yet.'**
+  String get cardsLoadUnsupported;
+
+  /// Confirmation shown on the screen behind the sheet after a load.
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded into slot {number}.'**
+  String cardsLoadedToSlot(int number);
+
+  /// Heading of the unread-sector-trailer warning before a load.
+  ///
+  /// In en, this message translates to:
+  /// **'Some sectors have no known key'**
+  String get cardsLoadUnreadSectorsTitle;
+
+  /// Names the sector trailers a saved dump has no recovered key for.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {Sector {sectors} was never read; it will load blank.} other {Sectors {sectors} were never read; they will load blank.}}'**
+  String cardsLoadUnreadSectorsBody(int count, String sectors);
+
+  /// Proceeds with a load despite the unread sectors.
+  ///
+  /// In en, this message translates to:
+  /// **'Load anyway'**
+  String get cardsLoadUnreadSectorsConfirm;
+
   /// Placeholder body of the Settings tab.
   ///
   /// In en, this message translates to:
@@ -1263,6 +1347,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get commonCancel;
+
+  /// Dismisses a sheet that has finished.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get commonClose;
 }
 
 class _AppLocalizationsDelegate
