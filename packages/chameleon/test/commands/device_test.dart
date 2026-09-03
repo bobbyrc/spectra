@@ -136,24 +136,26 @@ void main() {
         DeviceModel.lite,
       );
     });
-    test('GetDeviceSettings without sleep timeout', () {
-      final s = const GetDeviceSettings().parseResponse(
-        ok(1034, [5, 0, 1, 2, 3, 4, 1, ...'123456'.codeUnits]),
-      );
-      expect(s.version, 5);
-      expect(s.animation, AnimationMode.full);
-      expect(s.buttonA, ButtonFunction.nextSlot);
-      expect(s.longButtonB, ButtonFunction.battery);
-      expect(s.blePairingEnabled, isTrue);
-      expect(s.blePairingKey, '123456');
-      expect(s.sleepTimeoutSeconds, isNull);
-    });
-    test('GetDeviceSettings with sleep timeout and unknown trailing bytes', () {
-      final s = const GetDeviceSettings().parseResponse(
-        ok(1034, [6, 0, 0, 0, 0, 0, 0, ...'000000'.codeUnits, 8, 0xFF]),
-      );
-      expect(s.sleepTimeoutSeconds, 8);
-    });
+    group('GetDeviceSettings (hardware-validate)', () {
+      test('without sleep timeout', () {
+        final s = const GetDeviceSettings().parseResponse(
+          ok(1034, [5, 0, 1, 2, 3, 4, 1, ...'123456'.codeUnits]),
+        );
+        expect(s.version, 5);
+        expect(s.animation, AnimationMode.full);
+        expect(s.buttonA, ButtonFunction.nextSlot);
+        expect(s.longButtonB, ButtonFunction.battery);
+        expect(s.blePairingEnabled, isTrue);
+        expect(s.blePairingKey, '123456');
+        expect(s.sleepTimeoutSeconds, isNull);
+      });
+      test('with sleep timeout and unknown trailing bytes', () {
+        final s = const GetDeviceSettings().parseResponse(
+          ok(1034, [6, 0, 0, 0, 0, 0, 0, ...'000000'.codeUnits, 8, 0xFF]),
+        );
+        expect(s.sleepTimeoutSeconds, 8);
+      });
+    }, tags: ['hardware-validate']);
     test('GetDeviceCapabilities', () {
       final c = const GetDeviceCapabilities().parseResponse(
         ok(1035, [0x03, 0xE8, 0x07, 0xD0]),

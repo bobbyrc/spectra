@@ -1,0 +1,3 @@
+tags:
+  hardware-validate:
+    description: Wire format unverified on hardware; see docs/hardware-checklist.md.
