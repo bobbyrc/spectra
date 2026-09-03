@@ -104,7 +104,7 @@ final class SlotEditorProvider
   }
 }
 
-String _$slotEditorHash() => r'ac30cd693fb99638f57c81bb39177c82436539cc';
+String _$slotEditorHash() => r'07cae1b0b0d95bbac02a7674fb4fd9b9d42b8fdc';
 
 /// Every change to one slot, as an [AsyncValue] the screen renders.
 ///

@@ -2,8 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
+import '../../../core/format/tag_labels.dart';
 import '../../../l10n/app_localizations.dart';
-import '../state/slot_labels.dart';
 import '../state/slot_view.dart';
 import '../state/slot_views_provider.dart';
 
@@ -77,7 +77,7 @@ class SlotPicker extends ConsumerWidget {
             number: view.number,
             enabled: view.isEnabled,
             nickname: view.nickname,
-            tagTypes: slotTypeLabels(view, l10n),
+            tagTypes: slotTypeLabels(view.presentTypes, l10n),
             active: view.isActive,
             onTap: selectable
                 ? () => Navigator.of(context).pop(view.index)

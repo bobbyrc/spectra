@@ -125,7 +125,12 @@ List<Violation> checkFile({
       if (packageName == appPackage && !isTest) {
         final synthImp = _resolveAppRelativeImport(relativePath, imp);
         if (synthImp != null) {
-          out.addAll(_checkApp(relativePath, synthImp, appPackage));
+          // The structural rules see the resolved `package:` form, but the
+          // violation quotes what the file actually says — a reader has to
+          // be able to find the line the lint is complaining about.
+          out.addAll(
+            _checkApp(relativePath, synthImp, appPackage, asWritten: imp),
+          );
         }
       }
       continue;
@@ -169,15 +174,23 @@ List<Violation> checkFile({
   return out;
 }
 
-List<Violation> _checkApp(String path, String imp, String pkg) {
+List<Violation> _checkApp(
+  String path,
+  String imp,
+  String pkg, {
+  String? asWritten,
+}) {
   final out = <Violation>[];
+  // What the file says, for the message; [imp] is the resolved form the
+  // rules match on.
+  final written = asWritten ?? imp;
   final inFeatures = path.startsWith('lib/features/');
   if (inFeatures && pkg == 'flutter' && imp.endsWith('/material.dart')) {
     out.add(
       Violation(
         'no-material-in-features',
         path,
-        imp,
+        written,
         'import package:material_ui/material_ui.dart (or '
             'package:flutter/widgets.dart), never the SDK Material library: '
             'the two define the same names and importing both does not '
@@ -191,7 +204,7 @@ List<Violation> _checkApp(String path, String imp, String pkg) {
       Violation(
         'drift-in-data-only',
         path,
-        imp,
+        written,
         'Drift may only appear under lib/data/',
       ),
     );
@@ -207,7 +220,7 @@ List<Violation> _checkApp(String path, String imp, String pkg) {
         Violation(
           'feature-internals',
           path,
-          imp,
+          written,
           'feature $me may only import features/$other/$other.dart',
         ),
       );

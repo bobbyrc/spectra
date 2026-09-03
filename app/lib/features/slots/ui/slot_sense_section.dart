@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
+import '../../../core/format/tag_labels.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/slot_editor_controller.dart';
-import '../state/slot_labels.dart';
 import '../state/slot_nickname.dart';
 import '../state/slot_view.dart';
 import 'tag_type_sheet.dart';

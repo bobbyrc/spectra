@@ -130,6 +130,30 @@ void main() {
         imports: ['../../slots/state/n.dart'],
       );
       expect(v.map((e) => e.rule), contains('feature-internals'));
+      // Quoted as the file writes it, not as the rule resolves it: the
+      // message has to point at a line someone can go and find.
+      expect(v.single.import, '../../slots/state/n.dart');
+    });
+
+    test('a relative export into another feature fires too', () {
+      final v = checkFile(
+        packageName: 'spectra',
+        relativePath: 'lib/features/cards/cards.dart',
+        imports: ['../slots/ui/slot_picker.dart'],
+      );
+      expect(v.map((e) => e.rule), contains('feature-internals'));
+    });
+
+    test('a relative import inside the same feature is clean', () {
+      final v = checkFile(
+        packageName: 'spectra',
+        relativePath: 'lib/features/cards/ui/x.dart',
+        imports: [
+          '../state/cards_notifier.dart',
+          '../../../core/format/tag_labels.dart',
+        ],
+      );
+      expect(v, isEmpty);
     });
 
     test('relative import of another feature barrel is clean', () {

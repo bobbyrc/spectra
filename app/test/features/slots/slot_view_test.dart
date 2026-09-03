@@ -1,6 +1,6 @@
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spectra/features/slots/state/slot_labels.dart';
+import 'package:spectra/core/format/tag_labels.dart';
 import 'package:spectra/features/slots/state/slot_view.dart';
 import 'package:spectra/l10n/app_localizations.dart';
 import 'package:spectra/l10n/app_localizations_en.dart';
@@ -60,13 +60,16 @@ void main() {
       isActive: false,
     );
     expect(view.presentTypes, <TagType>[TagType.mifare1k, TagType.em410x]);
-    expect(slotTypeLabels(view, l10n), <String>['MIFARE Classic 1K', 'EM410x']);
+    expect(slotTypeLabels(view.presentTypes, l10n), <String>[
+      'MIFARE Classic 1K',
+      'EM410x',
+    ]);
   });
 
   test('an empty slot shows no type labels at all', () {
     final SlotView view = SlotView(slot: _slot(3), isActive: false);
     expect(view.presentTypes, isEmpty);
-    expect(slotTypeLabels(view, l10n), isEmpty);
+    expect(slotTypeLabels(view.presentTypes, l10n), isEmpty);
   });
 
   test('buildSlotViews marks exactly the active index', () {
