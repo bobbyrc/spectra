@@ -11,6 +11,7 @@ import 'package:chameleon/src/protocol/command.dart';
 import 'package:chameleon/src/protocol/errors.dart';
 import 'package:chameleon/src/session/connection_state.dart';
 import 'package:chameleon/src/session/device_session.dart';
+import 'package:chameleon/src/transport/transport.dart';
 import 'package:test/test.dart';
 
 DeviceSession sessionFor(FakeFirmwareConfig config, {FakeDevice? device}) =>
@@ -297,6 +298,76 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     expect(device.received.where((f) => f.command == 1025), hasLength(1));
     expect(s.battery.value, isNotNull);
+    await s.close();
+  });
+
+  group('a transport state that is not a close but stops the link', () {
+    for (final (state, error) in <(TransportState, Type)>[
+      (const TransportPairingRequired(), PairingRequired),
+      (const TransportPermissionDenied(), PermissionDenied),
+      (const TransportAdapterOff(), AdapterOff),
+    ]) {
+      test(
+        '${state.runtimeType} disconnects the session with $error',
+        () async {
+          final device = FakeDevice();
+          final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+          await s.open();
+          expect(s.connectionState.value, isA<SessionReady>());
+          device.emitState(state);
+          await settle();
+          expect(
+            s.connectionState.value,
+            isA<SessionDisconnected>()
+                .having((d) => d.cause, 'cause', DisconnectCause.unexpected)
+                .having((d) => d.error, 'error', isA<TransportError>()),
+          );
+          expect(s.connectionState.value, isA<SessionDisconnected>());
+          expect(
+            (s.connectionState.value as SessionDisconnected).error.runtimeType,
+            error,
+          );
+          await s.close();
+        },
+      );
+
+      test(
+        'open() throws $error when ${state.runtimeType} arrives while connecting',
+        () async {
+          final device = FakeDevice(latency: const Duration(milliseconds: 20));
+          final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+          final opening = s.open();
+          device.emitState(state, setCurrent: false);
+          await expectLater(opening, throwsA(isA<TransportError>()));
+          expect(s.connectionState.value, isA<SessionDisconnected>());
+          expect(
+            (s.connectionState.value as SessionDisconnected).error.runtimeType,
+            error,
+          );
+          await s.close();
+        },
+      );
+    }
+  });
+
+  test('a disconnected session is spent and cannot be opened again', () async {
+    final device = FakeDevice();
+    final s = sessionFor(FakeFirmwareConfig.ultra22(), device: device);
+    await s.open();
+    await device.simulateLinkLoss();
+    await settle();
+    expect(s.connectionState.value, isA<SessionDisconnected>());
+    await device.open();
+    expect(
+      s.open,
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('spent'),
+        ),
+      ),
+    );
     await s.close();
   });
 }

@@ -330,6 +330,9 @@ final class _StubTransport implements Transport {
   TransportKind get kind => TransportKind.fake;
 
   @override
+  int get maxWriteLength => 4105;
+
+  @override
   Stream<Uint8List> get incoming => _incoming.stream;
 
   @override
@@ -371,6 +374,9 @@ final class _ManualTransport implements Transport {
 
   @override
   TransportKind get kind => TransportKind.fake;
+
+  @override
+  int get maxWriteLength => 4105;
 
   @override
   Stream<Uint8List> get incoming => _incoming.stream;

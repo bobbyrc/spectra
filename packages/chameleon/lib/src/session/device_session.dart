@@ -99,6 +99,14 @@ final class DeviceSession {
   /// [close] was called; a session is not reopenable.
   bool _shutDown = false;
 
+  /// The dispatcher has been released, so this session can never talk to a
+  /// device again — see [open].
+  bool _spent = false;
+
+  /// A transport state that explains why the current [open] cannot succeed
+  /// (pairing, permission, adapter), if one arrived during it.
+  TransportError? _connectFailure;
+
   // Owned by the `session_polling.dart` part: an extension cannot hold state,
   // so the lease count, the busy depth and the poll timer live here.
   Timer? _pollTimer;
@@ -119,13 +127,17 @@ final class DeviceSession {
   /// Opens the transport and runs the handshake. Throws, leaving the session
   /// disconnected, when either fails.
   ///
-  /// Re-entrant calls join the open already in flight; opening a session that
-  /// is already connected, or one that has been closed, is a programming
-  /// error and throws [StateError].
+  /// Re-entrant calls join the open already in flight. Opening a session that
+  /// is already connected, one that has been closed, or one that is spent —
+  /// its transport released after a disconnect — is a programming error and
+  /// throws [StateError]; reconnecting means a new [DeviceSession].
   Future<void> open() async {
     final pending = _opening;
     if (pending != null) return pending;
     if (_shutDown) throw StateError('this session has been closed');
+    if (_spent) {
+      throw StateError('this session is spent; create a new DeviceSession');
+    }
     final state = connectionState.value;
     if (state is! SessionDisconnected) {
       throw StateError('session is already ${state.runtimeType}');
@@ -140,24 +152,40 @@ final class DeviceSession {
   }
 
   Future<void> _open() async {
+    _connectFailure = null;
     connectionState.set(const SessionConnecting());
     try {
       await transport.open();
     } on ChameleonException catch (e) {
-      connectionState.set(
-        SessionDisconnected(DisconnectCause.unexpected, error: e),
-      );
-      rethrow;
+      throw _failOpen(_connectFailure ?? e);
+    }
+    final early = _connectFailure;
+    if (early != null) {
+      await transport.close();
+      throw _failOpen(early);
     }
     try {
       await _handshake();
     } on ChameleonException catch (e) {
+      // A transport that reported pairing, permission or adapter trouble
+      // while the handshake was in flight explains the failure better than
+      // the Disconnected the in-flight command saw.
+      final failure = _failOpen(_connectFailure ?? e);
+      await transport.close();
+      throw failure;
+    }
+  }
+
+  /// Records [e] as the reason this session is not connected, unless a
+  /// transport state event has already landed the session on one. Returns
+  /// the error [open] should throw.
+  ChameleonException _failOpen(ChameleonException e) {
+    if (connectionState.value is! SessionDisconnected) {
       connectionState.set(
         SessionDisconnected(DisconnectCause.unexpected, error: e),
       );
-      await transport.close();
-      rethrow;
     }
+    return e;
   }
 
   /// Sends a command. Internal to the SDK; app code uses the facades.
@@ -220,12 +248,21 @@ final class DeviceSession {
   }
 
   void _onTransportState(TransportState s) {
-    if (s is! TransportClosed) return;
+    // Pairing, permission and adapter states are not closes, but they mean
+    // the same thing to a session: this link will carry nothing. They are
+    // mapped to a disconnect carrying the matching typed error so the app
+    // can show the right step (spec 5.1).
+    final failure = _transportFailure(s);
+    if (failure != null) _connectFailure = failure;
+    final closed = failure == null
+        ? s
+        : TransportClosed(CloseCause.linkLost, error: failure);
+    if (closed is! TransportClosed) return;
     // Nothing to poll once the link is gone, whatever the session state
     // becomes: an updating session is waiting for the device to come back.
     _stopPolling();
     final current = connectionState.value;
-    final next = stateAfterClose(s, current);
+    final next = stateAfterClose(closed, current);
     if (identical(next, current)) return;
     if (current is! SessionDisconnected) connectionState.set(next);
     // Terminal: nothing more will come down this link. Whatever the device's
@@ -236,7 +273,15 @@ final class DeviceSession {
   }
 
   /// Drops everything tied to the transport. Idempotent.
+  static TransportError? _transportFailure(TransportState s) => switch (s) {
+    TransportPairingRequired() => const PairingRequired(),
+    TransportPermissionDenied() => const PermissionDenied(),
+    TransportAdapterOff() => const AdapterOff(),
+    _ => null,
+  };
+
   Future<void> _releaseTransport() async {
+    _spent = true;
     await _transportSub?.cancel();
     _transportSub = null;
     await _dispatcher.dispose();

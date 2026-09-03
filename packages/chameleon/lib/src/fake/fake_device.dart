@@ -108,6 +108,20 @@ final class FakeDevice implements Transport {
   /// work again afterwards.
   void leaveBootloader() => firmware.bootloaderRequested = false;
 
+  /// Pushes [s] onto the state stream, for the states no fake can reach on
+  /// its own: pairing required, permission denied, adapter off.
+  ///
+  /// With [setCurrent] false the event is emitted without moving
+  /// [currentState], which is how a test delivers a state the transport has
+  /// already moved past.
+  void emitState(TransportState s, {bool setCurrent = true}) {
+    if (setCurrent) {
+      _setState(s);
+    } else {
+      _state.add(s);
+    }
+  }
+
   /// Simulates an unexpected disconnect: cable pulled, out of range.
   Future<void> simulateLinkLoss() async =>
       _setState(const TransportClosed(CloseCause.linkLost));
@@ -130,6 +144,11 @@ final class FakeDevice implements Transport {
       _setState(const TransportClosed(CloseCause.requested));
     }
   }
+
+  /// The whole of the largest frame the protocol defines: 4096 data bytes
+  /// plus the 9-byte header, length and LRCs.
+  @override
+  int get maxWriteLength => 4105;
 
   @override
   Future<void> write(Uint8List bytes) async {

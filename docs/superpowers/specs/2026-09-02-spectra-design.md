@@ -164,13 +164,21 @@ abstract class Transport {
   Future<void> close();
   Stream<Uint8List> get incoming;
   Future<void> write(Uint8List bytes);
-  Stream<TransportState> get state; // opening, open, closed(cause), pairingRequired
+  int get maxWriteLength;
+  // opening, open, closed(cause), pairingRequired, permissionDenied, adapterOff
+  Stream<TransportState> get state;
 }
 ```
 
 Transports move bytes only and know nothing about frames. `closed(cause)`
 carries whether the close was requested, expected (bootloader reboot) or
-unexpected (cable pulled, link lost).
+unexpected (cable pulled, link lost). `permissionDenied` and `adapterOff`
+join `pairingRequired` as states that are not closes but still mean the link
+will carry nothing, so the app can show the permission or "turn Bluetooth on"
+step (spec 5.1) rather than a connection error; the session maps all three to
+`SessionDisconnected(unexpected)` carrying the matching typed error.
+`maxWriteLength` is informational — the dispatcher never chunks, because
+every request fits in one frame.
 
 ### 4.2 Discovery and identity
 

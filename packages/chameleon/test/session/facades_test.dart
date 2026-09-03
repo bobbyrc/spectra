@@ -27,6 +27,8 @@ final class FailingWriteDevice implements Transport {
   @override
   TransportKind get kind => inner.kind;
   @override
+  int get maxWriteLength => inner.maxWriteLength;
+  @override
   Future<void> open() => inner.open();
   @override
   Future<void> close() => inner.close();
