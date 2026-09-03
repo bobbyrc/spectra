@@ -161,6 +161,8 @@ Future<void> openFrameLog(WidgetTester tester) =>
     _openTool(tester, 'Frame log');
 Future<void> openUpdate(WidgetTester tester) =>
     _openTool(tester, 'Firmware update');
+Future<void> openDictionaries(WidgetTester tester) =>
+    _openTool(tester, 'Key dictionaries');
 
 /// Unmounts the widget tree and pumps a few explicit-duration frames.
 ///

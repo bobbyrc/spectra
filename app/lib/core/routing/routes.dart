@@ -9,6 +9,13 @@ abstract final class AppRoutes {
   static const String update = '/tools/update';
   static const String settings = '/settings';
 
+  /// The key lists (spec 7.2 puts dictionaries in the Tools tab).
+  static const String dictionaries = '$tools/dictionaries';
+
+  /// One key list's detail screen.
+  static String dictionary(String id) =>
+      '$dictionaries/${Uri.encodeComponent(id)}';
+
   /// The bootloader recovery entry (spec 5.5): the update screen, told which
   /// bootloader to talk to. Phase 8 reads the `recover` query parameter.
   static String recover(String transportId) =>

@@ -23,6 +23,12 @@ class ToolsPage extends StatelessWidget {
           onTap: () => GoRouter.of(context).go(AppRoutes.frameLog),
         ),
         SpectraListTile(
+          title: l10n.toolsDictionaries,
+          subtitle: l10n.toolsDictionariesSubtitle,
+          leading: const Icon(Icons.key_outlined),
+          onTap: () => GoRouter.of(context).go(AppRoutes.dictionaries),
+        ),
+        SpectraListTile(
           title: l10n.toolsUpdate,
           leading: const Icon(Icons.system_update_alt),
           onTap: () => GoRouter.of(context).go(AppRoutes.update),

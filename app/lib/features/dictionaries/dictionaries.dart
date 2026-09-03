@@ -16,3 +16,5 @@ export 'state/selected_dictionary.dart'
         candidateMifareKeysProvider,
         selectedDictionaryIdProvider,
         selectedDictionaryProvider;
+export 'ui/dictionaries_page.dart'
+    show DictionariesPage, dictionaryDisplayName, showDictionaryNameSheet;

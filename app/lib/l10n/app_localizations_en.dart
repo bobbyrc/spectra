@@ -916,4 +916,53 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonClose => 'Close';
+
+  @override
+  String get toolsDictionaries => 'Key dictionaries';
+
+  @override
+  String get toolsDictionariesSubtitle =>
+      'Key lists used when reading and writing cards.';
+
+  @override
+  String get dictTitle => 'Key dictionaries';
+
+  @override
+  String get dictBuiltInName => 'Default keys';
+
+  @override
+  String get dictUnnamed => 'Untitled list';
+
+  @override
+  String get dictEmpty => 'No key lists of your own yet.';
+
+  @override
+  String dictKeyCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count keys',
+      one: '$count key',
+      zero: 'No keys',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dictInUse => 'Used for reading and writing';
+
+  @override
+  String get dictUse => 'Use these keys';
+
+  @override
+  String get dictNew => 'New list';
+
+  @override
+  String get dictNameTitle => 'Name this list';
+
+  @override
+  String get dictNameLabel => 'Name';
+
+  @override
+  String get dictNameConfirm => 'Save';
 }

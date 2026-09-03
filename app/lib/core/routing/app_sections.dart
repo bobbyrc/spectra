@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../features/cards/cards.dart';
 import '../../features/dashboard/dashboard.dart';
+import '../../features/dictionaries/dictionaries.dart';
 import '../../features/settings/settings.dart';
 import '../../features/slots/slots.dart';
 import '../../features/tools/tools.dart';
@@ -92,6 +93,13 @@ final List<AppSection> appSections = <AppSection>[
         builder: (context, state) => UpdatePage(
           recoverTransportId: state.uri.queryParameters['recover'],
         ),
+      ),
+      // The `:id` detail route lands in Task 7 (`DictionaryDetailPage`
+      // does not exist yet) — landing it here now would push a tap that
+      // opens go_router's error page (pre-flight ruling M11).
+      GoRoute(
+        path: 'dictionaries',
+        builder: (context, state) => const DictionariesPage(),
       ),
     ],
   ),

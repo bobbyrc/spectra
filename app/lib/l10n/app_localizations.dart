@@ -1581,6 +1581,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close'**
   String get commonClose;
+
+  /// Tools entry that opens the key lists.
+  ///
+  /// In en, this message translates to:
+  /// **'Key dictionaries'**
+  String get toolsDictionaries;
+
+  /// Subtitle of the Tools entry for key lists.
+  ///
+  /// In en, this message translates to:
+  /// **'Key lists used when reading and writing cards.'**
+  String get toolsDictionariesSubtitle;
+
+  /// Title of the key lists screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Key dictionaries'**
+  String get dictTitle;
+
+  /// Name of the built-in, read-only key list.
+  ///
+  /// In en, this message translates to:
+  /// **'Default keys'**
+  String get dictBuiltInName;
+
+  /// Name shown for a saved key list with no name.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled list'**
+  String get dictUnnamed;
+
+  /// Shown when only the built-in list exists.
+  ///
+  /// In en, this message translates to:
+  /// **'No key lists of your own yet.'**
+  String get dictEmpty;
+
+  /// How many keys a list holds.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0 {No keys} one {{count} key} other {{count} keys}}'**
+  String dictKeyCount(int count);
+
+  /// Marks the list a read or write takes its keys from.
+  ///
+  /// In en, this message translates to:
+  /// **'Used for reading and writing'**
+  String get dictInUse;
+
+  /// Selects a list as the one reads and writes use.
+  ///
+  /// In en, this message translates to:
+  /// **'Use these keys'**
+  String get dictUse;
+
+  /// Creates an empty key list.
+  ///
+  /// In en, this message translates to:
+  /// **'New list'**
+  String get dictNew;
+
+  /// Title of the sheet that names a key list.
+  ///
+  /// In en, this message translates to:
+  /// **'Name this list'**
+  String get dictNameTitle;
+
+  /// Label of the key list name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get dictNameLabel;
+
+  /// Confirms a key list's name.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get dictNameConfirm;
 }
 
 class _AppLocalizationsDelegate
