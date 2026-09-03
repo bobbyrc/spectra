@@ -141,7 +141,7 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsqlite3-dev
+      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsqlite3-dev libfuse2
       - run: flutter pub get
       - name: Build
         run: >-
@@ -149,10 +149,38 @@ jobs:
           --build-name ${{ needs.preflight.outputs.build_name }}
           --build-number ${{ needs.preflight.outputs.build_number }}
         working-directory: app
+      # appimagetool is not on ubuntu-latest; download the pinned AppImageKit
+      # continuous release and put it on PATH so linux_appimage.sh's
+      # `command -v appimagetool` check finds it instead of silently
+      # skipping the AppImage build.
+      - name: Install appimagetool
+        run: |
+          curl -fsSL -o /usr/local/bin/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /usr/local/bin/appimagetool
+      # linux_appimage.sh's tarball takes its top-level directory name from
+      # the basename of the bundle dir it is given, so stage the Flutter
+      # bundle under a dir named spectra-<version>-linux-x64 first.
+      - name: Stage the bundle
+        run: |
+          STAGE="staging/spectra-${BUILD_NAME}-linux-x64"
+          mkdir -p "$(dirname "$STAGE")"
+          cp -r app/build/linux/x64/release/bundle "$STAGE"
+          echo "STAGED_BUNDLE=$STAGE" >> "$GITHUB_ENV"
+        env:
+          BUILD_NAME: ${{ needs.preflight.outputs.build_name }}
       - name: Package
         run: >-
-          tool/package/linux_appimage.sh app/build/linux/x64/release/bundle
+          tool/package/linux_appimage.sh "$STAGED_BUNDLE"
           ${{ needs.preflight.outputs.build_name }} dist
+      - name: Verify the AppImage was built
+        run: |
+          shopt -s nullglob
+          files=(dist/*.AppImage)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "linux: no .AppImage in dist/ — appimagetool must have failed" >&2
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: linux
