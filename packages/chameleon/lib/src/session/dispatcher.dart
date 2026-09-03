@@ -118,7 +118,15 @@ final class CommandDispatcher {
     if (_disposed) {
       return Future.error(const Disconnected('dispatcher disposed'));
     }
-    if (_closed) return Future.error(const Disconnected());
+    if (_closed) {
+      // The transport, not the cached flag, is the authority: a dispatcher
+      // built before `open()` is still marked closed for one event turn
+      // after the transport has actually opened.
+      if (_transport.currentState is! TransportOpen) {
+        return Future.error(const Disconnected());
+      }
+      _closed = false;
+    }
     final p = _Pending(request, timeout, expectsResponse, cancel);
     _queue.addLast(p);
     p.releaseCancel = cancel?.onCancel(() => _cancel(p));

@@ -38,6 +38,11 @@ final class UnsupportedFirmware extends ChameleonException {
   final UnsupportedReason reason;
 }
 
+/// A reader command was asked of a device that has no reader (the Lite).
+final class ReaderUnavailable extends ChameleonException {
+  const ReaderUnavailable() : super('this device has no reader');
+}
+
 sealed class TransportError extends ChameleonException {
   const TransportError(super.message);
 }
