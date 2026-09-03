@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
@@ -6,7 +8,9 @@ import 'package:spectra_ui/spectra_ui.dart';
 import '../../../core/errors/problem_view.dart';
 import '../../../core/format/tag_labels.dart';
 import '../../../core/routing/sub_page_scaffold.dart';
+import '../../../data/data.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../dictionaries/dictionaries.dart';
 import '../../slots/slots.dart' show showSlotPicker;
 import '../state/read_controller.dart';
 import '../state/read_state.dart';
@@ -41,6 +45,23 @@ class ReadPage extends ConsumerWidget {
             ),
             const SizedBox(height: SpectraSpacing.lg),
           ],
+          SpectraListTile(
+            title: l10n.cardsReadKeys(
+              dictionaryDisplayName(
+                ref.watch(selectedDictionaryProvider).value ??
+                    builtInDictionary(),
+                l10n,
+              ),
+            ),
+            leading: const Icon(Icons.key),
+            trailing: TextButton(
+              onPressed: state.busy
+                  ? null
+                  : () => unawaited(_chooseKeys(context, ref)),
+              child: Text(l10n.cardsReadKeysChange),
+            ),
+          ),
+          const SizedBox(height: SpectraSpacing.lg),
           if (state.busy)
             SpectraProgressIndicator(
               label: state.progress == null
@@ -56,6 +77,12 @@ class ReadPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _chooseKeys(BuildContext context, WidgetRef ref) async {
+    final KeyDictionary? chosen = await showDictionaryPicker(context);
+    if (chosen == null) return;
+    await ref.read(selectedDictionaryIdProvider.notifier).select(chosen.id);
   }
 }
 

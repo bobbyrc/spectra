@@ -556,6 +556,18 @@ abstract class AppLocalizations {
   /// **'{count, plural, one {Keys found for 1 sector.} other {Keys found for {count} sectors.}}'**
   String cardsReadKeysFound(int count);
 
+  /// Names the key list a read will try.
+  ///
+  /// In en, this message translates to:
+  /// **'Keys: {name}'**
+  String cardsReadKeys(String name);
+
+  /// Opens the key list picker from the read screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get cardsReadKeysChange;
+
   /// Saves the card that was just read.
   ///
   /// In en, this message translates to:
@@ -1623,6 +1635,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =0 {No keys} one {{count} key} other {{count} keys}}'**
   String dictKeyCount(int count);
+
+  /// Title of the key list picker sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a key list'**
+  String get dictPickerTitle;
 
   /// Marks the list a read or write takes its keys from.
   ///

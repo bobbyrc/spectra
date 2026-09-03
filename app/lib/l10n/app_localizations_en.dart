@@ -292,6 +292,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String cardsReadKeys(String name) {
+    return 'Keys: $name';
+  }
+
+  @override
+  String get cardsReadKeysChange => 'Change';
+
+  @override
   String get cardsSaveToLibrary => 'Save to library';
 
   @override
@@ -947,6 +955,9 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get dictPickerTitle => 'Choose a key list';
 
   @override
   String get dictInUse => 'Used for reading and writing';

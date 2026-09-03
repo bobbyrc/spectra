@@ -173,6 +173,13 @@
     "description": "How many sectors a working key was found for.",
     "placeholders": {"count": {"type": "int"}}
   },
+  "cardsReadKeys": "Keys: {name}",
+  "@cardsReadKeys": {
+    "description": "Names the key list a read will try.",
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "cardsReadKeysChange": "Change",
+  "@cardsReadKeysChange": {"description": "Opens the key list picker from the read screen."},
   "cardsSaveToLibrary": "Save to library",
   "@cardsSaveToLibrary": {"description": "Saves the card that was just read."},
   "cardsEmulateThis": "Emulate this card",
@@ -614,6 +621,8 @@
     "description": "How many keys a list holds.",
     "placeholders": {"count": {"type": "int"}}
   },
+  "dictPickerTitle": "Choose a key list",
+  "@dictPickerTitle": {"description": "Title of the key list picker sheet."},
   "dictInUse": "Used for reading and writing",
   "@dictInUse": {"description": "Marks the list a read or write takes its keys from."},
   "dictUse": "Use these keys",

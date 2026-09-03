@@ -21,3 +21,4 @@ export 'ui/dictionaries_page.dart'
 export 'ui/dictionary_detail_page.dart' show DictionaryDetailPage;
 export 'ui/dictionary_import_sheet.dart'
     show importProblemMessage, showDictionaryImportSheet;
+export 'ui/dictionary_picker.dart' show DictionaryPicker, showDictionaryPicker;
