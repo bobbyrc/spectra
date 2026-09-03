@@ -2,6 +2,9 @@
 library;
 
 export 'l10n/spectra_ui_localizations.dart';
+export 'src/theme/spectra_app.dart';
+export 'src/theme/spectra_theme.dart';
+export 'src/theme/theme_data.dart';
 export 'src/tokens/color_scheme.dart';
 export 'src/tokens/colors.dart';
 export 'src/tokens/motion.dart';
