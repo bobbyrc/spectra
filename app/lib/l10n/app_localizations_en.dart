@@ -296,6 +296,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsSaved => 'Saved to the library.';
 
   @override
+  String get cardsTitle => 'Cards';
+
+  @override
+  String get cardsEmpty =>
+      'No cards yet. Read one, or import from another app.';
+
+  @override
+  String get cardsNoMatches => 'No cards match that search.';
+
+  @override
+  String get cardsSearch => 'Search';
+
+  @override
+  String get cardsAllFolders => 'All folders';
+
+  @override
+  String get cardsSortRecent => 'Recent';
+
+  @override
+  String get cardsSortName => 'Name';
+
+  @override
+  String cardsSubtitle(String tagType, String folder) {
+    return '$tagType · $folder';
+  }
+
+  @override
+  String cardsSubtitleNoFolder(String tagType) {
+    return '$tagType';
+  }
+
+  @override
   String get comingSoonSettings => 'Settings arrive in Phase 9.';
 
   @override

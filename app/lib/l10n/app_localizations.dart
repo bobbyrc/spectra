@@ -598,6 +598,60 @@ abstract class AppLocalizations {
   /// **'Saved to the library.'**
   String get cardsSaved;
 
+  /// Heading of the card library.
+  ///
+  /// In en, this message translates to:
+  /// **'Cards'**
+  String get cardsTitle;
+
+  /// Shown when the library has no cards at all.
+  ///
+  /// In en, this message translates to:
+  /// **'No cards yet. Read one, or import from another app.'**
+  String get cardsEmpty;
+
+  /// Shown when the filter hides every card.
+  ///
+  /// In en, this message translates to:
+  /// **'No cards match that search.'**
+  String get cardsNoMatches;
+
+  /// Label of the library search field.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get cardsSearch;
+
+  /// Folder filter entry that clears the filter.
+  ///
+  /// In en, this message translates to:
+  /// **'All folders'**
+  String get cardsAllFolders;
+
+  /// Sorts the library by last change.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get cardsSortRecent;
+
+  /// Sorts the library alphabetically.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get cardsSortName;
+
+  /// Second line of a library row when the card has a folder: the tag type and folder.
+  ///
+  /// In en, this message translates to:
+  /// **'{tagType} · {folder}'**
+  String cardsSubtitle(String tagType, String folder);
+
+  /// Second line of a library row when the card has no folder (ruling 20: no dangling separator).
+  ///
+  /// In en, this message translates to:
+  /// **'{tagType}'**
+  String cardsSubtitleNoFolder(String tagType);
+
   /// Placeholder body of the Settings tab.
   ///
   /// In en, this message translates to:
