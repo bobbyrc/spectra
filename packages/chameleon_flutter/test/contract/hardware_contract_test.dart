@@ -9,12 +9,14 @@ import 'transport_contract.dart';
 
 /// The same contract, against a device that is actually attached.
 ///
-/// Skipped unless run as `flutter test --tags hardware` with a Chameleon
+/// Skipped unless run as `flutter test --tags hardware --run-skipped
+/// test/contract` (from `packages/chameleon_flutter`) with a Chameleon
 /// plugged in. Nothing here is proof of anything until the user reports
 /// hardware handoff H1; see docs/hardware-checklist.md.
 ///
-/// Set SPECTRA_SERIAL_CONTROL_LINES=hardwareFlowControl to run the suite in
-/// the other control-line mode; H1 asks the user which one works.
+/// Pass `--dart-define=SPECTRA_SERIAL_CONTROL_LINES=hardwareFlowControl` to
+/// run the suite in the other control-line mode; H1 asks the user which one
+/// works.
 void main() {
   final adapter = defaultSerialPortAdapter();
   if (adapter == null) {
@@ -44,12 +46,19 @@ void main() {
     print('hardware: found ${found.map((d) => d.transportId).join(', ')}');
   });
 
-  transportContractTests(
-    'SerialTransport on real hardware (${mode.name})',
-    () => SerialTransport(
-      path: found.firstWhere((d) => !d.isBootloader).transportId,
-      adapter: adapter,
+  transportContractTests('SerialTransport on real hardware (${mode.name})', () {
+    final device = found.firstWhere(
+      (d) => !d.isBootloader,
+      orElse: () => throw StateError(
+        'no Chameleon in application mode was found; if it is in DFU '
+        '(bootloader) mode, reboot it into the application, or replug '
+        'the USB cable and re-run',
+      ),
+    );
+    return ChameleonTransports.transportFor(
+      device,
+      serialAdapter: adapter,
       controlLines: mode,
-    ),
-  );
+    );
+  });
 }

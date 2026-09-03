@@ -52,6 +52,21 @@ BleTransport _build() => BleTransport(
   maxBackoff: const Duration(milliseconds: 4),
 );
 
+/// A minimal-MTU peripheral: the 9-byte GET_APP_VERSION request still fits
+/// in one write, but responses larger than ~20 bytes must fragment across
+/// several notifications, exercising [BleTransport]'s chunking.
+BleTransport _buildSmallMtu() => BleTransport(
+  deviceId: 'AA:BB:CC:DD:EE:FF',
+  adapter: _RespondingBleAdapter()..mtu = 23,
+  platform: HostPlatform.macos,
+  initialBackoff: const Duration(milliseconds: 1),
+  maxBackoff: const Duration(milliseconds: 4),
+);
+
 void main() {
   transportContractTests('BleTransport over FakeBleAdapter', _build);
+  transportContractTests(
+    'BleTransport over FakeBleAdapter with mtu=23',
+    _buildSmallMtu,
+  );
 }

@@ -53,6 +53,7 @@ final class FakeDevice implements Transport {
   bool _corruptNext = false;
   Object? _failNextWrite;
   Completer<void>? _writeGate;
+  bool _disposed = false;
 
   /// Every request frame the device has decoded, in order.
   List<Frame> get received => List.unmodifiable(_received);
@@ -151,6 +152,9 @@ final class FakeDevice implements Transport {
 
   @override
   Future<void> open() async {
+    if (_disposed) {
+      throw const Disconnected('this fake device was closed; make a new one');
+    }
     _setState(const TransportOpening());
     await Future<void>.delayed(latency);
     final err = openError;
@@ -166,6 +170,7 @@ final class FakeDevice implements Transport {
   /// A closed [FakeDevice] does not open again; make a new one.
   @override
   Future<void> close() async {
+    _disposed = true;
     if (_current is TransportOpen) {
       _setState(const TransportClosed(CloseCause.requested));
     }

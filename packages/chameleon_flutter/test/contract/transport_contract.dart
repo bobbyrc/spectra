@@ -51,6 +51,8 @@ void transportContractTests(String description, Transport Function() make) {
       });
       await t.open();
       await t.write(_getAppVersionRequest());
+      // 2s: on some CDC-ACM stacks, asserting DTR resets the MCU, delaying
+      // the first reply well past a typical command timeout (H1 watch item).
       final bytes = await received.future.timeout(const Duration(seconds: 2));
       expect(bytes, isNotEmpty);
       await sub.cancel();
@@ -115,6 +117,18 @@ void transportContractTests(String description, Transport Function() make) {
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(after.whereType<TransportOpen>(), isEmpty);
       await sub.cancel();
+    });
+
+    test('a closed transport does not open again', () async {
+      final t = make();
+      await t.open();
+      await t.close();
+      await expectLater(t.open(), throwsA(isA<Disconnected>()));
+    });
+
+    test('maxWriteLength covers the largest protocol frame', () {
+      final t = make();
+      expect(t.maxWriteLength, greaterThanOrEqualTo(4105));
     });
   });
 }
