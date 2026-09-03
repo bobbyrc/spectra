@@ -5,6 +5,7 @@ import 'package:chameleon_flutter/chameleon_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../data/data.dart';
+import '../emulator/demo_cards.dart';
 import 'active_session.dart';
 import 'session_identity.dart';
 
@@ -63,10 +64,11 @@ final class SessionsState {
 }
 
 /// How a [DiscoveredDevice] becomes a [Transport]. Injected so tests connect
-/// to a scripted `FakeDevice` (spec 8.6).
+/// to a scripted `FakeDevice` (spec 8.6). The emulated device gets demo
+/// cards in its field so every feature works in emulator mode (spec 7.5).
 @Riverpod(keepAlive: true)
 Transport Function(DiscoveredDevice) transportFactory(Ref ref) =>
-    ChameleonTransports.transportFor;
+    emulatorAwareTransport;
 
 /// [DeviceSession] tunables [Sessions] passes through when it opens a
 /// session. Defaults match [DeviceSession]'s own production defaults; the

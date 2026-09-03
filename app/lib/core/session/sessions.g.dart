@@ -9,13 +9,15 @@ part of 'sessions.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 /// How a [DiscoveredDevice] becomes a [Transport]. Injected so tests connect
-/// to a scripted `FakeDevice` (spec 8.6).
+/// to a scripted `FakeDevice` (spec 8.6). The emulated device gets demo
+/// cards in its field so every feature works in emulator mode (spec 7.5).
 
 @ProviderFor(transportFactory)
 final transportFactoryProvider = TransportFactoryProvider._();
 
 /// How a [DiscoveredDevice] becomes a [Transport]. Injected so tests connect
-/// to a scripted `FakeDevice` (spec 8.6).
+/// to a scripted `FakeDevice` (spec 8.6). The emulated device gets demo
+/// cards in its field so every feature works in emulator mode (spec 7.5).
 
 final class TransportFactoryProvider
     extends
@@ -26,7 +28,8 @@ final class TransportFactoryProvider
         >
     with $Provider<Transport Function(DiscoveredDevice)> {
   /// How a [DiscoveredDevice] becomes a [Transport]. Injected so tests connect
-  /// to a scripted `FakeDevice` (spec 8.6).
+  /// to a scripted `FakeDevice` (spec 8.6). The emulated device gets demo
+  /// cards in its field so every feature works in emulator mode (spec 7.5).
   TransportFactoryProvider._()
     : super(
         from: null,
@@ -62,7 +65,7 @@ final class TransportFactoryProvider
   }
 }
 
-String _$transportFactoryHash() => r'963cff740bf24a1f5ee0783907db6934403fbb91';
+String _$transportFactoryHash() => r'c6c3987d302d03708f99b0e144f04bb6b5f745e4';
 
 @ProviderFor(sessionOptions)
 final sessionOptionsProvider = SessionOptionsProvider._();
