@@ -136,4 +136,27 @@ void main() {
     expect(adapter.disconnected, isTrue);
     await adapter.dispose();
   });
+
+  test('a connection drop after open surfaces as Disconnected on responses, '
+      'then the stream closes', () async {
+    final adapter = FakeBleAdapter();
+    final channel = build(adapter);
+    await channel.open();
+    final errors = <Object>[];
+    var done = false;
+    channel.responses.listen(
+      (_) {},
+      onError: errors.add,
+      onDone: () => done = true,
+    );
+    adapter.emitDisconnect();
+    await Future<void>.delayed(Duration.zero);
+    expect(errors, [isA<Disconnected>()]);
+    expect(done, isTrue);
+    await expectLater(
+      channel.writeControl(Uint8List.fromList(const [1])),
+      throwsA(isA<Disconnected>()),
+    );
+    await adapter.dispose();
+  });
 }

@@ -51,6 +51,7 @@ final class BleDfuChannel implements DfuChannel {
       StreamController<Uint8List>.broadcast();
 
   StreamSubscription<Uint8List>? _notifySub;
+  StreamSubscription<bool>? _connectionSub;
   Future<void> _writeTail = Future<void>.value();
   int _maxDataWrite = 20;
   bool _open = false;
@@ -104,7 +105,27 @@ final class BleDfuChannel implements DfuChannel {
             }
           },
         );
+    _connectionSub = _adapter.connectionChanges(deviceId).listen((connected) {
+      if (!connected) _dropped();
+    }, onError: (Object _) => _dropped());
     _open = true;
+  }
+
+  /// The link dropped after [open] succeeded: surfaces as a [Disconnected]
+  /// error on [responses], then the stream closes. Mirrors [BleTransport]'s
+  /// `_dropped`, minus the state machine this channel has none of.
+  void _dropped() {
+    if (_closed) return;
+    _closed = true;
+    _open = false;
+    unawaited(_notifySub?.cancel());
+    _notifySub = null;
+    unawaited(_connectionSub?.cancel());
+    _connectionSub = null;
+    if (!_responses.isClosed) {
+      _responses.addError(const Disconnected('the BLE link dropped'));
+      unawaited(_responses.close());
+    }
   }
 
   Future<int> _resolveWriteSize() async {
@@ -194,6 +215,8 @@ final class BleDfuChannel implements DfuChannel {
     _open = false;
     await _notifySub?.cancel();
     _notifySub = null;
+    await _connectionSub?.cancel();
+    _connectionSub = null;
     if (!_responses.isClosed) await _responses.close();
     await _disconnectQuietly();
   }
