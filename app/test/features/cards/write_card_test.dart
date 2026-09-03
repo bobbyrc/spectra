@@ -870,6 +870,51 @@ void main() {
     });
 
     testWidgetsApp(
+      'the unread-sector warning goes back to confirm with the toggle intact',
+      (tester) async {
+        final (_, FakeMf1Card card) = await openWriterWithMf1Card(tester);
+        final BuildContext context = tester.element(
+          find.byType(SpectraAppShell),
+        );
+        final Uint8List original = Uint8List.fromList(card.blocks);
+
+        final Future<bool?> pending = showWriteToCardSheet(
+          context,
+          type: TagType.mifare1k,
+          bytes: classic1kKeyAZeroed(),
+          name: 'Read dump',
+        );
+        await pumpFrames(tester);
+        await tester.tap(_inSheet(find.byType(Switch)));
+        await pumpFrames(tester);
+        await tester.tap(_inSheet(find.text('Write')));
+        await pumpFrames(tester);
+        expect(
+          _inSheet(find.text('Some sectors have no known key')),
+          findsOneWidget,
+        );
+
+        // Review I3: the way out of the warning was 'Write anyway' or
+        // dismissing the sheet; there was no way back to the toggle that
+        // caused it.
+        await tester.tap(_inSheet(find.text('Cancel')));
+        await pumpFrames(tester);
+        expect(_inSheet(find.text('Write')), findsOneWidget);
+        // The toggle is local widget state and survives the reset, so the
+        // user can turn it off rather than set it again.
+        expect(
+          tester.widget<Switch>(_inSheet(find.byType(Switch))).value,
+          isTrue,
+        );
+        expect(card.blocks, original);
+
+        await tester.tap(_inSheet(find.byIcon(Icons.close)));
+        await pumpFrames(tester);
+        expect(await pending, isNull);
+      },
+    );
+
+    testWidgetsApp(
       'a firmware-level failure opens the update screen, not a reset',
       (tester) async {
         final CardWriter writer = await openSlowWriter(tester);

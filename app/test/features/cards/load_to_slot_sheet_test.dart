@@ -242,6 +242,43 @@ void main() {
     },
   );
 
+  testWidgetsApp('the unread-sector warning offers a way back to confirm', (
+    tester,
+  ) async {
+    await openLoader(tester);
+    final BuildContext context = tester.element(find.byType(SpectraAppShell));
+
+    final Future<bool?> pending = showLoadToSlotSheet(
+      context,
+      slotIndex: 5,
+      type: TagType.mifare1k,
+      bytes: classic1kDataOnly(),
+      name: 'Unread sectors',
+    );
+    await pumpFrames(tester);
+    await tester.tap(_inSheet(find.text('Load')));
+    await pumpFrames(tester);
+    expect(
+      _inSheet(find.text('Some sectors have no known key')),
+      findsOneWidget,
+    );
+
+    // Review I3: 'Load anyway' was the only button, so a user who did not
+    // want to load blank sectors had to dismiss the sheet.
+    await tester.tap(_inSheet(find.text('Cancel')));
+    await pumpFrames(tester);
+    expect(_inSheet(find.text('Some sectors have no known key')), findsNothing);
+    expect(_inSheet(find.text('Load')), findsOneWidget);
+
+    // Nothing reached the device.
+    final List<SlotView> views = readProvider(tester, slotViewsProvider);
+    expect(views[5].slot.hfType, TagType.undefined);
+
+    await tester.tap(_inSheet(find.byIcon(Icons.close)));
+    await pumpFrames(tester);
+    expect(await pending, isNull);
+  });
+
   testWidgetsApp('opening the sheet a second time resets the previous run', (
     tester,
   ) async {

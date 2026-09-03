@@ -178,6 +178,11 @@ class _WriteCardBodyState extends ConsumerState<_WriteCardBody> {
       return _UnreadSectorsWarning(
         sectors: sectors,
         onConfirm: () => _write(confirmUnread: true),
+        // Back to the confirm card, where the trailers toggle — local
+        // widget state, untouched by `reset()` — can be turned off
+        // instead. A warning whose only button is "Write anyway" is a
+        // one-way door (review I3).
+        onBack: writer.reset,
       );
     }
 
@@ -245,9 +250,16 @@ class _Finished extends StatelessWidget {
 /// card. Styled like `load_to_slot_sheet.dart`'s `_UnreadSectorsWarning` —
 /// `spectra_ui` has no callout component, and this phase does not add one.
 class _UnreadSectorsWarning extends StatelessWidget {
-  const _UnreadSectorsWarning({required this.sectors, required this.onConfirm});
+  const _UnreadSectorsWarning({
+    required this.sectors,
+    required this.onConfirm,
+    required this.onBack,
+  });
 
   final List<int> sectors;
+
+  /// Returns to the confirm card without writing anything.
+  final VoidCallback onBack;
   final VoidCallback onConfirm;
 
   @override
@@ -291,6 +303,14 @@ class _UnreadSectorsWarning extends StatelessWidget {
             label: l10n.cardsWriteUnreadSectorsConfirm,
             variant: SpectraButtonVariant.secondary,
             onPressed: onConfirm,
+          ),
+          const SizedBox(height: SpectraSpacing.sm),
+          SpectraButton(
+            label: l10n.commonCancel,
+            // The prominent one: going back and dealing with the missing
+            // keys is the recommended action, not carrying on regardless.
+            // (`spectra_ui` has no tertiary weight — spec 6.2 has three.)
+            onPressed: onBack,
           ),
         ],
       ),

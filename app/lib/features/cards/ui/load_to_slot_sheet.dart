@@ -171,6 +171,9 @@ class _LoadToSlotBodyState extends ConsumerState<_LoadToSlotBody> {
       return _UnreadSectorsWarning(
         sectors: sectors,
         onConfirm: () => _load(confirmUnread: true),
+        // Back to the confirm card rather than only forward: a warning
+        // whose one button is "Load anyway" is a one-way door (review I3).
+        onBack: loader.reset,
       );
     }
     // The loader always makes the target slot the active one (it does not
@@ -270,9 +273,16 @@ class _Finished extends StatelessWidget {
 /// `save_card_sheet.dart`'s partial-read warning (R33) — `spectra_ui` has no
 /// callout component, and this phase does not add one.
 class _UnreadSectorsWarning extends StatelessWidget {
-  const _UnreadSectorsWarning({required this.sectors, required this.onConfirm});
+  const _UnreadSectorsWarning({
+    required this.sectors,
+    required this.onConfirm,
+    required this.onBack,
+  });
 
   final List<int> sectors;
+
+  /// Returns to the confirm card without loading anything.
+  final VoidCallback onBack;
   final VoidCallback onConfirm;
 
   @override
@@ -316,6 +326,14 @@ class _UnreadSectorsWarning extends StatelessWidget {
             label: l10n.cardsLoadUnreadSectorsConfirm,
             variant: SpectraButtonVariant.secondary,
             onPressed: onConfirm,
+          ),
+          const SizedBox(height: SpectraSpacing.sm),
+          SpectraButton(
+            label: l10n.commonCancel,
+            // The prominent one: going back and dealing with the missing
+            // keys is the recommended action, not carrying on regardless.
+            // (`spectra_ui` has no tertiary weight — spec 6.2 has three.)
+            onPressed: onBack,
           ),
         ],
       ),
