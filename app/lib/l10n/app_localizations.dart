@@ -478,11 +478,77 @@ abstract class AppLocalizations {
   /// **'Save name'**
   String get slotSaveName;
 
-  /// Placeholder body of the Cards tab.
+  /// Title of the read-a-card screen.
   ///
   /// In en, this message translates to:
-  /// **'The card library arrives in Phase 6.'**
-  String get comingSoonCards;
+  /// **'Card reader'**
+  String get cardsReadTitle;
+
+  /// Opens the read screen from the card library.
+  ///
+  /// In en, this message translates to:
+  /// **'Read a card'**
+  String get cardsReadAction;
+
+  /// Instruction shown before a scan starts.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold the card flat against the back of the Chameleon, then choose a frequency.'**
+  String get cardsReadHint;
+
+  /// Starts a 13.56 MHz scan.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan high frequency'**
+  String get cardsReadHf;
+
+  /// Starts a 125 kHz scan.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan low frequency'**
+  String get cardsReadLf;
+
+  /// Progress label while the field is being scanned.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking for a card…'**
+  String get cardsReadScanning;
+
+  /// Progress label while a full dump is being read.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading the card…'**
+  String get cardsReadDumping;
+
+  /// Clears the result and returns to the idle screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Read again'**
+  String get cardsReadAgain;
+
+  /// Explains a partial dump.
+  ///
+  /// In en, this message translates to:
+  /// **'{read} of {total} blocks could be read. Sectors with no known key are blank.'**
+  String cardsReadPartial(int read, int total);
+
+  /// Shown for a tag with no readable dump format.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectra can show this card\'s identity but cannot read its memory yet.'**
+  String get cardsReadIdentityOnly;
+
+  /// How many sectors a working key was found for.
+  ///
+  /// In en, this message translates to:
+  /// **'Keys found for {count} sectors.'**
+  String cardsReadKeysFound(int count);
+
+  /// Saves the card that was just read.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to library'**
+  String get cardsSaveToLibrary;
 
   /// Placeholder body of the Settings tab.
   ///

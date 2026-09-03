@@ -17,4 +17,10 @@ abstract final class AppRoutes {
   /// The slot editor (spec 7.2: a deep route pushed on top of its tab).
   /// [index] is the wire index, 0..7.
   static String slot(int index) => '$slots/$index';
+
+  /// The read screen (spec 7.7 step 3), pushed on top of the Cards tab.
+  static const String cardRead = '$cards/read';
+
+  /// One saved card's detail and editor (spec 7.7 step 4).
+  static String card(String id) => '$cards/${Uri.encodeComponent(id)}';
 }

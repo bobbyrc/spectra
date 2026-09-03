@@ -63,6 +63,9 @@ final List<AppSection> appSections = <AppSection>[
     icon: Icons.style_outlined,
     selectedIcon: Icons.style,
     builder: (context, state) => const CardsPage(),
+    subRoutes: <RouteBase>[
+      GoRoute(path: 'read', builder: (context, state) => const ReadPage()),
+    ],
   ),
   AppSection(
     path: AppRoutes.tools,

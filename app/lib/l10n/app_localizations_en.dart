@@ -230,7 +230,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String get slotSaveName => 'Save name';
 
   @override
-  String get comingSoonCards => 'The card library arrives in Phase 6.';
+  String get cardsReadTitle => 'Card reader';
+
+  @override
+  String get cardsReadAction => 'Read a card';
+
+  @override
+  String get cardsReadHint =>
+      'Hold the card flat against the back of the Chameleon, then choose a frequency.';
+
+  @override
+  String get cardsReadHf => 'Scan high frequency';
+
+  @override
+  String get cardsReadLf => 'Scan low frequency';
+
+  @override
+  String get cardsReadScanning => 'Looking for a card…';
+
+  @override
+  String get cardsReadDumping => 'Reading the card…';
+
+  @override
+  String get cardsReadAgain => 'Read again';
+
+  @override
+  String cardsReadPartial(int read, int total) {
+    return '$read of $total blocks could be read. Sectors with no known key are blank.';
+  }
+
+  @override
+  String get cardsReadIdentityOnly =>
+      'Spectra can show this card\'s identity but cannot read its memory yet.';
+
+  @override
+  String cardsReadKeysFound(int count) {
+    return 'Keys found for $count sectors.';
+  }
+
+  @override
+  String get cardsSaveToLibrary => 'Save to library';
 
   @override
   String get comingSoonSettings => 'Settings arrive in Phase 9.';
