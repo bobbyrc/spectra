@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'database/database_providers.dart';
 import 'database/drift_known_devices_repository.dart';
 import 'database/drift_preferences_repository.dart';
+import 'database/drift_saved_cards_repository.dart';
 import 'repositories.dart';
 
 /// The public face of the database provider: features that need to override
@@ -19,3 +20,7 @@ KnownDevicesRepository knownDevicesRepository(Ref ref) =>
 @Riverpod(keepAlive: true)
 PreferencesRepository preferencesRepository(Ref ref) =>
     DriftPreferencesRepository(ref.watch(databaseProvider));
+
+@Riverpod(keepAlive: true)
+SavedCardsRepository savedCardsRepository(Ref ref) =>
+    DriftSavedCardsRepository(ref.watch(databaseProvider));

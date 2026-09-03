@@ -104,3 +104,51 @@ final class PreferencesRepositoryProvider
 
 String _$preferencesRepositoryHash() =>
     r'f2b66daa9f652bd5ac8a8a3447c5864ff56ec172';
+
+@ProviderFor(savedCardsRepository)
+final savedCardsRepositoryProvider = SavedCardsRepositoryProvider._();
+
+final class SavedCardsRepositoryProvider
+    extends
+        $FunctionalProvider<
+          SavedCardsRepository,
+          SavedCardsRepository,
+          SavedCardsRepository
+        >
+    with $Provider<SavedCardsRepository> {
+  SavedCardsRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'savedCardsRepositoryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$savedCardsRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<SavedCardsRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  SavedCardsRepository create(Ref ref) {
+    return savedCardsRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SavedCardsRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SavedCardsRepository>(value),
+    );
+  }
+}
+
+String _$savedCardsRepositoryHash() =>
+    r'1e8673a37efed57fb0fe95a404549c422665e71b';

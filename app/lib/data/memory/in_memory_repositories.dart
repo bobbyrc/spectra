@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:chameleon/chameleon.dart';
 
 import '../models/known_device.dart';
+import '../models/saved_card.dart';
 import '../repositories.dart';
 
 /// Repository implementations with no database behind them, for unit tests
@@ -81,4 +82,63 @@ final class InMemoryPreferencesRepository implements PreferencesRepository {
 
   @override
   Future<void> remove(String key) async => _values.remove(key);
+}
+
+/// A [SavedCardsRepository] with no database behind it, for unit tests that
+/// are about something else (spec 8.6). Same ordering contract as the Drift
+/// one: newest-updated first.
+final class InMemorySavedCardsRepository implements SavedCardsRepository {
+  final Map<String, SavedCard> _rows = <String, SavedCard>{};
+  final StreamController<List<SavedCard>> _changes =
+      StreamController<List<SavedCard>>.broadcast();
+
+  @override
+  Future<List<SavedCard>> all() async => _sorted();
+
+  @override
+  Future<SavedCard?> byId(String id) async => _rows[id];
+
+  @override
+  Future<void> save(SavedCard card) async {
+    _rows[card.id] = card;
+    _emit();
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    _rows.remove(id);
+    _emit();
+  }
+
+  @override
+  Stream<List<SavedCard>> watchAll() {
+    // Not `async* { yield _sorted(); yield* _changes.stream; }`: that
+    // subscribes to `_changes` only after the first yield is delivered,
+    // which is asynchronous, so a `save()` between `watchAll()` and the
+    // subscriber actually attaching lands on `_changes` (a broadcast
+    // controller) with no listener and is dropped. A single-subscription
+    // controller's `onListen` runs synchronously inside `listen()`, so the
+    // snapshot and the live subscription are both in place before this
+    // method's caller regains control.
+    late StreamController<List<SavedCard>> controller;
+    StreamSubscription<List<SavedCard>>? subscription;
+    controller = StreamController<List<SavedCard>>(
+      onListen: () {
+        controller.add(_sorted());
+        subscription = _changes.stream.listen(
+          controller.add,
+          onDone: controller.close,
+        );
+      },
+      onCancel: () => subscription?.cancel(),
+    );
+    return controller.stream;
+  }
+
+  List<SavedCard> _sorted() =>
+      _rows.values.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+  void _emit() {
+    if (!_changes.isClosed) _changes.add(_sorted());
+  }
 }
