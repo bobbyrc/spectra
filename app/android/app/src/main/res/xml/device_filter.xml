@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spec 5.2 and 5.5. Decimal, because android:vendor-id is an integer:
+     0x6868 = 26728, 0x8686 = 34438 (application);
+     0x1915 = 6421,  0x521F = 21023 (Nordic bootloader). -->
+<resources>
+    <usb-device vendor-id="26728" product-id="34438" />
+    <usb-device vendor-id="6421" product-id="21023" />
+</resources>

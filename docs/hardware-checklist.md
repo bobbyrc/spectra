@@ -18,6 +18,8 @@ from a clean CI run alone.
       carry it; Spike A found enumeration works without it, so also test
       with the entitlement removed to confirm it's actually required for
       `open()` and not just enumeration.
+      `hardware-validate`: the serial entitlement's necessity for `open()`
+      (Task 15 fills in the rest of this list's Phase 3 commands).
 - [ ] pending: control-line configuration (DTR only vs RTS/CTS+DTR/DSR) —
       commands added in Phase 3.
 - [ ] pending: BLE connect and pairing — commands added in Phase 3.
