@@ -290,6 +290,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsSaveConfirm => 'Save';
 
   @override
+  String cardsSavePartial(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count blocks could not be read. They are saved as zeros.',
+      one: '1 block could not be read. It is saved as zeros.',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get cardsSaveNameRequired => 'Give the card a name.';
 
   @override

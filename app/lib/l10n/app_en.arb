@@ -176,6 +176,11 @@
   "@cardsSaveColour": {"description": "Label above the colour swatches."},
   "cardsSaveConfirm": "Save",
   "@cardsSaveConfirm": {"description": "Confirms the save."},
+  "cardsSavePartial": "{count, plural, one {1 block could not be read. It is saved as zeros.} other {{count} blocks could not be read. They are saved as zeros.}}",
+  "@cardsSavePartial": {
+    "description": "Warns, in the save sheet, that the dump about to be stored has gaps the reader could not fill.",
+    "placeholders": {"count": {"type": "int"}}
+  },
   "cardsSaveNameRequired": "Give the card a name.",
   "@cardsSaveNameRequired": {"description": "Validation message under an empty name field."},
   "cardsSaved": "Saved to the library.",

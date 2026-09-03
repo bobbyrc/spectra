@@ -12,18 +12,32 @@ import '../state/saved_cards_provider.dart';
 /// Collects the three things spec 7.3 stores beside the dump — name, folder,
 /// colour — and writes the card. Resolves to true when a card was saved and
 /// to null when the sheet was dismissed.
+///
+/// [unreadChunks] is how many blocks the reader could not get off the card
+/// (`CardReadResult.totalChunks - readChunks` for a partial dump, null or
+/// zero for a complete one). The sheet warns about them before the Save
+/// button (R33): what lands in the library is a dump with those blocks
+/// zero-filled, and nothing downstream — the detail screen, an export, a
+/// Phase 7 write back onto a card — can tell a zeroed block from a block
+/// that really is zero. The user has to know that at the moment they
+/// decide to keep it.
 Future<bool?> showSaveCardSheet(
   BuildContext context, {
   required TagType type,
   required Uint8List bytes,
   String? suggestedName,
+  int? unreadChunks,
 }) {
   final AppLocalizations l10n = AppLocalizations.of(context);
   return SpectraBottomSheet.show<bool>(
     context: context,
     title: l10n.cardsSaveTitle,
-    builder: (BuildContext context) =>
-        _SaveCardForm(type: type, bytes: bytes, suggestedName: suggestedName),
+    builder: (BuildContext context) => _SaveCardForm(
+      type: type,
+      bytes: bytes,
+      suggestedName: suggestedName,
+      unreadChunks: unreadChunks,
+    ),
   );
 }
 
@@ -32,11 +46,13 @@ class _SaveCardForm extends ConsumerStatefulWidget {
     required this.type,
     required this.bytes,
     this.suggestedName,
+    this.unreadChunks,
   });
 
   final TagType type;
   final Uint8List bytes;
   final String? suggestedName;
+  final int? unreadChunks;
 
   @override
   ConsumerState<_SaveCardForm> createState() => _SaveCardFormState();
@@ -84,10 +100,35 @@ class _SaveCardFormState extends ConsumerState<_SaveCardForm> {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final AsyncValue<void> library = ref.watch(cardLibraryProvider);
     final bool busy = library.isLoading;
+    final int unread = widget.unreadChunks ?? 0;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+        // R33. A plain warning-coloured line rather than a component:
+        // `spectra_ui` has no callout, and this phase does not add one.
+        if (unread > 0) ...<Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(
+                Icons.warning_amber_rounded,
+                color: SpectraTheme.of(context).colors.warning,
+                size: 20,
+              ),
+              const SizedBox(width: SpectraSpacing.sm),
+              Expanded(
+                child: Text(
+                  l10n.cardsSavePartial(unread),
+                  style: SpectraTypography.body.copyWith(
+                    color: SpectraTheme.of(context).colors.warning,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: SpectraSpacing.md),
+        ],
         SpectraTextField(
           label: l10n.cardsSaveName,
           controller: _name,

@@ -586,6 +586,12 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get cardsSaveConfirm;
 
+  /// Warns, in the save sheet, that the dump about to be stored has gaps the reader could not fill.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {1 block could not be read. It is saved as zeros.} other {{count} blocks could not be read. They are saved as zeros.}}'**
+  String cardsSavePartial(int count);
+
   /// Validation message under an empty name field.
   ///
   /// In en, this message translates to:

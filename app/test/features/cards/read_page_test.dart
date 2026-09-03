@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra/core/errors/problem_view.dart';
 import 'package:spectra/features/cards/cards.dart';
 import 'package:spectra_ui/spectra_ui.dart';
@@ -17,6 +18,19 @@ FakeDevice deviceWithCard({bool present = true}) {
       ),
     );
   }
+  return FakeDevice(firmware: firmware);
+}
+
+/// A 1K whose sector 5 has neither key, so four of its blocks cannot be
+/// read: the partial dump the save sheet has to warn about (R33).
+FakeDevice deviceWithPartlyLockedCard() {
+  final FakeFirmware firmware = FakeFirmware();
+  final FakeMf1Card card = FakeMf1Card.classic1k(
+    uid: Uint8List.fromList(<int>[0xDE, 0xAD, 0xBE, 0xEF]),
+  );
+  card.keys.remove(FakeMf1Card.keyId(5, KeyType.a));
+  card.keys.remove(FakeMf1Card.keyId(5, KeyType.b));
+  firmware.present(card);
   return FakeDevice(firmware: firmware);
 }
 
@@ -55,6 +69,52 @@ void main() {
       findsNothing,
       reason: 'the read is over',
     );
+  });
+
+  testWidgetsApp('the save sheet warns that a partial dump is zero-filled', (
+    tester,
+  ) async {
+    await openRead(tester, deviceWithPartlyLockedCard());
+    await tester.tap(find.text('Scan high frequency'));
+    await pumpFrames(tester, count: 60);
+
+    expect(
+      find.text(
+        '4 of 64 blocks could be read. Sectors with no known key are blank.',
+      ),
+      findsNothing,
+      reason: 'the result summary counts what was read, not what was not',
+    );
+
+    await tester.tap(find.text('Save to library'));
+    await pumpFrames(tester);
+
+    expect(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text(
+          '4 blocks could not be read. They are saved as zeros.',
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byIcon(Icons.close));
+    await pumpFrames(tester);
+  });
+
+  testWidgetsApp('a complete dump gets no partial warning in the save sheet', (
+    tester,
+  ) async {
+    await openRead(tester, deviceWithCard());
+    await tester.tap(find.text('Scan high frequency'));
+    await pumpFrames(tester, count: 60);
+    await tester.tap(find.text('Save to library'));
+    await pumpFrames(tester);
+
+    expect(find.textContaining('could not be read'), findsNothing);
+    await tester.tap(find.byIcon(Icons.close));
+    await pumpFrames(tester);
   });
 
   testWidgetsApp('an empty field shows the catalog message', (tester) async {

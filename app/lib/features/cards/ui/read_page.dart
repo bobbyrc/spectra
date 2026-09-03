@@ -133,6 +133,12 @@ class _Result extends StatelessWidget {
                     context,
                     type: result.tagType,
                     bytes: result.bytes,
+                    // R33: what the reader could not get, in the same
+                    // unit `readChunks`/`totalChunks` count (blocks for a
+                    // MIFARE Classic — ruling 23).
+                    unreadChunks: result.isPartial
+                        ? result.totalChunks! - result.readChunks!
+                        : null,
                   );
                   if (saved != true || !context.mounted) return;
                   ScaffoldMessenger.of(context)
