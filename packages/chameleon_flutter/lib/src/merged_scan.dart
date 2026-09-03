@@ -79,7 +79,11 @@ Stream<List<DiscoveredDevice>> mergedScan(List<DeviceScanner> scanners) {
   };
   controller.onCancel = () async {
     for (final s in subs) {
-      await s.cancel();
+      // Not awaited: a `StreamSubscription.cancel()` future does not
+      // reliably complete under a fake clock, which is what every widget
+      // test runs on (the same reason `DeviceSession` stopped awaiting its
+      // own cancels).
+      unawaited(s.cancel());
     }
     subs.clear();
     if (!controller.isClosed) await controller.close();
