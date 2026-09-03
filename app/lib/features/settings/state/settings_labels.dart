@@ -30,3 +30,15 @@ final RegExp _sixDigits = RegExp(r'^[0-9]{6}$');
 /// The firmware's BLE pairing passkey is exactly six ASCII digits
 /// (`docs/research/chameleon-protocol.md`, command 1030).
 bool isValidPairingKey(String key) => _sixDigits.hasMatch(key);
+
+/// The firmware's sleep-timeout bounds, inclusive
+/// (`docs/research/chameleon-protocol.md`, commands 1039/1040). The SDK's
+/// `SetSleepTimeout.encode` enforces the same range with a raw
+/// `ArgumentError`, not a `ChameleonException` the catalog knows, so the app
+/// validates before sending — same shape as `slotNicknameMaxBytes` in
+/// `features/slots/state/slot_nickname.dart`.
+const int sleepTimeoutMin = 5;
+const int sleepTimeoutMax = 60;
+
+bool isValidSleepTimeout(int seconds) =>
+    seconds >= sleepTimeoutMin && seconds <= sleepTimeoutMax;

@@ -32,6 +32,15 @@ final class ErrorCatalog {
         detail: error.toString(),
       );
     }
+    // TODO(phase-9 Task 11): dedicated copy instead of reusing
+    // errorParameter — see app_failures.dart.
+    if (error is SleepTimeoutOutOfRange) {
+      return ErrorPresentation(
+        message: _l10n.errorParameter,
+        recovery: ErrorRecovery.none,
+        detail: error.toString(),
+      );
+    }
     if (error is CardDumpLengthMismatch) {
       return ErrorPresentation(
         message: _l10n.errorCardDumpLength(

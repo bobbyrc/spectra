@@ -31,6 +31,26 @@ final class SlotLoadVerificationFailed implements Exception {
 /// controllers, when a saved dump was never valid for the type it claims —
 /// not a device malfunction, so it gets its own words rather than the
 /// unexpected-error fallback (ruling 4).
+/// `DeviceSettingsController.setSleepTimeout` was asked for a value outside
+/// the firmware's 5..60 second range.
+///
+/// The SDK's `SetSleepTimeout.encode` enforces the same bound with a raw
+/// `ArgumentError`, which is not a `ChameleonException` — reusing it here
+/// would fall through to the unexpected-error fallback. The controller
+/// validates first with `isValidSleepTimeout`
+/// (`features/settings/state/settings_labels.dart`) and raises this typed
+/// failure instead, so the catalog has an arm for it.
+// TODO(phase-9 Task 11): dedicated copy instead of reusing errorParameter.
+final class SleepTimeoutOutOfRange implements Exception {
+  const SleepTimeoutOutOfRange(this.seconds);
+
+  final int seconds;
+
+  @override
+  String toString() =>
+      'SleepTimeoutOutOfRange: $seconds is outside 5..60 seconds';
+}
+
 final class CardDumpLengthMismatch implements Exception {
   const CardDumpLengthMismatch({
     required this.type,

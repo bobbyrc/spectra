@@ -2,8 +2,10 @@ import 'package:chameleon/chameleon.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/errors/app_failures.dart';
 import '../../../core/session/active_device.dart';
 import '../../../core/session/active_session.dart';
+import 'settings_labels.dart';
 
 part 'device_settings_controller.g.dart';
 
@@ -41,11 +43,12 @@ final class DeviceSettingsEditState {
 /// guarded with `ref.mounted` (R25): the Settings tab can be left while a
 /// write is on the wire.
 ///
-/// Unlike `SlotsFacade`, `SettingsFacade`'s methods do not wrap themselves in
-/// `DeviceSession.busy` — they are not "load a full tag dump" long, but they
-/// are still a round trip over the wire, so this controller wraps every
-/// facade call itself, holding the wakelock (`core/lifecycle/wakelock.dart`)
-/// for its duration the same way the slots and cards controllers do.
+/// `SlotsFacade`'s own methods call `DeviceSession.busy` internally;
+/// `SettingsFacade`'s do not. Its writes are not "load a full tag dump"
+/// long, but they are still a round trip over the wire, so this controller
+/// wraps every facade call itself in `active.session.busy`, holding the
+/// wakelock (`core/lifecycle/wakelock.dart`) for its duration the same way
+/// a slot mutation does.
 @riverpod
 class DeviceSettingsController extends _$DeviceSettingsController {
   @override
@@ -69,9 +72,23 @@ class DeviceSettingsController extends _$DeviceSettingsController {
   }) => _run((SettingsFacade s) => s.setButton(button, fn, long: long));
 
   /// The firmware accepts 5..60 seconds (`docs/research/chameleon-protocol.md`,
-  /// 1039/1040); the screen only offers values in that range.
-  Future<void> setSleepTimeout(int seconds) =>
-      _run((SettingsFacade s) => s.setSleepTimeout(seconds));
+  /// 1039/1040); `SetSleepTimeout.encode` throws a raw `ArgumentError`
+  /// outside that range, which the catalog can only render as "something
+  /// unexpected went wrong". `isValidSleepTimeout` catches it here first, the
+  /// same shape as `isValidPairingKey` and Phase 5's
+  /// `validateSlotNickname` — a value the SDK would reject becomes a typed
+  /// [SleepTimeoutOutOfRange] the catalog has words for, and nothing is
+  /// sent to the device.
+  Future<void> setSleepTimeout(int seconds) async {
+    if (!isValidSleepTimeout(seconds)) {
+      state = DeviceSettingsEditState(
+        dirty: state.dirty,
+        error: SleepTimeoutOutOfRange(seconds),
+      );
+      return;
+    }
+    await _run((SettingsFacade s) => s.setSleepTimeout(seconds));
+  }
 
   Future<void> setBlePairingEnabled(bool enabled) =>
       _run((SettingsFacade s) => s.setBlePairingEnabled(enabled));
