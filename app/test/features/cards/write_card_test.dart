@@ -1,0 +1,416 @@
+import 'dart:typed_data';
+
+import 'package:chameleon/chameleon.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:spectra/app.dart';
+import 'package:spectra/core/emulator/demo_cards.dart';
+import 'package:spectra/core/errors/app_failures.dart';
+import 'package:spectra/features/cards/state/write_card_controller.dart';
+
+import '../../support/app_harness.dart';
+import 'card_fixtures.dart';
+
+/// [classic1kFilled] (or [classic1kDataOnly]) with its non-trailer blocks
+/// overwritten to [fill], so a test can tell "the card now holds what was
+/// written" apart from "the card already held this". Not a second fixture
+/// (ruling 8): it transforms the one shared fixture rather than declaring
+/// another `classic1k`.
+Uint8List _withDataFill(Uint8List blocks, int fill) {
+  final Uint8List out = Uint8List.fromList(blocks);
+  for (int block = 1; block < 64; block++) {
+    if (block % 4 == 3) continue; // Leave trailers alone.
+    out.fillRange(block * 16, block * 16 + 16, fill);
+  }
+  return out;
+}
+
+/// The app with the emulated device's scripted cards in the reader's field
+/// (`core/emulator/demo_cards.dart`), which is what the production transport
+/// factory hands the fake device anyway. `demoMifareUid` matches
+/// `card_fixtures.dart`'s default UID, so a shared-fixture dump lines up
+/// with the field card without a per-test UID override.
+Future<CardWriter> openWriter(WidgetTester tester) async {
+  useDesktopSurface(tester);
+  await pumpTestApp(tester, transport: (_) => buildEmulatedDevice());
+  await connectToEmulator(tester);
+  keepAlive(tester, cardWriterProvider);
+  await pumpFrames(tester);
+  return readProvider(tester, cardWriterProvider.notifier);
+}
+
+void main() {
+  testWidgetsApp('writes a MIFARE Classic dump onto the card in the field', (
+    tester,
+  ) async {
+    final CardWriter writer = await openWriter(tester);
+
+    final Future<void> pending = writer.write(
+      type: TagType.mifare1k,
+      bytes: _withDataFill(classic1kFilled(), 0x7E),
+    );
+    await pumpFrames(tester, count: 40);
+    await pending;
+    await pumpFrames(tester);
+
+    final CardWriteState state = readProvider(tester, cardWriterProvider);
+    expect(state.error, isNull);
+    expect(state.cancelled, isFalse);
+    expect(state.busy, isFalse);
+    expect(state.attempted, 47); // 64 blocks less block 0 and 16 trailers.
+    expect(state.written, 47);
+  });
+
+  testWidgetsApp('trailers are skipped by default', (tester) async {
+    final CardWriter writer = await openWriter(tester);
+
+    final Future<void> pending = writer.write(
+      type: TagType.mifare1k,
+      bytes: _withDataFill(classic1kFilled(), 0x11),
+    );
+    await pumpFrames(tester, count: 40);
+    await pending;
+    await pumpFrames(tester);
+
+    expect(readProvider(tester, cardWriterProvider).attempted, 47);
+  });
+
+  testWidgetsApp('trailers go on when the caller opts in', (tester) async {
+    final CardWriter writer = await openWriter(tester);
+
+    final Future<void> pending = writer.write(
+      type: TagType.mifare1k,
+      bytes: _withDataFill(classic1kFilled(), 0x22),
+      writeTrailers: true,
+    );
+    await pumpFrames(tester, count: 40);
+    await pending;
+    await pumpFrames(tester);
+
+    final CardWriteState state = readProvider(tester, cardWriterProvider);
+    expect(state.error, isNull);
+    // 64 blocks less block 0 only: all 16 trailers now attempted too.
+    expect(state.attempted, 63);
+    expect(state.written, 63);
+  });
+
+  testWidgetsApp(
+    'a data-only dump with trailers opted in is refused until confirmed',
+    (tester) async {
+      final CardWriter writer = await openWriter(tester);
+      final Uint8List dataOnly = classic1kDataOnly();
+
+      final Future<void> refused = writer.write(
+        type: TagType.mifare1k,
+        bytes: dataOnly,
+        writeTrailers: true,
+      );
+      await pumpFrames(tester);
+      await refused;
+
+      final CardWriteState refusedState = readProvider(
+        tester,
+        cardWriterProvider,
+      );
+      expect(refusedState.unreadSectors, isNotNull);
+      expect(refusedState.unreadSectors, isNotEmpty);
+      expect(refusedState.busy, isFalse);
+      expect(refusedState.error, isNull);
+      expect(refusedState.isDone, isFalse);
+
+      final Future<void> confirmed = writer.write(
+        type: TagType.mifare1k,
+        bytes: dataOnly,
+        writeTrailers: true,
+        confirmUnread: true,
+      );
+      await pumpFrames(tester, count: 40);
+      await confirmed;
+      await pumpFrames(tester);
+
+      final CardWriteState confirmedState = readProvider(
+        tester,
+        cardWriterProvider,
+      );
+      expect(confirmedState.error, isNull);
+      expect(confirmedState.unreadSectors, isNull);
+      expect(confirmedState.attempted, 63);
+    },
+  );
+
+  testWidgetsApp(
+    'a data-only dump with default trailers-off never asks for confirmation',
+    (tester) async {
+      final CardWriter writer = await openWriter(tester);
+
+      final Future<void> pending = writer.write(
+        type: TagType.mifare1k,
+        bytes: classic1kDataOnly(),
+      );
+      await pumpFrames(tester, count: 40);
+      await pending;
+      await pumpFrames(tester);
+
+      final CardWriteState state = readProvider(tester, cardWriterProvider);
+      expect(state.unreadSectors, isNull);
+      expect(state.error, isNull);
+      expect(state.attempted, 47);
+    },
+  );
+
+  testWidgetsApp('a sector with no working key is a partial result', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    final FakeMf1Card card = FakeMf1Card.classic1k(uid: demoMifareUid);
+    card.keys[FakeMf1Card.keyId(1, KeyType.a)] = Uint8List.fromList(<int>[
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+    ]);
+    card.keys[FakeMf1Card.keyId(1, KeyType.b)] = Uint8List.fromList(<int>[
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+    ]);
+    final FakeFirmware firmware = FakeFirmware()..present(card);
+    await pumpTestApp(tester, transport: (_) => FakeDevice(firmware: firmware));
+    await connectToEmulator(tester);
+    keepAlive(tester, cardWriterProvider);
+    await pumpFrames(tester);
+    final CardWriter writer = readProvider(tester, cardWriterProvider.notifier);
+
+    final Future<void> pending = writer.write(
+      type: TagType.mifare1k,
+      bytes: _withDataFill(classic1kFilled(), 0x5A),
+    );
+    await pumpFrames(tester, count: 40);
+    await pending;
+    await pumpFrames(tester);
+
+    final CardWriteState state = readProvider(tester, cardWriterProvider);
+    expect(state.error, isNull);
+    expect(state.attempted, 47);
+    expect(state.written, 44); // Sector 1's three data blocks failed.
+    expect(state.isPartial, isTrue);
+  });
+
+  testWidgetsApp('a device missing MF1_WRITE_ONE_BLOCK is a typed error', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    final Set<int> capabilities = FakeFirmwareConfig.defaultCapabilities(
+      DeviceModel.ultra,
+    )..remove(2009);
+    final FakeFirmware firmware = FakeFirmware(
+      FakeFirmwareConfig(capabilities: capabilities),
+    )..present(FakeMf1Card.classic1k(uid: demoMifareUid));
+    await pumpTestApp(tester, transport: (_) => FakeDevice(firmware: firmware));
+    await connectToEmulator(tester);
+    keepAlive(tester, cardWriterProvider);
+    await pumpFrames(tester);
+    final CardWriter writer = readProvider(tester, cardWriterProvider.notifier);
+
+    final Future<void> pending = writer.write(
+      type: TagType.mifare1k,
+      bytes: classic1kFilled(),
+    );
+    await pumpFrames(tester, count: 40);
+    await pending;
+    await pumpFrames(tester);
+
+    final CardWriteState state = readProvider(tester, cardWriterProvider);
+    expect(state.error, isA<InvalidCommand>());
+    expect(state.cancelled, isFalse);
+    expect(state.unsupported, isFalse);
+  });
+
+  testWidgetsApp('cancelling mid-write is a terminal cancelled state', (
+    tester,
+  ) async {
+    final CardWriter writer = await openWriter(tester);
+
+    // Cancel as soon as the first sector's progress lands, the same way
+    // `reader_write_test.dart` cancels mid-write from `onProgress`.
+    final ProviderContainer container = ProviderScope.containerOf(
+      tester.element(find.byType(SpectraRoot)),
+      listen: false,
+    );
+    final ProviderSubscription<CardWriteState> sub = container.listen(
+      cardWriterProvider,
+      (CardWriteState? previous, CardWriteState next) {
+        if (next.progress != null) writer.cancel();
+      },
+    );
+    addTearDown(sub.close);
+
+    final Future<void> pending = writer.write(
+      type: TagType.mifare1k,
+      bytes: _withDataFill(classic1kFilled(), 0x9C),
+    );
+    await pumpFrames(tester, count: 40);
+    await pending;
+    await pumpFrames(tester);
+
+    final CardWriteState state = readProvider(tester, cardWriterProvider);
+    expect(state.cancelled, isTrue);
+    expect(state.error, isNull);
+    expect(state.busy, isFalse);
+  });
+
+  testWidgetsApp('reports progress through the write', (tester) async {
+    final CardWriter writer = await openWriter(tester);
+
+    final List<double> seen = <double>[];
+    final ProviderContainer container = ProviderScope.containerOf(
+      tester.element(find.byType(SpectraRoot)),
+      listen: false,
+    );
+    final ProviderSubscription<CardWriteState> sub = container.listen(
+      cardWriterProvider,
+      (CardWriteState? previous, CardWriteState next) {
+        if (next.progress != null) seen.add(next.progress!);
+      },
+    );
+    addTearDown(sub.close);
+
+    final Future<void> pending = writer.write(
+      type: TagType.mifare1k,
+      bytes: _withDataFill(classic1kFilled(), 0x10),
+    );
+    await pumpFrames(tester, count: 40);
+    await pending;
+    await pumpFrames(tester);
+
+    expect(seen, isNotEmpty);
+    expect(seen.last, 1);
+    for (int i = 1; i < seen.length; i++) {
+      expect(seen[i], greaterThanOrEqualTo(seen[i - 1]));
+    }
+  });
+
+  testWidgetsApp('writes an EM410x id to the T55xx in the field', (
+    tester,
+  ) async {
+    final CardWriter writer = await openWriter(tester);
+
+    final Future<void> pending = writer.write(
+      type: TagType.em410x,
+      bytes: Uint8List.fromList(<int>[0xAA, 0xBB, 0xCC, 0xDD, 0xEE]),
+    );
+    await pumpFrames(tester, count: 20);
+    await pending;
+    await pumpFrames(tester);
+
+    final CardWriteState state = readProvider(tester, cardWriterProvider);
+    expect(state.error, isNull);
+    expect(state.written, 1);
+    expect(state.attempted, 1);
+  });
+
+  testWidgetsApp('an Ultralight dump is a typed unsupported state', (
+    tester,
+  ) async {
+    final CardWriter writer = await openWriter(tester);
+
+    final Future<void> pending = writer.write(
+      type: TagType.ntag215,
+      bytes: Uint8List(135 * 4),
+    );
+    await pumpFrames(tester);
+    await pending;
+
+    final CardWriteState state = readProvider(tester, cardWriterProvider);
+    expect(state.unsupported, isTrue);
+    expect(state.error, isNull);
+  });
+
+  testWidgetsApp('a dump of the wrong length is refused before any write', (
+    tester,
+  ) async {
+    final CardWriter writer = await openWriter(tester);
+
+    final Future<void> pending = writer.write(
+      type: TagType.mifare1k,
+      bytes: Uint8List(32),
+    );
+    await pumpFrames(tester);
+    await pending;
+
+    final CardWriteState state = readProvider(tester, cardWriterProvider);
+    expect(state.error, isA<CardDumpLengthMismatch>());
+    final CardDumpLengthMismatch failure =
+        state.error! as CardDumpLengthMismatch;
+    expect(failure.type, TagType.mifare1k);
+    expect(failure.expected, 1024);
+    expect(failure.actual, 32);
+  });
+
+  testWidgetsApp('no card in the field is the typed LfTagNotFound', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+    await connectToEmulator(tester);
+    keepAlive(tester, cardWriterProvider);
+    await pumpFrames(tester);
+    final CardWriter writer = readProvider(tester, cardWriterProvider.notifier);
+
+    final Future<void> pending = writer.write(
+      type: TagType.em410x,
+      bytes: Uint8List.fromList(<int>[1, 2, 3, 4, 5]),
+    );
+    await pumpFrames(tester, count: 20);
+    await pending;
+    await pumpFrames(tester);
+
+    expect(
+      readProvider(tester, cardWriterProvider).error,
+      isA<LfTagNotFound>(),
+    );
+  });
+
+  testWidgetsApp('reset clears a failure', (tester) async {
+    final CardWriter writer = await openWriter(tester);
+    writer.debugFail(const LfTagNotFound());
+    await pumpFrames(tester, count: 2);
+    expect(readProvider(tester, cardWriterProvider).error, isNotNull);
+
+    writer.reset();
+    await pumpFrames(tester, count: 2);
+    final CardWriteState state = readProvider(tester, cardWriterProvider);
+    expect(state.error, isNull);
+    expect(state.cancelled, isFalse);
+    expect(state.unreadSectors, isNull);
+  });
+
+  testWidgetsApp('a write that outlives its provider stays silent', (
+    tester,
+  ) async {
+    await pumpTestApp(tester, transport: (_) => buildEmulatedDevice());
+    await connectToEmulator(tester);
+    final ProviderSubscription<CardWriteState> sub = keepAlive(
+      tester,
+      cardWriterProvider,
+    );
+    final CardWriter writer = readProvider(tester, cardWriterProvider.notifier);
+
+    final Future<void> pending = writer.write(
+      type: TagType.mifare1k,
+      bytes: _withDataFill(classic1kFilled(), 0x44),
+    );
+    // Dispose the notifier while the write is still on the wire.
+    sub.close();
+    await pumpFrames(tester, count: 40);
+
+    // The write itself must not throw even though nothing is left to
+    // report its outcome to.
+    await pending;
+  });
+}

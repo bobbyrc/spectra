@@ -31,12 +31,36 @@ const List<String> defaultMifareKeyHex = <String>[
   '8FD0A4F256E9',
 ];
 
+/// The T55xx passwords an EM410x write uses.
+///
+/// `ReaderFacade.em410xWriteToT55xx` takes its keys as parameters, like
+/// every other reader operation (spec 8.1), so the list lives in the app
+/// beside the MIFARE dictionary and Phase 9's `DictionariesRepository` can
+/// replace both without touching the SDK.
+///
+/// These are the widely published defaults for T5577 blanks, not values read
+/// out of any GPL source. **`hardware-validate` (checklist H3):** whether a
+/// given blank answers to them is only provable with a card in hand — a
+/// blank with no password set ignores `oldKeys` entirely, and one with a
+/// password Spectra does not know simply refuses the write.
+const String defaultT55xxKeyHex = '20206666';
+const List<String> defaultT55xxOldKeyHex = <String>['51243648', '19920427'];
+
+Uint8List _hex(String hex) => Uint8List.fromList(<int>[
+  for (int i = 0; i < hex.length; i += 2)
+    int.parse(hex.substring(i, i + 2), radix: 16),
+]);
+
 /// Fresh copies each call, so a caller mutating a key cannot poison the
 /// next read's dictionary.
 List<Uint8List> defaultMifareKeys() => <Uint8List>[
-  for (final String hex in defaultMifareKeyHex)
-    Uint8List.fromList(<int>[
-      for (int i = 0; i < hex.length; i += 2)
-        int.parse(hex.substring(i, i + 2), radix: 16),
-    ]),
+  for (final String hex in defaultMifareKeyHex) _hex(hex),
+];
+
+/// A fresh copy each call, so a caller mutating a key cannot poison the
+/// next write.
+Uint8List defaultT55xxKey() => _hex(defaultT55xxKeyHex);
+
+List<Uint8List> defaultT55xxOldKeys() => <Uint8List>[
+  for (final String hex in defaultT55xxOldKeyHex) _hex(hex),
 ];
