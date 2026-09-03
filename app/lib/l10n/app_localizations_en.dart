@@ -388,4 +388,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get slotNicknameTooLong => 'Names are limited to 32 bytes.';
+
+  @override
+  String get slotTagType => 'Tag type';
+
+  @override
+  String get slotChangeType => 'Change type';
+
+  @override
+  String get slotChooseType => 'Choose a tag type';
+
+  @override
+  String get slotClear => 'Clear';
+
+  @override
+  String get slotClearTitle => 'Clear this slot?';
+
+  @override
+  String slotClearBody(String sense) {
+    return 'This removes the tag type and the emulated data on the $sense side. It cannot be undone.';
+  }
+
+  @override
+  String get commonCancel => 'Cancel';
 }

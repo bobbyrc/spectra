@@ -783,6 +783,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Names are limited to 32 bytes.'**
   String get slotNicknameTooLong;
+
+  /// Label of the row showing a sense's tag type.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag type'**
+  String get slotTagType;
+
+  /// Opens the tag type picker for one sense.
+  ///
+  /// In en, this message translates to:
+  /// **'Change type'**
+  String get slotChangeType;
+
+  /// Title of the tag type sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a tag type'**
+  String get slotChooseType;
+
+  /// Empties one sense of a slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get slotClear;
+
+  /// Title of the clear-sense confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear this slot?'**
+  String get slotClearTitle;
+
+  /// Body of the clear-sense confirmation; the sense's name.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes the tag type and the emulated data on the {sense} side. It cannot be undone.'**
+  String slotClearBody(String sense);
+
+  /// Dismisses a dialog without acting.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get commonCancel;
 }
 
 class _AppLocalizationsDelegate

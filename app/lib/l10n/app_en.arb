@@ -238,5 +238,22 @@
   "slotSenseLf": "Low frequency",
   "@slotSenseLf": {"description": "The 125 kHz side of a slot."},
   "slotNicknameTooLong": "Names are limited to 32 bytes.",
-  "@slotNicknameTooLong": {"description": "Validation message under the slot name field."}
+  "@slotNicknameTooLong": {"description": "Validation message under the slot name field."},
+  "slotTagType": "Tag type",
+  "@slotTagType": {"description": "Label of the row showing a sense's tag type."},
+  "slotChangeType": "Change type",
+  "@slotChangeType": {"description": "Opens the tag type picker for one sense."},
+  "slotChooseType": "Choose a tag type",
+  "@slotChooseType": {"description": "Title of the tag type sheet."},
+  "slotClear": "Clear",
+  "@slotClear": {"description": "Empties one sense of a slot."},
+  "slotClearTitle": "Clear this slot?",
+  "@slotClearTitle": {"description": "Title of the clear-sense confirmation."},
+  "slotClearBody": "This removes the tag type and the emulated data on the {sense} side. It cannot be undone.",
+  "@slotClearBody": {
+    "description": "Body of the clear-sense confirmation; the sense's name.",
+    "placeholders": {"sense": {"type": "String"}}
+  },
+  "commonCancel": "Cancel",
+  "@commonCancel": {"description": "Dismisses a dialog without acting."}
 }

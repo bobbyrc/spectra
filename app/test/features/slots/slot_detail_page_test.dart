@@ -195,4 +195,81 @@ void main() {
         .length;
     expect(after, before);
   });
+
+  testWidgetsApp('picking a type from the sheet writes it to the slot', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+    await openSlot(tester, 3);
+
+    // The HF section's "Change type" is the first one on the screen.
+    await tester.tap(find.text('Change type').first);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.text('Choose a tag type'), findsOneWidget);
+    expect(find.text('NTAG215'), findsOneWidget);
+    // The sheet offers HF types only.
+    expect(find.text('EM410x'), findsNothing);
+
+    await tester.tap(find.text('NTAG215'));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(find.text('NTAG215'), findsWidgets);
+    await tester.tap(find.byType(BackButton));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final SpectraSlotTile third = tester.widget<SpectraSlotTile>(
+      find.byType(SpectraSlotTile).at(2),
+    );
+    expect(third.tagTypes, contains('NTAG215'));
+  });
+
+  testWidgetsApp('clearing a sense asks first, then empties it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+    await openSlot(tester, 1);
+
+    await tester.tap(find.text('Clear').first);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Clear this slot?'), findsOneWidget);
+
+    // Cancelling changes nothing.
+    await tester.tap(find.text('Cancel'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('MIFARE Classic 1K'), findsWidgets);
+
+    await tester.tap(find.text('Clear').first);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.tap(find.text('Clear').last);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(find.text('MIFARE Classic 1K'), findsNothing);
+    expect(find.text('Empty'), findsWidgets);
+  });
 }

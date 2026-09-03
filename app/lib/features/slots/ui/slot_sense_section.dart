@@ -10,6 +10,7 @@ import '../state/slot_editor_controller.dart';
 import '../state/slot_labels.dart';
 import '../state/slot_nickname.dart';
 import '../state/slot_view.dart';
+import 'tag_type_sheet.dart';
 
 /// One side of a slot: its tag type, its enable switch, its name and the
 /// actions that change them. Layout only.
@@ -117,8 +118,69 @@ class _SlotSenseSectionState extends ConsumerState<SlotSenseSection> {
                 ? () => unawaited(editor.rename(widget.sense, _name.text))
                 : null,
           ),
+          const SizedBox(height: SpectraSpacing.md),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: SpectraButton(
+                  label: l10n.slotChangeType,
+                  variant: SpectraButtonVariant.secondary,
+                  onPressed: widget.busy
+                      ? null
+                      : () => unawaited(_changeType()),
+                ),
+              ),
+              const SizedBox(width: SpectraSpacing.sm),
+              Expanded(
+                child: SpectraButton(
+                  label: l10n.slotClear,
+                  variant: SpectraButtonVariant.danger,
+                  onPressed: widget.busy || _type == TagType.undefined
+                      ? null
+                      : () => unawaited(_clear()),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _changeType() async {
+    final TagType? chosen = await showTagTypeSheet(
+      context,
+      sense: widget.sense,
+      current: _type,
+    );
+    if (chosen == null || !mounted) return;
+    await ref
+        .read(slotEditorProvider(widget.view.index).notifier)
+        .setTagType(chosen);
+  }
+
+  Future<void> _clear() async {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final bool? confirmed = await SpectraDialog.show<bool>(
+      context: context,
+      title: l10n.slotClearTitle,
+      content: Text(l10n.slotClearBody(senseLabel(widget.sense, l10n))),
+      actions: (BuildContext context) => <Widget>[
+        SpectraButton(
+          label: l10n.commonCancel,
+          variant: SpectraButtonVariant.secondary,
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+        SpectraButton(
+          label: l10n.slotClear,
+          variant: SpectraButtonVariant.danger,
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+      ],
+    );
+    if (confirmed != true || !mounted) return;
+    await ref
+        .read(slotEditorProvider(widget.view.index).notifier)
+        .clearSense(widget.sense);
   }
 }
