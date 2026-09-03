@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../../core/format/hex.dart';
 import '../../../data/data.dart';
 
 /// Spec 7.3: import a key list from the reference app's export, from the
@@ -22,52 +23,6 @@ import '../../../data/data.dart';
 /// top-level functions are one cohesive concern — reading and writing the
 /// dictionary text formats — and splitting them would add files without
 /// adding clarity.
-
-// GAP (Task 3 against Task 1, see task-3-report.md): this file is meant to
-// consume `toHex`, `parseMifareKey` and `mifareKeyLength` from
-// `app/lib/core/format/hex.dart` (Task 1's deliverable). Task 1 has not
-// landed in this worktree yet — that file does not exist, and hex
-// formatting still lives at `app/lib/features/cards/state/hex.dart`, which
-// this feature may not import (spec 8.4: no cross-feature imports). Rather
-// than block on Task 1 or reach into another feature's internals, the three
-// helpers are duplicated here, scoped private to this file except where the
-// test needs them. When Task 1 lands: delete everything between the GAP
-// markers, replace with `import '../../../core/format/hex.dart';`, and
-// remove the now-redundant re-exports.
-
-/// Bytes as upper-case hex. Temporary duplicate of the Task 1 helper — see
-/// the GAP note above.
-String toHex(List<int> bytes, {String separator = ''}) => bytes
-    .map((int b) => b.toRadixString(16).padLeft(2, '0').toUpperCase())
-    .join(separator);
-
-final RegExp _notHexSeparator = RegExp(r'[\s:_-]');
-final RegExp _hexOnly = RegExp(r'^[0-9a-fA-F]*$');
-
-/// Parses a hex string, tolerating spaces, colons, underscores and dashes.
-/// Temporary duplicate of the Task 1 helper — see the GAP note above.
-Uint8List? parseHex(String text) {
-  final String cleaned = text.replaceAll(_notHexSeparator, '');
-  if (cleaned.length.isOdd) return null;
-  if (!_hexOnly.hasMatch(cleaned)) return null;
-  final Uint8List out = Uint8List(cleaned.length ~/ 2);
-  for (int i = 0; i < out.length; i++) {
-    out[i] = int.parse(cleaned.substring(i * 2, i * 2 + 2), radix: 16);
-  }
-  return out;
-}
-
-/// The length of a MIFARE Classic key, in bytes. Temporary duplicate of the
-/// Task 1 helper — see the GAP note above.
-const int mifareKeyLength = 6;
-
-/// A MIFARE Classic key, or null when [text] is not one. Temporary
-/// duplicate of the Task 1 helper — see the GAP note above.
-Uint8List? parseMifareKey(String text) {
-  final Uint8List? bytes = parseHex(text);
-  return bytes == null || bytes.length != mifareKeyLength ? null : bytes;
-}
-// END GAP.
 
 /// What Spectra writes. Bumped only when the shape changes incompatibly.
 const int spectraDictionarySchemaVersion = 1;

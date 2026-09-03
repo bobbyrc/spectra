@@ -3,19 +3,10 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectra/core/format/hex.dart';
 import 'package:spectra/data/data.dart';
 import 'package:spectra/features/dictionaries/state/dictionary_codec.dart';
 
-// NOTE (Task 3, gap against Task 1): the brief calls for `toHex` and
-// `parseMifareKey` from `package:spectra/core/format/hex.dart`, but Task 1
-// (which moves hex formatting there) has not landed in this worktree yet —
-// `app/lib/core/format/hex.dart` does not exist, and
-// `app/lib/features/cards/state/hex.dart` is still the only copy. Importing
-// that feature-local file would itself violate spec 8.4 (no cross-feature
-// imports), so `dictionary_codec.dart` carries a private, temporary copy of
-// the three helpers and exports them for this test. Once Task 1 lands, the
-// fix is: delete the temporary copy here, `import` the real
-// `core/format/hex.dart` and re-export nothing extra. See task-3-report.md.
 void main() {
   group('parseDictionaries', () {
     test('reads a plain .dic list, one key per line', () {
