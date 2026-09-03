@@ -34,12 +34,20 @@ final class _FlakySavedCardsRepository implements SavedCardsRepository {
   _FlakySavedCardsRepository(this._delegate);
   final SavedCardsRepository _delegate;
   bool failNextSave = false;
+  bool failNextById = false;
+  bool failNextDelete = false;
 
   @override
   Future<List<SavedCard>> all() => _delegate.all();
 
   @override
-  Future<SavedCard?> byId(String id) => _delegate.byId(id);
+  Future<SavedCard?> byId(String id) async {
+    if (failNextById) {
+      failNextById = false;
+      throw const SessionNotReady('boom');
+    }
+    return _delegate.byId(id);
+  }
 
   @override
   Future<void> save(SavedCard card) async {
@@ -51,7 +59,13 @@ final class _FlakySavedCardsRepository implements SavedCardsRepository {
   }
 
   @override
-  Future<void> delete(String id) => _delegate.delete(id);
+  Future<void> delete(String id) async {
+    if (failNextDelete) {
+      failNextDelete = false;
+      throw const SessionNotReady('boom');
+    }
+    return _delegate.delete(id);
+  }
 
   @override
   Stream<List<SavedCard>> watchAll() => _delegate.watchAll();
@@ -533,6 +547,117 @@ void main() {
     expect(cards, hasLength(1));
     expect((cards.single as Map<String, Object?>)['name'], 'Office badge');
     expect(find.text('Copied to the clipboard.'), findsOneWidget);
+  });
+
+  testWidgetsApp('a failed discard surfaces the failure and keeps the edits', (
+    tester,
+  ) async {
+    final _FlakySavedCardsRepository repo = _FlakySavedCardsRepository(
+      InMemorySavedCardsRepository(),
+    );
+    final String id = await seedAndOpen(
+      tester,
+      extraOverrides: <Override>[
+        savedCardsRepositoryProvider.overrideWithValue(repo),
+      ],
+    );
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    final CardEditor editor = readProvider(
+      tester,
+      cardEditorProvider(id).notifier,
+    );
+    editor.replaceChunk(1, Uint8List(16)..[0] = 0xAB);
+
+    repo.failNextById = true;
+    await editor.discard();
+    await pumpFrames(tester);
+
+    final CardEditState afterFailure = readProvider(
+      tester,
+      cardEditorProvider(id),
+    ).value!;
+    expect(afterFailure.error, isA<SessionNotReady>());
+    expect(afterFailure.busy, isFalse);
+    expect(afterFailure.dirty, isTrue);
+    expect(afterFailure.chunk(1).first, 0xAB);
+    expect(find.byType(ProblemView), findsOneWidget);
+
+    // The notifier is not wedged: the next write still runs.
+    final Future<void> pending = editor.save();
+    await pumpFrames(tester, count: 20);
+    await pending;
+    final SavedCard stored = (await repo.byId(id))!;
+    expect(stored.bytes[16], 0xAB);
+  });
+
+  testWidgetsApp('a failed delete surfaces the failure and unwedges', (
+    tester,
+  ) async {
+    final _FlakySavedCardsRepository repo = _FlakySavedCardsRepository(
+      InMemorySavedCardsRepository(),
+    );
+    final String id = await seedAndOpen(
+      tester,
+      extraOverrides: <Override>[
+        savedCardsRepositoryProvider.overrideWithValue(repo),
+      ],
+    );
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    final CardEditor editor = readProvider(
+      tester,
+      cardEditorProvider(id).notifier,
+    );
+
+    repo.failNextDelete = true;
+    await editor.deleteCard();
+    await pumpFrames(tester);
+
+    final CardEditState afterFailure = readProvider(
+      tester,
+      cardEditorProvider(id),
+    ).value!;
+    expect(afterFailure.error, isA<SessionNotReady>());
+    expect(afterFailure.busy, isFalse);
+    // The card is still there — the delete never happened.
+    expect(await repo.byId(id), isNotNull);
+
+    // A subsequent save still works: `_inFlight` was reset on the failure.
+    editor.replaceChunk(1, Uint8List(16)..[0] = 0xCD);
+    final Future<void> pending = editor.save();
+    await pumpFrames(tester, count: 20);
+    await pending;
+    expect((await repo.byId(id))!.bytes[16], 0xCD);
+  });
+
+  testWidgetsApp('an Apply during an in-flight save is dropped', (
+    tester,
+  ) async {
+    final String id = await seedAndOpen(tester);
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    final CardEditor editor = readProvider(
+      tester,
+      cardEditorProvider(id).notifier,
+    );
+
+    // `save` takes `_inFlight` synchronously, before its first await, so
+    // everything up to the next pump runs while the write is in flight.
+    final Future<void> pending = editor.save();
+    editor.replaceChunk(1, Uint8List(16)..[0] = 0xEE);
+    expect(
+      readProvider(tester, cardEditorProvider(id)).value!.chunk(1),
+      everyElement(0),
+    );
+    await pumpFrames(tester, count: 20);
+    await pending;
+
+    final SavedCardsRepository repo = readProvider(
+      tester,
+      savedCardsRepositoryProvider,
+    );
+    expect((await repo.byId(id))!.bytes[16], 0);
   });
 
   test('trailerHighlights covers every MIFARE Classic trailer', () {

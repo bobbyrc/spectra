@@ -107,9 +107,17 @@ class CardEditor extends _$CardEditor {
   /// the typed hex against [CardEditState.chunkSize]. Clears a stale
   /// [CardEditState.error] from a previous failed [save]: the working copy
   /// just changed, so that failure was about bytes that no longer exist.
+  ///
+  /// [R35]: takes the [_inFlight] guard like every other mutator. An Apply
+  /// landing mid-[save] would otherwise edit the working copy the save is
+  /// about to mark clean — the edit would be silently swallowed by the
+  /// `dirty: false` state the save sets on completion, and the user would
+  /// be looking at bytes nobody ever wrote. Dropped, not queued: the
+  /// editor's controls are disabled while [CardEditState.busy], so this
+  /// only catches a call that raced the disable.
   void replaceChunk(int index, Uint8List chunk) {
     final CardEditState? current = state.value;
-    if (current == null) return;
+    if (current == null || _inFlight) return;
     if (chunk.length != current.chunkSize) return;
     if (index < 0 || index >= current.chunkCount) return;
     final Uint8List next = Uint8List.fromList(current.bytes);
@@ -191,6 +199,16 @@ class CardEditor extends _$CardEditor {
   /// Riverpod's own lifecycle, and calling it by hand would let a Discard
   /// landing mid-[save] clobber the state the save is about to set.
   ///
+  /// [R31]: the reload is wrapped in an `AsyncValue.guard`. A repository
+  /// that throws would otherwise escape as an unhandled asynchronous error
+  /// (nothing awaits this method's future from the button that calls it)
+  /// and leave [_inFlight] true forever, wedging every later mutator. A
+  /// failure keeps the working copy exactly as it was and reports itself
+  /// through [CardEditState.error], the same way [save] does — so the
+  /// detail page's `ProblemView` comes up over edits that are still there.
+  /// Its "Try again" re-invokes [save], which is the useful escape from a
+  /// storage failure with unsaved edits on screen.
+  ///
   /// A no-op when there is no working copy to discard (`state.value` is
   /// null — the not-found screen, which offers no Discard button anyway):
   /// with [save] keeping the working copy on a failed write (ruling 29 item
@@ -208,13 +226,27 @@ class CardEditor extends _$CardEditor {
         busy: true,
       ),
     );
-    final SavedCard? card = await ref
-        .read(savedCardsRepositoryProvider)
-        .byId(id);
+    final AsyncValue<SavedCard?> reloaded = await AsyncValue.guard<SavedCard?>(
+      () => ref.read(savedCardsRepositoryProvider).byId(id),
+    );
     if (!ref.mounted) {
       _inFlight = false;
       return;
     }
+    final Object? error = reloaded.error;
+    if (error != null) {
+      state = AsyncData<CardEditState?>(
+        CardEditState(
+          card: current.card,
+          bytes: current.bytes,
+          dirty: current.dirty,
+          error: error,
+        ),
+      );
+      _inFlight = false;
+      return;
+    }
+    final SavedCard? card = reloaded.value;
     state = AsyncData<CardEditState?>(
       card == null
           ? null
@@ -231,6 +263,12 @@ class CardEditor extends _$CardEditor {
   /// `cardLibraryProvider.notifier` — that provider is autoDispose and
   /// nothing is watching it from here, so reading its notifier just to
   /// mutate it would create it, use it, and let it be disposed mid-write.
+  ///
+  /// [R31]: the delete is wrapped in an `AsyncValue.guard` for the same
+  /// reason as [discard] — an unguarded throw escapes unhandled and wedges
+  /// [_inFlight]. A failure reports itself through [CardEditState.error]
+  /// (or, on the not-found screen where there is no working copy to carry
+  /// it, as an `AsyncError`), and the card is still in the library.
   ///
   /// [Ruling 29 item 3]: sets/clears [CardEditState.busy] like every other
   /// mutator, so a screen that is still mounted while this is in flight
@@ -250,8 +288,25 @@ class CardEditor extends _$CardEditor {
         ),
       );
     }
-    await ref.read(savedCardsRepositoryProvider).delete(id);
+    final AsyncValue<void> deleted = await AsyncValue.guard<void>(
+      () => ref.read(savedCardsRepositoryProvider).delete(id),
+    );
     if (!ref.mounted) {
+      _inFlight = false;
+      return;
+    }
+    final Object? error = deleted.error;
+    if (error != null) {
+      state = current == null
+          ? AsyncError<CardEditState?>(error, deleted.stackTrace!)
+          : AsyncData<CardEditState?>(
+              CardEditState(
+                card: current.card,
+                bytes: current.bytes,
+                dirty: current.dirty,
+                error: error,
+              ),
+            );
       _inFlight = false;
       return;
     }
