@@ -1,9 +1,11 @@
 name: ci
-# The branch gets CI through draft PR #1 (push only triggers on main).
+# The branch gets CI through draft PR #1 (push only triggers on main); the
+# macOS integration job runs on main pushes and on manual dispatch, never on PRs.
 on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -40,7 +42,7 @@ jobs:
 
   integration:
     needs: check
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request'
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
