@@ -18,3 +18,4 @@ export 'state/selected_dictionary.dart'
         selectedDictionaryProvider;
 export 'ui/dictionaries_page.dart'
     show DictionariesPage, dictionaryDisplayName, showDictionaryNameSheet;
+export 'ui/dictionary_detail_page.dart' show DictionaryDetailPage;

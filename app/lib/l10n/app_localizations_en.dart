@@ -965,4 +965,62 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dictNameConfirm => 'Save';
+
+  @override
+  String get dictNotFound => 'That key list no longer exists.';
+
+  @override
+  String get dictKeysTitle => 'Keys';
+
+  @override
+  String get dictNoKeys => 'This list has no keys yet.';
+
+  @override
+  String get dictAddKey => 'Add key';
+
+  @override
+  String get dictKeyLabel => 'Key';
+
+  @override
+  String get dictKeyHint => '12 hexadecimal characters';
+
+  @override
+  String get dictKeyInvalid => 'A key is 12 hexadecimal characters.';
+
+  @override
+  String get dictKeyDuplicate => 'That key is already in this list.';
+
+  @override
+  String get dictRemoveKey => 'Remove key';
+
+  @override
+  String get dictRename => 'Rename';
+
+  @override
+  String get dictRenameTitle => 'Rename this list';
+
+  @override
+  String get dictDuplicate => 'Duplicate';
+
+  @override
+  String get dictDuplicateTitle => 'Name the copy';
+
+  @override
+  String dictDuplicateSuffix(String name) {
+    return '$name copy';
+  }
+
+  @override
+  String get dictBuiltInNote =>
+      'Built in and read-only. Duplicate it to make a list you can edit.';
+
+  @override
+  String get dictDelete => 'Delete list';
+
+  @override
+  String get dictDeleteTitle => 'Delete this list?';
+
+  @override
+  String get dictDeleteBody =>
+      'The keys in it are removed from Spectra. Cards and slots are untouched.';
 }

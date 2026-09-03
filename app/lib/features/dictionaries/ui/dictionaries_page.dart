@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../../core/errors/problem_view.dart';
+import '../../../core/routing/routes.dart';
 import '../../../core/routing/sub_page_scaffold.dart';
 import '../../../data/data.dart';
 import '../../../l10n/app_localizations.dart';
@@ -15,9 +17,8 @@ import '../state/selected_dictionary.dart';
 /// Spec 7.7 step 7: the key lists. Layout only — every mutation goes
 /// through [DictionaryLibrary], and the selection is [SelectedDictionaryId].
 ///
-/// A tile's [SpectraListTile.onTap] is left null: the `:id` detail route
-/// (`DictionaryDetailPage`) is Task 7's, and landing a tap that opens
-/// go_router's error page is exactly what pre-flight ruling M11 forbids.
+/// A tile's [SpectraListTile.onTap] opens the `:id` detail route
+/// (`DictionaryDetailPage`, Task 7).
 class DictionariesPage extends ConsumerWidget {
   const DictionariesPage({super.key});
 
@@ -58,6 +59,7 @@ class DictionariesPage extends ConsumerWidget {
                 leading: Icon(
                   isBuiltIn(dictionary) ? Icons.lock_outline : Icons.key,
                 ),
+                onTap: () => context.go(AppRoutes.dictionary(dictionary.id)),
                 // M1: the "in use" marker is its own widget, not folded
                 // into the subtitle string.
                 trailing: dictionary.id == selectedId

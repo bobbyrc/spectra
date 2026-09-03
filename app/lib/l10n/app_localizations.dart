@@ -1659,6 +1659,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save'**
   String get dictNameConfirm;
+
+  /// Shown when a key list route names a deleted list.
+  ///
+  /// In en, this message translates to:
+  /// **'That key list no longer exists.'**
+  String get dictNotFound;
+
+  /// Section header above a list's keys.
+  ///
+  /// In en, this message translates to:
+  /// **'Keys'**
+  String get dictKeysTitle;
+
+  /// Shown when a key list is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'This list has no keys yet.'**
+  String get dictNoKeys;
+
+  /// Adds a key to the list.
+  ///
+  /// In en, this message translates to:
+  /// **'Add key'**
+  String get dictAddKey;
+
+  /// Label of the key entry field.
+  ///
+  /// In en, this message translates to:
+  /// **'Key'**
+  String get dictKeyLabel;
+
+  /// Hint under the key entry field.
+  ///
+  /// In en, this message translates to:
+  /// **'12 hexadecimal characters'**
+  String get dictKeyHint;
+
+  /// The typed key is not a 6-byte key.
+  ///
+  /// In en, this message translates to:
+  /// **'A key is 12 hexadecimal characters.'**
+  String get dictKeyInvalid;
+
+  /// The typed key is already stored.
+  ///
+  /// In en, this message translates to:
+  /// **'That key is already in this list.'**
+  String get dictKeyDuplicate;
+
+  /// Removes one key from the list.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove key'**
+  String get dictRemoveKey;
+
+  /// Renames a key list.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get dictRename;
+
+  /// Title of the rename sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename this list'**
+  String get dictRenameTitle;
+
+  /// Copies a key list into an editable one.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get dictDuplicate;
+
+  /// Title of the sheet that names a duplicated list.
+  ///
+  /// In en, this message translates to:
+  /// **'Name the copy'**
+  String get dictDuplicateTitle;
+
+  /// Default name offered for a duplicated list.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} copy'**
+  String dictDuplicateSuffix(String name);
+
+  /// Explains why the built-in list cannot be edited.
+  ///
+  /// In en, this message translates to:
+  /// **'Built in and read-only. Duplicate it to make a list you can edit.'**
+  String get dictBuiltInNote;
+
+  /// Deletes a key list.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete list'**
+  String get dictDelete;
+
+  /// Title of the delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this list?'**
+  String get dictDeleteTitle;
+
+  /// Body of the delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'The keys in it are removed from Spectra. Cards and slots are untouched.'**
+  String get dictDeleteBody;
 }
 
 class _AppLocalizationsDelegate
