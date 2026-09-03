@@ -54,6 +54,7 @@ class _SpectraDisclosureState extends State<SpectraDisclosure> {
               Semantics(
                 button: true,
                 container: true,
+                expanded: _expanded,
                 label: affordance,
                 child: SizedBox(
                   width: 48,

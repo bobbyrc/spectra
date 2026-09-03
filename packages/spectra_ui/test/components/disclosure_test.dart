@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
@@ -47,6 +49,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(changes, <bool>[true, false]);
     expect(find.text('Git hash abc1234'), findsNothing);
+  });
+
+  testWidgets('reports its expanded state through semantics and flips it', (
+    tester,
+  ) async {
+    final changes = <bool>[];
+    await tester.pumpWidget(
+      spectraHarness(
+        width: 360,
+        height: 300,
+        child: SpectraDisclosure(
+          summary: const SpectraListTile(title: 'Firmware'),
+          detail: const SpectraListTile(title: 'Git hash abc1234'),
+          onExpansionChanged: changes.add,
+        ),
+      ),
+    );
+
+    Tristate expandedState(String label) => tester
+        .getSemantics(find.bySemanticsLabel(label))
+        .flagsCollection
+        .isExpanded;
+
+    expect(expandedState('Show details'), Tristate.isFalse);
+
+    await tester.tap(find.text('Firmware'));
+    await tester.pumpAndSettle();
+
+    expect(expandedState('Hide details'), Tristate.isTrue);
+
+    await tester.tap(find.text('Firmware'));
+    await tester.pumpAndSettle();
+
+    expect(expandedState('Show details'), Tristate.isFalse);
   });
 
   testWidgets('initiallyExpanded starts open', (tester) async {
