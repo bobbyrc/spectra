@@ -10,6 +10,12 @@ import 'package:flutter/material.dart';
 
 import 'scan_page.dart';
 
+/// Off by default: H1 must be run against real hardware, never the
+/// emulated "Emulated Chameleon Ultra" row. Pass
+/// `--dart-define=SPECTRA_EMULATOR=true` only for a dry run with no
+/// device attached.
+const bool _emulatorEnabled = bool.fromEnvironment('SPECTRA_EMULATOR');
+
 void main() {
   runApp(const TransportExampleApp());
 }
@@ -21,7 +27,7 @@ class TransportExampleApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'serial_probe',
     home: ScanPage(
-      scanners: ChameleonTransports.defaultScanners(emulator: true),
+      scanners: ChameleonTransports.defaultScanners(emulator: _emulatorEnabled),
     ),
   );
 }

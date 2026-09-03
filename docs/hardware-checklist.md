@@ -20,17 +20,25 @@ cd /path/to/spectra
 export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
 ```
 
+The example's emulator row (`Emulated Chameleon Ultra`) is off by default;
+none of the items below may be ticked from it. It only appears if the app
+is launched with `--dart-define=SPECTRA_EMULATOR=true`, which is for a dry
+run with no device attached, never for H1 itself.
+
 **Serial**
 
 - [ ] pending: **enumeration.** Plug the device in over USB, then
       `cd packages/chameleon_flutter/example && flutter run -d macos`.
-      Expect a row reading roughly
-      `ChameleonUltra: hw_v1, fw_vN · usb · /dev/cu.usbmodemXXXX`.
-      Report the exact row, and confirm the log line shows vid=0x6868
-      pid=0x8686 mfr=Proxgrind.
+      Expect a row with a title (the device name) and a subtitle reading
+      `usb · <port path>`, e.g. `usb · /dev/cu.usbmodemXXXX`, and a matching
+      `[serial_probe] scan: <name> (usb <port path>)` line in the
+      `flutter run` console — that line is the only device identity the app
+      logs (name, transport kind, transport id, and `bootloader` if
+      applicable; it does not print VID/PID or manufacturer). Report the
+      exact row and log line.
 - [ ] pending: **control lines.** With the app running, set the dropdown in
       the app bar to `dtrOnly`, tap the device row, and report whether the
-      page reaches `connection state: SessionReady`. Then go back, set the
+      page reaches `connection state: ready` (shown live under the app bar title, and logged as a `[serial_probe] connection state: ...` line). Then go back, set the
       dropdown to `hardwareFlowControl` and tap the row again. **Report
       which of the two modes works** (both may). This decides the default
       in `SerialControlLineMode`.
@@ -84,7 +92,7 @@ export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
       filter by the Chameleon service UUID.
 - [ ] pending: **connect and pairing.** Tap the BLE row. Report whether
       macOS shows a pairing prompt, whether accepting it leads to
-      `connection state: SessionReady`, and — if it fails — the `failed:`
+      `connection state: ready` (shown live under the app bar title, and logged as a `[serial_probe] connection state: ...` line), and — if it fails — the `failed:`
       line including the `(guidance: ...)` value. This is the pairing flow
       `BleTransport._subscribeWithPairing` drives.
 - [ ] pending: **handshake over BLE.** Report the `device:` and `chip id:`
@@ -112,10 +120,13 @@ The nine assumptions the SDK makes about payload layouts that the firmware
 documentation does not pin down. Each was derived from
 `docs/research/chameleon-protocol.md` plus the reference app's behaviour and
 is tagged `hardware-validate` in the source (`dart test -t hardware-validate`
-runs the tests that encode them). Run these from the transport example once
-Phase 3 lands: `cd packages/chameleon_flutter/example && export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH" && mise x -- flutter run -d macos`,
-connect, then use the console the example exposes (added in Phase 3) to run
-the call named in each item and compare the bytes against the frame log.
+runs the tests that encode them). The example has no raw command console;
+run the call named in each item either from the contract suite
+(`cd packages/chameleon_flutter && flutter test --tags hardware --run-skipped test/contract`,
+see `test/contract/hardware_contract_test.dart`) or from a short Dart
+script/REPL against a `DeviceSession` built the same way the example does
+(`ChameleonTransports.transportFor` + `DeviceSession.open()`), and compare
+the bytes against the frame log.
 
 - [ ] pending: 1034 GET_DEVICE_SETTINGS payload length by version byte — v5
       carries no sleep-timeout byte, v6 does. `session.settings.refresh()` on
