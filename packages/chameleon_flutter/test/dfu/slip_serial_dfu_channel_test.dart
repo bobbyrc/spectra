@@ -276,6 +276,69 @@ void main() {
     );
   });
 
+  test('open() raises maxDataWrite from the bootloader MTU', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t);
+    expect(channel.maxDataWrite, 64);
+    final opened = channel.open();
+    await pumpEventQueue();
+    // The channel asked, SLIP-framed, before anything else went out.
+    expect(t.written.single, Slip.encode(<int>[0x07]));
+    // 2051 = 0x0803, little-endian in the response payload.
+    t.deliver(Slip.encode(<int>[0x60, 0x07, 0x01, 0x03, 0x08]));
+    await opened;
+    expect(channel.maxDataWrite, 1024);
+    await channel.close();
+  });
+
+  test('a bootloader without the opcode keeps the fallback', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t);
+    final opened = channel.open();
+    await pumpEventQueue();
+    t.deliver(Slip.encode(<int>[0x60, 0x07, 0x02]));
+    await opened;
+    expect(channel.maxDataWrite, 64);
+    await channel.close();
+  });
+
+  test('a silent bootloader keeps the fallback and does not hang', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(
+      t,
+      mtuTimeout: const Duration(milliseconds: 10),
+    );
+    await channel.open();
+    expect(channel.maxDataWrite, 64);
+    await channel.close();
+  });
+
+  test(
+    'the negotiated size never outgrows the transport write limit',
+    () async {
+      // 2 * (payload + 1) + 1 <= maxWriteLength is the worst-case SLIP
+      // frame, so a 261-byte limit caps the payload at 129 even though the
+      // device offered 1024.
+      final t = _LoopbackTransport(maxWriteLength: 261);
+      final channel = SlipSerialDfuChannel(t);
+      final opened = channel.open();
+      await pumpEventQueue();
+      t.deliver(Slip.encode(<int>[0x60, 0x07, 0x01, 0x03, 0x08]));
+      await opened;
+      expect(channel.maxDataWrite, 129);
+      await channel.close();
+    },
+  );
+
+  test('negotiateMtu: false writes nothing on open', () async {
+    final t = _LoopbackTransport();
+    final channel = SlipSerialDfuChannel(t, negotiateMtu: false);
+    await channel.open();
+    expect(t.written, isEmpty);
+    expect(channel.maxDataWrite, 64);
+    await channel.close();
+  });
+
   test('concurrent writes are serialised in call order', () async {
     final t = _LoopbackTransport();
     final channel = SlipSerialDfuChannel(t);

@@ -28,15 +28,11 @@ import 'slip.dart';
 /// `(mtu - 1) // 2 - 1` applied to the nRF5 SDK's UART serial transport MTU
 /// (`UART_SLIP_MTU = 2 * (64 + 1) + 1 = 131`), the smaller of the two serial
 /// transports; the halving is what makes a worst-case all-escapes payload
-/// still fit the bootloader's SLIP buffer. nrfutil does not carry a static
-/// default: `DfuTransportSerial.open` asks the device with the
-/// `GetSerialMTU` opcode `0x07` and computes from the answer. The Chameleon's
-/// USB CDC bootloader reports `SLIP_MTU = 2 * (1024 + 1) + 1 = 2051`, which
-/// would yield 1024 — roughly a sixteen-fold speed-up.
-///
-/// Follow-up: `SecureDfu` has no GetSerialMTU request yet, so the MTU cannot
-/// be negotiated and this default stays conservative. Adding it is the way
-/// to grow [maxDataWrite] on USB.
+/// still fit the bootloader's SLIP buffer. That default is now only the
+/// fallback: [open] asks the device with the `GetSerialMTU` opcode `0x07`
+/// and raises [maxDataWrite] from the answer. The Chameleon's USB CDC
+/// bootloader reports `SLIP_MTU = 2 * (1024 + 1) + 1 = 2051`, which yields
+/// 1024 — roughly a sixteen-fold speed-up.
 ///
 /// hardware-validate: the serial DFU framing here is assumed from nrfutil's
 /// source and exercised only against the fake bootloader in tests. Real
@@ -45,7 +41,9 @@ import 'slip.dart';
 final class SlipSerialDfuChannel implements DfuChannel {
   SlipSerialDfuChannel(
     this._transport, {
-    this.maxDataWrite = 64,
+    this._maxDataWrite = 64,
+    this.negotiateMtu = true,
+    this.mtuTimeout = const Duration(seconds: 2),
     this._ownsTransport = false,
   }) {
     _sub = _transport.incoming.listen(
@@ -90,8 +88,25 @@ final class SlipSerialDfuChannel implements DfuChannel {
   bool _closed = false;
   bool _transportClosed = false;
 
+  /// Ask the bootloader for its SLIP MTU in [open] and size the writes from
+  /// the answer. False keeps the fallback and writes nothing on open — for
+  /// a test driving the channel by hand.
+  final bool negotiateMtu;
+
+  /// How long the MTU answer is waited for. A bootloader that never replies
+  /// is not an error: the fallback stands and the first real request is the
+  /// gate that reports a dead link.
+  final Duration mtuTimeout;
+
+  int _maxDataWrite;
+  bool _negotiated = false;
+
+  /// Largest payload one WriteObject frame carries: the constructor's
+  /// fallback until [open] negotiates, then nrfutil's
+  /// `(mtu - 1) // 2 - 1` for the MTU the bootloader reported, capped so
+  /// the worst-case SLIP-escaped frame still fits [Transport.maxWriteLength].
   @override
-  final int maxDataWrite;
+  int get maxDataWrite => _maxDataWrite;
 
   /// Decoded SLIP frames from the transport, in order. A broadcast stream:
   /// subscribe before writing, since nothing is buffered for a late
@@ -102,16 +117,44 @@ final class SlipSerialDfuChannel implements DfuChannel {
   @override
   Stream<Uint8List> get responses => _responses.stream;
 
-  /// Nothing to do: the transport is already open when the channel is
-  /// built, and the constructor has done the wiring. Part of the
-  /// [DfuChannel] lifecycle so every caller can open, write and close the
-  /// same way. Idempotent; throws once the channel is closed.
+  /// Negotiates the write size and nothing else: the transport is already
+  /// open when the channel is built, and the constructor has done the
+  /// wiring. Idempotent (the negotiation runs once); throws once the
+  /// channel is closed. Part of the [DfuChannel] lifecycle (ruling F33) so
+  /// every caller can open, write and close the same way.
+  ///
+  /// Every failure here is swallowed on purpose: a bootloader that answers
+  /// "opcode not supported", answers nothing, or drops the link leaves the
+  /// conservative fallback in place, and the first real DFU request is what
+  /// reports a link that is actually gone.
   @override
   Future<void> open() async {
     if (_closed) {
       throw const Disconnected('the DFU channel is closed');
     }
+    if (!negotiateMtu || _negotiated) return;
+    _negotiated = true;
+    // Subscribe before writing: `responses` is broadcast and buffers
+    // nothing for a late listener.
+    final reply = responses.first;
+    try {
+      await writeControl(DfuSerialMtu.request());
+      final mtu = DfuSerialMtu.parse(await reply.timeout(mtuTimeout));
+      if (mtu == null) return;
+      final chunk = DfuSerialMtu.chunkSize(mtu);
+      if (chunk <= 0) return;
+      _maxDataWrite = chunk < _transportChunkLimit
+          ? chunk
+          : _transportChunkLimit;
+    } on Object {
+      // Deliberately ignored; see the doc comment.
+    }
   }
+
+  /// The largest payload whose worst-case SLIP frame — every byte escaped,
+  /// plus the WriteObject opcode and the terminating END:
+  /// `2 * (payload + 1) + 1` — still fits the transport's write limit.
+  int get _transportChunkLimit => (_transport.maxWriteLength - 1) ~/ 2 - 1;
 
   @override
   Future<void> writeControl(Uint8List bytes) {
