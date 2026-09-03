@@ -72,13 +72,13 @@ void main() {
   });
 
   testWidgetsApp(
-    'with nothing connected, recovering a bootloader still says so',
+    'recovering a bootloader that is still visible names it as the target',
     (tester) async {
       useDesktopSurface(tester);
       // Pre-flight ruling 9: drive to AppRoutes.update with no session (the
-      // spec 5.6 recovery entry, reached via "Recover" on a bootloader row)
-      // and assert the updateNoTarget copy, rather than asserting on a
-      // screen the test never opens.
+      // spec 5.6 recovery entry, reached via "Recover" on a bootloader row).
+      // Task 12 resolves `?recover=` against `discoveryProvider`, so a
+      // bootloader still visible there is the target, not `updateNoTarget`.
       await tester.pumpWidget(
         ProviderScope(
           overrides: <Override>[
@@ -106,13 +106,7 @@ void main() {
       await tester.tap(find.text('Recover'));
       await pumpFrames(tester);
 
-      expect(
-        find.text(
-          'Connect a device, or choose a device in the bootloader on '
-          'the connect screen.',
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Updating CU.'), findsOneWidget);
     },
   );
 

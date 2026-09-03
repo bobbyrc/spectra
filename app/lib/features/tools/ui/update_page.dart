@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
+import '../../../core/discovery/discovery_provider.dart';
 import '../../../core/errors/problem_view.dart';
 import '../../../core/flags/feature_flags.dart';
 import '../../../core/routing/sub_page_scaffold.dart';
 import '../../../core/session/active_device.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/firmware_package_source.dart';
+import '../state/recover_target.dart';
 import '../state/update_controller.dart';
 import '../state/update_steps.dart';
 
@@ -46,7 +48,11 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
     final FeatureFlags flags = ref.watch(featureFlagsProvider);
     final LoadedFirmwarePackage? package = state.package;
     final String? deviceName = ref.watch(activeSessionProvider)?.device.name;
-    final String? target = widget.recoverTransportId;
+    final DiscoveredDevice? recover = recoverTarget(
+      ref.watch(discoveryProvider).value?.devices ?? const <DiscoveredDevice>[],
+      widget.recoverTransportId,
+    );
+    final String? targetName = recover?.name ?? deviceName;
     final bool busy = state.running || state.loading;
 
     return SubPageScaffold(
@@ -54,8 +60,10 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
       body: ListView(
         padding: const EdgeInsets.all(SpectraSpacing.lg),
         children: <Widget>[
-          if (target != null) ...<Widget>[
-            SpectraCard(child: Text(l10n.updateRecoverTarget(target))),
+          if (widget.recoverTransportId != null) ...<Widget>[
+            SpectraCard(
+              child: Text(l10n.updateRecoverTarget(widget.recoverTransportId!)),
+            ),
             const SizedBox(height: SpectraSpacing.md),
             SpectraCard(child: Text(l10n.updateRecoverInstructions)),
             const SizedBox(height: SpectraSpacing.md),
@@ -117,8 +125,8 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
             ),
           ],
           const SizedBox(height: SpectraSpacing.md),
-          if (deviceName != null)
-            SpectraCard(child: Text(l10n.updateTargetConnected(deviceName)))
+          if (targetName != null)
+            SpectraCard(child: Text(l10n.updateTargetConnected(targetName)))
           else
             SpectraCard(child: Text(l10n.updateNoTarget)),
           const SizedBox(height: SpectraSpacing.md),
@@ -160,9 +168,9 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
           if (!state.running)
             SpectraButton(
               label: l10n.updateStart,
-              onPressed: package == null || busy || deviceName == null
+              onPressed: package == null || busy || targetName == null
                   ? null
-                  : () => controller.start(),
+                  : () => controller.start(bootloader: recover),
             ),
           if (!flags.dfuOverBleEnabled) ...<Widget>[
             const SizedBox(height: SpectraSpacing.md),
