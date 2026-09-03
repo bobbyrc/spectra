@@ -1,4 +1,5 @@
 import 'package:chameleon/chameleon.dart';
+import 'package:material_ui/material_ui.dart' show ThemeMode;
 
 import '../../../l10n/app_localizations.dart';
 
@@ -40,3 +41,11 @@ const int sleepTimeoutMax = 60;
 
 bool isValidSleepTimeout(int seconds) =>
     seconds >= sleepTimeoutMin && seconds <= sleepTimeoutMax;
+
+/// The app's own theme choice (spec 7.7 step 7) — not an SDK enum, but the
+/// same exhaustive-switch shape as the labels above.
+String themeModeLabel(ThemeMode mode, AppLocalizations l10n) => switch (mode) {
+  ThemeMode.system => l10n.settingsThemeSystem,
+  ThemeMode.light => l10n.settingsThemeLight,
+  ThemeMode.dark => l10n.settingsThemeDark,
+};

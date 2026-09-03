@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/core/discovery/discovery_provider.dart';
 import 'package:spectra/core/discovery/scanners.dart';
+import 'package:spectra/data/data.dart';
+import 'package:spectra/data/database/spectra_database.dart';
 
 const usbUltra = DiscoveredDevice(
   name: 'ChameleonUltra',
@@ -149,8 +151,11 @@ void main() {
   test(
     'emulator mode is on and puts the emulated device in the list',
     () async {
+      final db = SpectraDatabase.memory();
+      addTearDown(db.close);
       final container = ProviderContainer(
         overrides: [
+          databaseProvider.overrideWithValue(db),
           // Ruling 8 (fix round 1): stub the adapter seams so
           // `defaultScanners` never constructs a real `UniversalBleAdapter`
           // or platform serial adapter just to build this list.
@@ -173,16 +178,19 @@ void main() {
     },
   );
 
-  test('turning emulator mode off removes the fake scanner', () {
+  test('turning emulator mode off removes the fake scanner', () async {
+    final db = SpectraDatabase.memory();
+    addTearDown(db.close);
     final container = ProviderContainer(
       overrides: [
+        databaseProvider.overrideWithValue(db),
         scannerBleAdapterProvider.overrideWithValue(StubBleAdapter()),
         scannerSerialAdapterProvider.overrideWithValue(StubSerialPortAdapter()),
       ],
     );
     addTearDown(container.dispose);
 
-    container.read(emulatorModeProvider.notifier).setEnabled(false);
+    await container.read(emulatorModeProvider.notifier).setEnabled(false);
     expect(container.read(scannersProvider).whereType<FakeScanner>(), isEmpty);
   });
 

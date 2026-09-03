@@ -4,6 +4,7 @@ import 'package:spectra_ui/spectra_ui.dart';
 
 import 'core/lifecycle/lifecycle_host.dart';
 import 'core/routing/router.dart';
+import 'core/theme/theme_mode.dart';
 import 'l10n/app_localizations.dart';
 
 /// The application root: the design system's app widget, driven by
@@ -16,6 +17,7 @@ class SpectraRoot extends ConsumerWidget {
     return AppLifecycleHost(
       child: SpectraApp(
         routerConfig: ref.watch(routerProvider),
+        themeMode: ref.watch(themeModeProvider),
         // Not `title:`: this widget sits above the app's own
         // `Localizations`, so the name can only be resolved from a context
         // inside it.

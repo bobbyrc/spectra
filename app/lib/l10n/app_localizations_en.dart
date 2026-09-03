@@ -1181,4 +1181,48 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsResetBody =>
       'Animation, buttons, sleep and pairing all go back to the firmware defaults. Slots and cards are untouched.';
+
+  @override
+  String get settingsAppTitle => 'App';
+
+  @override
+  String get settingsTheme => 'Theme';
+
+  @override
+  String get settingsThemeSystem => 'Match the system';
+
+  @override
+  String get settingsThemeLight => 'Light';
+
+  @override
+  String get settingsThemeDark => 'Dark';
+
+  @override
+  String get settingsEmulator => 'Emulated device';
+
+  @override
+  String get settingsEmulatorSubtitle =>
+      'Show an emulated Chameleon Ultra on the connect screen, so Spectra works with no hardware attached.';
+
+  @override
+  String get settingsDeveloperTitle => 'Developer';
+
+  @override
+  String get settingsFlagDfuBle => 'Firmware update over Bluetooth';
+
+  @override
+  String get settingsFlagDfuBleSubtitle =>
+      'Off until a USB update has recovered a device from an interrupted Bluetooth update on real hardware.';
+
+  @override
+  String get settingsAboutTitle => 'About';
+
+  @override
+  String get settingsLicences => 'Open-source licences';
+
+  @override
+  String get settingsVersion => 'Version';
+
+  @override
+  String get settingsExportKeys => 'Export key lists';
 }

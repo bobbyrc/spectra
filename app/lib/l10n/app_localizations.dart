@@ -2043,6 +2043,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Animation, buttons, sleep and pairing all go back to the firmware defaults. Slots and cards are untouched.'**
   String get settingsResetBody;
+
+  /// Section header above the app's own settings.
+  ///
+  /// In en, this message translates to:
+  /// **'App'**
+  String get settingsAppTitle;
+
+  /// Light, dark or follow the system.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get settingsTheme;
+
+  /// Theme mode: system.
+  ///
+  /// In en, this message translates to:
+  /// **'Match the system'**
+  String get settingsThemeSystem;
+
+  /// Theme mode: light.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get settingsThemeLight;
+
+  /// Theme mode: dark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get settingsThemeDark;
+
+  /// Whether the connect screen offers an emulated Chameleon.
+  ///
+  /// In en, this message translates to:
+  /// **'Emulated device'**
+  String get settingsEmulator;
+
+  /// Explains emulator mode (spec 7.5).
+  ///
+  /// In en, this message translates to:
+  /// **'Show an emulated Chameleon Ultra on the connect screen, so Spectra works with no hardware attached.'**
+  String get settingsEmulatorSubtitle;
+
+  /// Section header above the feature flags.
+  ///
+  /// In en, this message translates to:
+  /// **'Developer'**
+  String get settingsDeveloperTitle;
+
+  /// The dfuOverBleEnabled feature flag.
+  ///
+  /// In en, this message translates to:
+  /// **'Firmware update over Bluetooth'**
+  String get settingsFlagDfuBle;
+
+  /// Spec 5.6's rule for enabling BLE DFU.
+  ///
+  /// In en, this message translates to:
+  /// **'Off until a USB update has recovered a device from an interrupted Bluetooth update on real hardware.'**
+  String get settingsFlagDfuBleSubtitle;
+
+  /// Section header above the about rows.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsAboutTitle;
+
+  /// Opens the licences of the packages Spectra uses.
+  ///
+  /// In en, this message translates to:
+  /// **'Open-source licences'**
+  String get settingsLicences;
+
+  /// The app's own version number.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get settingsVersion;
+
+  /// Copies every key dictionary as JSON to the clipboard (spec 7.7 step 7).
+  ///
+  /// In en, this message translates to:
+  /// **'Export key lists'**
+  String get settingsExportKeys;
 }
 
 class _AppLocalizationsDelegate

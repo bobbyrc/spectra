@@ -17,21 +17,48 @@
 /// adapter) hangs off.
 library;
 
+import 'dart:async';
+
 import 'package:chameleon/chameleon.dart';
 import 'package:chameleon_flutter/chameleon_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import '../../data/data.dart';
 
 part 'scanners.g.dart';
 
 /// Spec 7.5: the connect screen lists real devices plus one emulated
 /// Chameleon Ultra. On by default, because it is also how screenshots and
-/// manual QA happen with no hardware attached.
+/// manual QA happen with no hardware attached — and now a settings toggle
+/// (Task 12), so the choice persists.
 @Riverpod(keepAlive: true)
 class EmulatorMode extends _$EmulatorMode {
-  @override
-  bool build() => true;
+  static const String preferenceKey = 'app.emulatorMode';
 
-  void setEnabled(bool enabled) => state = enabled;
+  @override
+  bool build() {
+    // The stored value arrives asynchronously and a scanner list cannot
+    // wait for it, so the default holds until it lands. On by default,
+    // because it is also how screenshots and manual QA happen with no
+    // hardware attached (spec 7.5) — and the stored value can only ever
+    // turn it off, which is the harmless direction to be late about.
+    final PreferencesRepository prefs = ref.watch(
+      preferencesRepositoryProvider,
+    );
+    unawaited(
+      prefs.read(preferenceKey).then((String? stored) {
+        if (stored != null && ref.mounted) state = stored == 'true';
+      }),
+    );
+    return true;
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    state = enabled;
+    await ref
+        .read(preferencesRepositoryProvider)
+        .write(preferenceKey, '$enabled');
+  }
 }
 
 /// See the file header. `null` is [ChameleonTransports.defaultScanners]'s

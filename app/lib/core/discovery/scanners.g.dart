@@ -10,18 +10,21 @@ part of 'scanners.dart';
 // ignore_for_file: type=lint, type=warning
 /// Spec 7.5: the connect screen lists real devices plus one emulated
 /// Chameleon Ultra. On by default, because it is also how screenshots and
-/// manual QA happen with no hardware attached.
+/// manual QA happen with no hardware attached — and now a settings toggle
+/// (Task 12), so the choice persists.
 
 @ProviderFor(EmulatorMode)
 final emulatorModeProvider = EmulatorModeProvider._();
 
 /// Spec 7.5: the connect screen lists real devices plus one emulated
 /// Chameleon Ultra. On by default, because it is also how screenshots and
-/// manual QA happen with no hardware attached.
+/// manual QA happen with no hardware attached — and now a settings toggle
+/// (Task 12), so the choice persists.
 final class EmulatorModeProvider extends $NotifierProvider<EmulatorMode, bool> {
   /// Spec 7.5: the connect screen lists real devices plus one emulated
   /// Chameleon Ultra. On by default, because it is also how screenshots and
-  /// manual QA happen with no hardware attached.
+  /// manual QA happen with no hardware attached — and now a settings toggle
+  /// (Task 12), so the choice persists.
   EmulatorModeProvider._()
     : super(
         from: null,
@@ -49,11 +52,12 @@ final class EmulatorModeProvider extends $NotifierProvider<EmulatorMode, bool> {
   }
 }
 
-String _$emulatorModeHash() => r'425cac3adfd8fea6b55890a8258030f3e42f6624';
+String _$emulatorModeHash() => r'deb68ef2c577a6284bc11f819ee5d07ac33d5494';
 
 /// Spec 7.5: the connect screen lists real devices plus one emulated
 /// Chameleon Ultra. On by default, because it is also how screenshots and
-/// manual QA happen with no hardware attached.
+/// manual QA happen with no hardware attached — and now a settings toggle
+/// (Task 12), so the choice persists.
 
 abstract class _$EmulatorMode extends $Notifier<bool> {
   bool build();
