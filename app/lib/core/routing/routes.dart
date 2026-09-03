@@ -13,4 +13,8 @@ abstract final class AppRoutes {
   /// bootloader to talk to. Phase 8 reads the `recover` query parameter.
   static String recover(String transportId) =>
       '$update?recover=${Uri.encodeComponent(transportId)}';
+
+  /// The slot editor (spec 7.2: a deep route pushed on top of its tab).
+  /// [index] is the wire index, 0..7.
+  static String slot(int index) => '$slots/$index';
 }

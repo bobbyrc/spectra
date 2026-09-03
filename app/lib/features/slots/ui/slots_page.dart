@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
+import '../../../core/routing/routes.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/slot_labels.dart';
 import '../state/slot_view.dart';
@@ -46,6 +48,7 @@ class SlotsPage extends ConsumerWidget {
           nickname: view.nickname,
           tagTypes: slotTypeLabels(view, l10n),
           active: view.isActive,
+          onTap: () => GoRouter.of(context).go(AppRoutes.slot(view.index)),
         );
       },
     );

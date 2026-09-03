@@ -115,6 +115,13 @@
   "@slotsTitle": {"description": "Heading of the slots grid."},
   "slotsEmpty": "Connect a device to see its slots.",
   "@slotsEmpty": {"description": "Shown on the slots screen with no session."},
+  "slotDetailTitle": "Slot {number}",
+  "@slotDetailTitle": {
+    "description": "Title of the slot editor; the device's one-based slot number.",
+    "placeholders": {"number": {"type": "int"}}
+  },
+  "slotNotFound": "That slot does not exist.",
+  "@slotNotFound": {"description": "Shown when a slot route names an index the device does not have."},
   "comingSoonCards": "The card library arrives in Phase 6.",
   "@comingSoonCards": {"description": "Placeholder body of the Cards tab."},
   "comingSoonSettings": "Settings arrive in Phase 9.",

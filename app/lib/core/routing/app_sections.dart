@@ -46,6 +46,16 @@ final List<AppSection> appSections = <AppSection>[
     icon: Icons.dashboard_outlined,
     selectedIcon: Icons.dashboard,
     builder: (context, state) => const SlotsPage(),
+    subRoutes: <RouteBase>[
+      GoRoute(
+        path: ':index',
+        builder: (context, state) => SlotDetailPage(
+          // A path that is not a slot index renders the not-found state
+          // rather than throwing in a route builder.
+          index: int.tryParse(state.pathParameters['index'] ?? '') ?? -1,
+        ),
+      ),
+    ],
   ),
   AppSection(
     path: AppRoutes.cards,

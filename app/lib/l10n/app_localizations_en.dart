@@ -204,6 +204,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get slotsEmpty => 'Connect a device to see its slots.';
 
   @override
+  String slotDetailTitle(int number) {
+    return 'Slot $number';
+  }
+
+  @override
+  String get slotNotFound => 'That slot does not exist.';
+
+  @override
   String get comingSoonCards => 'The card library arrives in Phase 6.';
 
   @override

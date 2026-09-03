@@ -3,8 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../../core/flags/feature_flags.dart';
+import '../../../core/routing/sub_page_scaffold.dart';
 import '../../../l10n/app_localizations.dart';
-import 'tool_sub_page_scaffold.dart';
 
 /// Phase 8 fills this in. What exists now is the seam it needs: the
 /// recovery target from the connect screen (spec 5.5) and the
@@ -21,7 +21,7 @@ class UpdatePage extends ConsumerWidget {
     final FeatureFlags flags = ref.watch(featureFlagsProvider);
     final String? target = recoverTransportId;
 
-    return ToolSubPageScaffold(
+    return SubPageScaffold(
       title: l10n.updateTitle,
       body: ListView(
         padding: const EdgeInsets.all(SpectraSpacing.lg),

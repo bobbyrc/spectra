@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
+import '../../../core/routing/sub_page_scaffold.dart';
 import '../../../core/session/frame_log_provider.dart';
 import '../../../l10n/app_localizations.dart';
-import 'tool_sub_page_scaffold.dart';
 
 /// Spec 9: the ring buffer is always on, and viewing and exporting it are in
 /// every build. Export is the clipboard — no share plugin, because a bug
@@ -27,7 +27,7 @@ class FrameLogPage extends ConsumerWidget {
     final List<FrameLogEntry> entries =
         ref.read(frameLogEntriesProvider).value ?? const <FrameLogEntry>[];
 
-    return ToolSubPageScaffold(
+    return SubPageScaffold(
       title: l10n.frameLogTitle,
       body: ListView(
         padding: const EdgeInsets.all(SpectraSpacing.lg),

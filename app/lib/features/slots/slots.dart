@@ -2,4 +2,5 @@
 /// import `features/slots/…` directly (spec 8.3).
 library;
 
+export 'ui/slot_detail_page.dart';
 export 'ui/slots_page.dart';

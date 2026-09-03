@@ -430,6 +430,18 @@ abstract class AppLocalizations {
   /// **'Connect a device to see its slots.'**
   String get slotsEmpty;
 
+  /// Title of the slot editor; the device's one-based slot number.
+  ///
+  /// In en, this message translates to:
+  /// **'Slot {number}'**
+  String slotDetailTitle(int number);
+
+  /// Shown when a slot route names an index the device does not have.
+  ///
+  /// In en, this message translates to:
+  /// **'That slot does not exist.'**
+  String get slotNotFound;
+
   /// Placeholder body of the Cards tab.
   ///
   /// In en, this message translates to:
