@@ -30,10 +30,13 @@ void main() {
     }
 
     expect(find.text('Choose a slot'), findsOneWidget);
-    // Eight tiles in the sheet, on top of the eight on the grid behind it.
-    expect(find.byType(SpectraSlotTile), findsNWidgets(16));
+    final Finder sheetTiles = find.descendant(
+      of: find.byType(SpectraBottomSheet),
+      matching: find.byType(SpectraSlotTile),
+    );
+    expect(sheetTiles, findsNWidgets(8));
 
-    await tester.tap(find.byType(SpectraSlotTile).at(12));
+    await tester.tap(sheetTiles.at(4));
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
@@ -83,12 +86,15 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    // Sheet tiles are the last eight.
-    final Iterable<SpectraSlotTile> sheetTiles = tester
-        .widgetList<SpectraSlotTile>(find.byType(SpectraSlotTile))
-        .skip(8);
-    expect(sheetTiles.first.onTap, isNotNull);
-    expect(sheetTiles.elementAt(1).onTap, isNull);
+    final Finder sheetTiles = find.descendant(
+      of: find.byType(SpectraBottomSheet),
+      matching: find.byType(SpectraSlotTile),
+    );
+    final List<SpectraSlotTile> sheetTileWidgets = tester
+        .widgetList<SpectraSlotTile>(sheetTiles)
+        .toList();
+    expect(sheetTileWidgets.first.onTap, isNotNull);
+    expect(sheetTileWidgets.elementAt(1).onTap, isNull);
 
     await tester.tap(find.byIcon(Icons.close));
     for (var i = 0; i < 10; i++) {
