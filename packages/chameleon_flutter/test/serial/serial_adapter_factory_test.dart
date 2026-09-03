@@ -1,7 +1,4 @@
 import 'package:chameleon_flutter/chameleon_flutter.dart';
-import 'package:chameleon_flutter/src/serial/libserialport_adapter.dart';
-import 'package:chameleon_flutter/src/serial/serial_adapter_factory.dart';
-import 'package:chameleon_flutter/src/serial/usb_serial_adapter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
