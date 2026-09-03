@@ -86,8 +86,29 @@ body})` that `slots`, `frame_log` and `update` now all use. Gate green:
 `app/integration_test/slot_edit_flow_test.dart` (picked up by the existing
 macOS CI `integration` job) edit and save a slot on the emulator.
 
-Next: Phase 6 (cards) — from spec 7.7 steps 3-4, 7.3 and 3.5; the plan is
-already written at `docs/superpowers/plans/2026-09-03-phase-6-cards.md`.
+Phase 6 (`app/lib/features/cards/`) is complete (2026-09-03): reading a card
+through `ReaderFacade` under its own reader lease with progress and cancel,
+the saved-cards repository (Drift and in-memory) behind
+`savedCardsRepository`, the library list with search/folders/sort, the card
+detail screen with a hex viewer and a chunk editor (working-copy edits, an
+unsaved-changes guard on Back), import of the reference app's JSON export
+plus Spectra's own versioned export, and the public `showCardPicker` API —
+it returns the chosen `SavedCard` or `null` and is exported from
+`features/cards/cards.dart`, published for a later consumer (Phase 7 does
+not call it yet). The emulated device now presents demo cards to every read
+through `emulatorAwareTransport`, so the whole feature works in emulator
+mode with no hardware (spec 7.5). Error surfaces share `ProblemView` from
+`core/errors/`; tag-type product names render through
+`core/format/tag_labels.dart`, not the SDK's raw enum names. Gate green:
+`app/test/flows/cards_flow_test.dart` (295 app tests) and
+`app/integration_test/cards_flow_test.dart` (picked up by the existing
+macOS CI `integration` job) scan, save, edit and import on the emulator.
+Reading a real card is hardware-validate: see `docs/hardware-checklist.md`
+H1 and H3.
+
+Next: Phase 7 (write and emulate) — plan and pre-flight rulings exist at
+`docs/superpowers/plans/2026-09-03-phase-7-write-emulate.md`; Phases 8-10
+plans exist too.
 
 Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
 "Decisions made overnight" below.
@@ -113,14 +134,49 @@ Plans, in `docs/superpowers/plans/`:
 - `2026-09-03-phase-5-slots.md`: slots grid and editor, from spec 7.7 step 2
   and 8.3 (complete).
 - `2026-09-03-phase-6-cards.md`: read cards, library, dump editor, import
-  (written; next up).
-- Phases 7 to 10: write each plan with the writing-plans skill from the spec
-  sections the roadmap lists, when that phase starts.
+  (complete).
+- `2026-09-03-phase-7-write-emulate.md`: load to slot, write to card, quick
+  emulate, from spec 7.7 step 5 (written; next up).
+- `2026-09-03-phase-8-firmware-update.md`: release feed, package pick,
+  orchestrated DFU UI, recovery flow (written).
+- `2026-09-03-phase-9-dictionaries-settings.md`: key lists, device settings,
+  app settings, export (written).
+- `2026-09-03-phase-10-release.md`: signing, notarization, installers,
+  changelog, `v1.0.0-rc.1` (written).
 
 Execute plans with superpowers:subagent-driven-development. Hardware steps
 need the user's device and never block progress: build against the fake,
 keep `docs/hardware-checklist.md` current, and gate BLE and iOS DFU behind
 the `dfuOverBleEnabled` flag until the user reports the checks passed.
+
+## Decisions made overnight (2026-09-03, Phase 6)
+
+- Card import in v1 is paste-JSON plus a clipboard export, not a native file
+  dialog: a file picker is a new dependency on five platforms and a spec
+  section 2 amendment. Phase 9 revisits it with a real file dialog.
+- The reference app's JSON field shape is not documented in this repo, so
+  the importer's field-name assumptions (`referenceTagNames`, `_readCard`'s
+  keys in `features/cards/state/card_import.dart`) are taken from the
+  documented names in `docs/research/reference-gui.md` and verified against
+  a real export only at hardware handoff H3.
+- Ultralight/NTAG physical reads are identity-only in v1: `ReaderFacade` has
+  no Ultralight *read* operation, only identify. A card can be identified
+  but not dumped until the SDK grows one. Noted as an SDK gap, not a bug.
+- `CardLibrary.update` is named `updateCard` because Riverpod's
+  `AsyncNotifier` base class already reserves `update`.
+- Re-importing the same reference-app export duplicates every card: the
+  reference format carries no stable id to de-duplicate against. Accepted
+  for v1; Phase 9 backlog.
+- A partial import failure (some cards written, then an error) reports the
+  honest written count alongside the error, rather than claiming 0 or
+  silently swallowing the ones that landed.
+- `SubPageScaffold`'s Back button uses Flutter's default
+  `Navigator.maybePop` (not go_router's `context.pop()`), so the card
+  editor's `PopScope` unsaved-changes guard actually fires — go_router 18's
+  `context.pop()` bypasses `PopScope` entirely.
+- Phase 8's plan defers the release feed screen to Phase 10; the roadmap
+  currently lists it as a Phase 8 deliverable. Reconcile at the Phase 8
+  pre-flight.
 
 ## Decisions made overnight (2026-09-03, Phase 5)
 

@@ -278,3 +278,23 @@ Written in Phase 10.
 - [ ] pending: USB DFU
 - [ ] pending: BLE DFU
 - [ ] pending: recovery from interrupted DFU
+- [ ] pending: **a real reference-app export imports.** Export a library
+      from the Chameleon Ultra GUI (Settings → export) and paste it into
+      Spectra's import. Confirm every card lands with the right name, tag
+      type, folder and colour, and that hex-string colour fields (however
+      the reference app spells them) come through — Phase 6's importer
+      never saw a real export, only its documented field names. If a field
+      name differs from `referenceTagNames`/`_readCard`'s keys in
+      `features/cards/state/card_import.dart`, fix the reader and add the
+      real file (personal data stripped) as a second fixture.
+- [ ] pending: **a real MIFARE Classic 1K read, twice.** Once with a card
+      whose keys are all in `defaultMifareKeyHex` (expect a complete dump,
+      `Save to library` enabled) and once with a card carrying at least one
+      non-default key (expect a *partial* dump reported as partial, not a
+      silent failure). Confirms `ReaderFacade.mf1ReadDump`'s partial-read
+      contract against real firmware.
+- [ ] pending: **a real EM410x read.** A fob's five id bytes match what
+      another reader reports.
+- [ ] pending: **a real NTAG identify-only read.** An NTAG215 held to the
+      reader shows its UID and the "cannot read its memory yet" line — the
+      documented v1 limit (no Ultralight read facade), not a crash.

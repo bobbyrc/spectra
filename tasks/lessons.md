@@ -311,3 +311,43 @@ dated entry per lesson; keep each one actionable.
   `app/lib/features/slots/ui/slot_detail_page.dart` (plus its test) to the
   list of files more than one task touched — queue tasks on these rather
   than parallelizing.
+
+## Phase 6 (cards)
+
+- **Pre-flight catching invented names is not enough on its own.** Phase
+  6's pre-flight scan caught 9 invented names, and tasks still copied the
+  brief's sample text verbatim past the ruling that corrected it. Put the
+  ruling's replacement text directly in the dispatch, not just its number —
+  same failure mode as Phase 5's lesson, still recurring.
+- **Riverpod's `AsyncNotifier` reserves `update`.** Naming a mutator method
+  `update` on a class extending `AsyncNotifier` collides with the base
+  class's own `update`. Check the base class's public API before naming a
+  notifier method, not after the analyzer or a runtime surprise catches it.
+- **`copyWithPrevious` is `@internal` in riverpod 3.4.2.** Calling it from a
+  feature notifier compiles but fails `melos run analyze` (warnings are
+  errors). Carry a plain `bool busy` field in the notifier's state instead
+  when the goal is "keep showing the last good value while a write is in
+  flight."
+- **go_router's `context.pop()` bypasses `PopScope`.** Only
+  `Navigator.maybePop` (Flutter's own back mechanism) triggers a
+  `PopScope`'s `canPop`/`onPopInvoked`. A `SubPageScaffold`'s Back button
+  must call the Flutter default, not `context.pop()`, for an
+  unsaved-changes guard to mean anything.
+- **A review brief must not add requirements beyond the plan.** The
+  "validate whitespace" / "known-but-undiscovered rows" pattern from Phases
+  4 and 5 recurred a third time in Phase 6: a review brief asserted
+  `updateCard` "duplicates" something the plan never specified duplicating.
+  State every review requirement as a citation to the plan or spec, never
+  as an inference from the code alone.
+- **An `async*` stream repository drops events issued before the first
+  `yield` delivers.** A single-subscription generator function starts
+  running only once something listens, so a write that lands before the
+  first `yield` executes is invisible to that first emission. Use a
+  `StreamController` with an `onListen` callback that does the initial read
+  itself, not a bare `async*` method, for any repository whose `watchAll()`
+  needs to reflect writes made before the first listener attaches.
+- **An agent that goes quiet without a report is resumed, not
+  re-dispatched.** A fresh dispatch loses whatever the agent already did and
+  risks two agents touching the same files. Send a one-line ping to the
+  existing agent thread and wait for its actual state before deciding
+  anything else.

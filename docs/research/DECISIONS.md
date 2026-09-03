@@ -574,5 +574,71 @@ dump formats and DFU. Rulings taken while executing
   the task's own file list, not assumed) may run concurrently with an
   ARB-writing task. Same rule as Phase 4's ruling 18, carried forward.
 
+## Phase 6 decisions (2026-09-03)
+
+- **`SavedCard.tagType` stores `TagType.name`.** The column is a string
+  because the data layer stores columns, not enums;
+  `features/cards/state/card_codec.dart` is the single place that string
+  becomes a `TagType` again, so a rename in the SDK is one edit.
+- **Import is paste-JSON in v1.** A native file dialog means `file_selector`
+  or `file_picker` plus per-platform setup on five targets and an amendment
+  to spec section 2's dependency table. Pasting (plus a clipboard export)
+  works everywhere today and is fully testable. Phase 9's export work
+  revisits it.
+- **The reference app's JSON reader is deliberately permissive.**
+  `docs/research/reference-gui.md` records that the app exports cards as
+  JSON with folders and colours but not the field-level shape. The reader
+  accepts a bare object, a list, or an object with a `cards` list; tolerates
+  spaces and colons in hex; and matches tag names case-insensitively against
+  both the reference spellings and `TagType.name`. Only the format is
+  matched — the app is GPL-3.0 and none of its code is used. Verifying
+  against a real export is an H3 item.
+- **Spectra's own export is `schemaVersion: 1`**, with the dump as one hex
+  string per card so the file stays diffable.
+- **The default MIFARE key list is a constant, not a dictionary.** Phase 9
+  replaces `defaultMifareKeys()` with `DictionariesRepository`; the facade
+  already takes keys as a parameter, so it is a one-line change at the call
+  site. `state/default_keys.dart` cites its source: public MIFARE Classic
+  dictionaries (mfoc/libnfc/Proxmark3 community lists), not the GPL
+  reference app.
+- **The emulated device carries demo cards.** `transportFactoryProvider` now
+  returns `emulatorAwareTransport`, which scripts the fake's reader for
+  `TransportKind.fake` and leaves every real transport untouched. Without it
+  the Read screen could only ever say "no card found" in emulator mode,
+  which spec 7.5 forbids.
+- **Ultralight cards can be stored, viewed, edited and imported, but not
+  read off a card**, because `ReaderFacade` has no Ultralight read
+  operation. This is an SDK gap, recorded here so Phase 7 does not assume
+  otherwise.
+- **`CardReader`'s progress fraction is sectors; `cardsReadPartial`'s count
+  is blocks.** `ReaderFacade.mf1ReadDump`'s `onProgress(done, total)`
+  reports sectors (16 for a 1K); `readChunks`/`totalChunks` and the ARB
+  sentence are blocks (64). Both are correct for what they measure —
+  `ReadState.progress`'s doc comment says which, so a later reader does not
+  assume they agree.
+- **`mf1ReadDump`'s `readMask` is not surfaced to the UI.** The read screen
+  shows a card as complete or partial from the sector/block counts alone;
+  the bitmask of which specific sectors failed is tracked internally but not
+  rendered. Recorded here rather than left for a review to raise as new.
+- **Non-import failures in the importer surface through the shared
+  `ProblemView`, not `cardsImportNotJson`.** A repository failure during
+  `importJson` (a database error, for instance) is not a parse failure and
+  saying so would send the user to fix the wrong thing; `ProblemView`
+  already has the right words for a storage error and puts the raw line one
+  tap away.
+- **`CardEditor` carries a `busy` field instead of using
+  `copyWithPrevious`.** Riverpod 3.4.2 marks `AsyncNotifier`'s
+  `copyWithPrevious` `@internal`, so a feature notifier cannot call it
+  without a warning that fails `melos run analyze`. A plain `bool busy` on
+  the state, set around the mutating call, gets the same "keep showing the
+  last good value while a write is in flight" behavior without touching
+  internal API.
+- **Spec 8.5's one-public-type-per-file rule is knowingly relaxed for four
+  files:** `card_codec.dart` (7 functions), `card_import.dart` (5 types),
+  `saved_cards_provider.dart` (4 types) and `card_detail_page.dart` (after
+  the read/edit/import tasks landed on it in sequence). Each set is one
+  cohesive concern — splitting would add files without adding clarity.
+  Accepted and recorded here so a reviewer does not raise it as new.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).

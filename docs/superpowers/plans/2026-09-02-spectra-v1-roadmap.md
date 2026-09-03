@@ -41,11 +41,11 @@ The user owns one Chameleon Ultra and a Mac. The executor cannot run hardware st
 | 3 Transports | `2026-09-03-phase-3-transports.md` (written) | 5 | `packages/chameleon_flutter`: BLE transport, serial transport, scanners, BleDfuChannel, SlipSerialDfuChannel, permission and pairing states, platform setup files, contract suite | contract suite green against FakeDevice; H1 section written to docs/hardware-checklist.md |
 | 4 App shell and connect | `2026-09-03-phase-4-app-shell.md` (written) | 7, 8, 9 | `app`: core (session family, active device, routing on connectionState, lifecycle, error catalog, frame log), data layer (Drift, known devices), emulator mode, connect screen with identity merge, dashboard, bootloader recovery entry | integration test: connect to emulator, see dashboard, disconnect, reconnect |
 | 5 Slots | `2026-09-03-phase-5-slots.md` (done) | 7.7, 8 | Slots feature and its public slot picker API | integration test: edit and save a slot on the emulator |
-| 6 Read, library, editor, import | `2026-09-03-phase-6-cards.md` (written) | 3.5, 7.3, 7.7 | Read cards, cards library, dump editor with hex viewer, reference-app JSON import, card picker API | integration test: scan a fake card, save, edit, import fixture |
-| 7 Write and emulate | write from spec 7.7 step 5 | 7.7 | Load to slot, write to card, quick emulate | integration test on emulator |
-| 8 Firmware update | write from spec 4.5, 5.3, 5.5, 5.6, 7.7 step 6 | 4.5, 5.6 | Release feed, package pick, orchestrated DFU UI, recovery flow, BLE and iOS DFU behind the `dfuOverBleEnabled` flag (default off) | integration test on the fake bootloader over both channel types; H2 section written to the checklist |
-| 9 Dictionaries and settings | write from spec 7.7 step 7 | 7.7 | Key lists, device settings, app settings, export | integration test on emulator |
-| 10 Release | write from spec 10 | 10 | Signing, notarization, installers, AppImage, changelog; release candidate tagged as `v1.0.0-rc.1` | CI green; artifacts built; H3 section written; final `v1.0.0` tag waits for the user's H3 report |
+| 6 Read, library, editor, import | `2026-09-03-phase-6-cards.md` (done) | 3.5, 7.3, 7.7 | Read cards, cards library, dump editor with hex viewer, reference-app JSON import, card picker API | integration test: scan a fake card, save, edit, import fixture |
+| 7 Write and emulate | `2026-09-03-phase-7-write-emulate.md` (written) | 7.7 | Load to slot, write to card, quick emulate | integration test on emulator |
+| 8 Firmware update | `2026-09-03-phase-8-firmware-update.md` (written) | 4.5, 5.6 | Release feed, package pick, orchestrated DFU UI, recovery flow, BLE and iOS DFU behind the `dfuOverBleEnabled` flag (default off) | integration test on the fake bootloader over both channel types; H2 section written to the checklist |
+| 9 Dictionaries and settings | `2026-09-03-phase-9-dictionaries-settings.md` (written) | 7.7 | Key lists, device settings, app settings, export | integration test on emulator |
+| 10 Release | `2026-09-03-phase-10-release.md` (written) | 10 | Signing, notarization, installers, AppImage, changelog; release candidate tagged as `v1.0.0-rc.1` | CI green; artifacts built; H3 section written; final `v1.0.0` tag waits for the user's H3 report |
 
 Order is fixed as listed. Phase 2 and Phase 1 do not depend on each other and may be executed in parallel by separate subagents once Phase 0 is done.
 
@@ -57,7 +57,7 @@ Order is fixed as listed. Phase 2 and Phase 1 do not depend on each other and ma
 - [x] Phase 3
 - [x] Phase 4
 - [x] Phase 5
-- [ ] Phase 6
+- [x] Phase 6
 - [ ] Phase 7
 - [ ] Phase 8
 - [ ] Phase 9

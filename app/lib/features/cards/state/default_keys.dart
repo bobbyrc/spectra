@@ -12,6 +12,9 @@ import 'dart:typed_data';
 /// opens the majority of cards in one chunk of
 /// MF1_CHECK_KEYS_OF_SECTORS and the facade stops as soon as every sector is
 /// solved.
+///
+/// Source: public MIFARE Classic default-key dictionaries circulated by the
+/// mfoc/libnfc/Proxmark3 community — not the GPL-3.0 reference app.
 const List<String> defaultMifareKeyHex = <String>[
   'FFFFFFFFFFFF',
   'A0A1A2A3A4A5',
