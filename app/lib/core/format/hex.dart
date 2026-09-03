@@ -6,10 +6,7 @@ import 'dart:typed_data';
 ///
 /// This is the canonical home for hex formatting (spec 8.4, R28): a card, a
 /// dump and a key dictionary all print bytes and must print them the same
-/// way. `app/lib/features/cards/state/hex.dart` still carries the original
-/// copy pending Phase 9 Task 1, which moves it here properly and rewrites
-/// every import; until then this file and that one are duplicates by
-/// necessity, not by choice.
+/// way.
 String toHex(List<int> bytes, {String separator = ''}) => bytes
     .map((int b) => b.toRadixString(16).padLeft(2, '0').toUpperCase())
     .join(separator);

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../../core/format/hex.dart';
 import '../../../data/data.dart';
 
 /// The MIFARE Classic keys a read tries before giving up.
@@ -27,15 +28,10 @@ const List<String> defaultMifareKeyHex = <String>[
   '8FD0A4F256E9',
 ];
 
-Uint8List _hex(String hex) => Uint8List.fromList(<int>[
-  for (int i = 0; i < hex.length; i += 2)
-    int.parse(hex.substring(i, i + 2), radix: 16),
-]);
-
 /// Fresh copies each call, so a caller mutating a key cannot poison the
 /// next read's dictionary.
 List<Uint8List> defaultMifareKeys() => <Uint8List>[
-  for (final String hex in defaultMifareKeyHex) _hex(hex),
+  for (final String hex in defaultMifareKeyHex) parseMifareKey(hex)!,
 ];
 
 /// The id of the built-in list. It is not a database row: [dictionaries]

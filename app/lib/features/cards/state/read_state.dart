@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:chameleon/chameleon.dart';
 
-import 'hex.dart';
+import '../../../core/format/hex.dart';
 
 /// What one read got off the card.
 ///

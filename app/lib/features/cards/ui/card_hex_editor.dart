@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
+import '../../../core/format/hex.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/card_editor_controller.dart';
-import '../state/hex.dart';
 
 /// The message for a chunk that cannot be applied, or null when [text] is a
 /// valid hex run of exactly [chunkSize] bytes. Pure, so the rule is one

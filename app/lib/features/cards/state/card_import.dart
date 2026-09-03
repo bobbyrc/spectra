@@ -3,9 +3,9 @@ import 'dart:typed_data';
 
 import 'package:chameleon/chameleon.dart';
 
+import '../../../core/format/hex.dart';
 import '../../../data/data.dart';
 import 'card_codec.dart';
-import 'hex.dart';
 
 /// Spec 7.3: import from the reference app's JSON export, and Spectra's own
 /// versioned format.

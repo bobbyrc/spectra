@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import '../../../core/format/hex.dart';
+
 /// The MIFARE Classic default-key list moved to
 /// `features/dictionaries/state/built_in_keys.dart` in Phase 9 — a feature
 /// may not import another feature's internals, so `defaultMifareKeyHex`/
@@ -28,15 +30,10 @@ const List<String> defaultT55xxOldKeyHex = <String>[
   defaultT55xxKeyHex,
 ];
 
-Uint8List _hex(String hex) => Uint8List.fromList(<int>[
-  for (int i = 0; i < hex.length; i += 2)
-    int.parse(hex.substring(i, i + 2), radix: 16),
-]);
-
 /// A fresh copy each call, so a caller mutating a key cannot poison the
 /// next write.
-Uint8List defaultT55xxKey() => _hex(defaultT55xxKeyHex);
+Uint8List defaultT55xxKey() => parseHex(defaultT55xxKeyHex)!;
 
 List<Uint8List> defaultT55xxOldKeys() => <Uint8List>[
-  for (final String hex in defaultT55xxOldKeyHex) _hex(hex),
+  for (final String hex in defaultT55xxOldKeyHex) parseHex(hex)!,
 ];
