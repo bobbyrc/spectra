@@ -31,6 +31,17 @@ final class SessionNotReady extends ChameleonException {
   const SessionNotReady(super.message);
 }
 
+/// Something other than a [ChameleonException] escaped a background task (the
+/// tolerant load or the idle poll). Wrapped so `backgroundErrors` stays typed
+/// and a bug in a background task can never become an unhandled async error.
+final class BackgroundTaskFailed extends ChameleonException {
+  BackgroundTaskFailed(this.cause, this.stackTrace)
+    : super('background task failed: $cause');
+
+  final Object cause;
+  final StackTrace stackTrace;
+}
+
 enum UnsupportedReason { preTwoPointZero, newerMajor, legacyMustUpdate }
 
 final class UnsupportedFirmware extends ChameleonException {

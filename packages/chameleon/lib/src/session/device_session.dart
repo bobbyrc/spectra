@@ -86,6 +86,8 @@ final class DeviceSession {
   int _leases = 0;
   int _busy = 0;
   bool _polling = false;
+  Future<void>? _modeSwitch;
+  DeviceMode? _modeSwitchTarget;
 
   bool get isReady => connectionState.value is SessionReady;
 
@@ -188,6 +190,7 @@ final class DeviceSession {
   /// stream and the error stream are closed and the dispatcher is disposed.
   Future<void> close() async {
     _stopPolling();
+    _forgetLeases();
     await transport.close();
     if (connectionState.value is! SessionDisconnected) {
       connectionState.set(const SessionDisconnected(DisconnectCause.requested));
@@ -206,8 +209,10 @@ final class DeviceSession {
     final next = stateAfterClose(s, current);
     if (identical(next, current)) return;
     if (current is! SessionDisconnected) connectionState.set(next);
-    // Terminal: nothing more will come down this link. Release the dispatcher
-    // and the subscription now, but leave the state streams to [close].
+    // Terminal: nothing more will come down this link. Whatever the device's
+    // mode was, no lease means anything now. Release the dispatcher and the
+    // subscription too, but leave the state streams to [close].
+    _forgetLeases();
     unawaited(_releaseTransport());
   }
 

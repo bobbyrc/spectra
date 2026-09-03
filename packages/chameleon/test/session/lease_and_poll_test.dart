@@ -12,6 +12,15 @@ import 'package:test/test.dart';
 Future<void> settle([int ms = 20]) =>
     Future<void>.delayed(Duration(milliseconds: ms));
 
+/// A firmware that does not answer CHANGE_DEVICE_MODE (1001).
+FakeFirmwareConfig _noModeChange() => FakeFirmwareConfig(
+  capabilities: FakeFirmwareConfig.defaultCapabilities(DeviceModel.ultra)
+    ..remove(1001),
+);
+
+int _modeChangesSince(FakeDevice device, int from) =>
+    device.received.skip(from).where((f) => f.command == 1001).length;
+
 DeviceSession sessionFor(
   FakeDevice device, {
   Duration poll = const Duration(days: 1),
@@ -36,11 +45,7 @@ void main() {
     expect(device.firmware.mode, DeviceMode.emulator);
     expect(s.mode.value, DeviceMode.emulator);
     expect(s.readerLeaseCount, 0);
-    final modeChanges = device.received
-        .skip(before)
-        .where((f) => f.command == 1001)
-        .length;
-    expect(modeChanges, 2);
+    expect(_modeChangesSince(device, before), 2);
     await s.close();
   });
 
@@ -55,6 +60,61 @@ void main() {
     await lease.release();
     expect(s.readerLeaseCount, 0);
     expect(device.received.length, after);
+    await s.close();
+  });
+
+  test('concurrent acquires share one mode switch', () async {
+    final device = FakeDevice();
+    final s = sessionFor(device);
+    await s.open();
+    await settle();
+    final before = device.received.length;
+    // Started without an intervening await: both see the count go up before
+    // either switch completes.
+    final first = s.acquireReaderMode();
+    final second = s.acquireReaderMode();
+    final leases = await Future.wait([first, second]);
+    expect(s.readerLeaseCount, 2);
+    expect(device.firmware.mode, DeviceMode.reader);
+    expect(_modeChangesSince(device, before), 1);
+    await leases[0].release();
+    await leases[1].release();
+    expect(device.firmware.mode, DeviceMode.emulator);
+    expect(_modeChangesSince(device, before), 2);
+    expect(s.readerLeaseCount, 0);
+    await s.close();
+  });
+
+  test(
+    'a failed switch fails both concurrent acquires and leaves no lease',
+    () async {
+      final device = FakeDevice(firmware: FakeFirmware(_noModeChange()));
+      final s = sessionFor(device);
+      await s.open();
+      await settle();
+      final first = s.acquireReaderMode();
+      final second = s.acquireReaderMode();
+      await expectLater(first, throwsA(isA<DeviceError>()));
+      await expectLater(second, throwsA(isA<DeviceError>()));
+      expect(s.readerLeaseCount, 0);
+      await s.close();
+    },
+  );
+
+  test('a lost link drops the leases and refuses new ones', () async {
+    final device = FakeDevice();
+    final s = sessionFor(device);
+    await s.open();
+    await settle();
+    final lease = await s.acquireReaderMode();
+    await device.simulateLinkLoss();
+    await settle();
+    expect(s.readerLeaseCount, 0);
+    await expectLater(s.acquireReaderMode(), throwsA(isA<SessionNotReady>()));
+    // The outstanding lease is released after the fact: it must not push the
+    // count negative or try to talk to the dead link.
+    await lease.release();
+    expect(s.readerLeaseCount, 0);
     await s.close();
   });
 
@@ -73,12 +133,7 @@ void main() {
   });
 
   test('a refused mode change leaves no lease behind', () async {
-    // A device that does not answer CHANGE_DEVICE_MODE (1001).
-    final config = FakeFirmwareConfig(
-      capabilities: FakeFirmwareConfig.defaultCapabilities(DeviceModel.ultra)
-        ..remove(1001),
-    );
-    final device = FakeDevice(firmware: FakeFirmware(config));
+    final device = FakeDevice(firmware: FakeFirmware(_noModeChange()));
     final s = sessionFor(device);
     await s.open();
     await settle();
@@ -132,7 +187,11 @@ void main() {
     final device = FakeDevice();
     final s = sessionFor(device, poll: const Duration(milliseconds: 10));
     await s.open();
-    await settle(40);
+    // Subscribe only once the background load has demonstrably finished: the
+    // battery is the last thing it sets.
+    while (s.battery.value == null) {
+      await settle(5);
+    }
     final events = <Object?>[];
     s.activeSlot.changes.listen(events.add);
     s.mode.changes.listen(events.add);
