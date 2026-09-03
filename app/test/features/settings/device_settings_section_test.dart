@@ -166,4 +166,37 @@ void main() {
     expect(find.byType(ProblemView), findsOneWidget);
     expect(find.text('The device forgot its paired hosts.'), findsNothing);
   });
+
+  testWidgetsApp('the pairing key field shows the reset value', (tester) async {
+    await _openSettings(tester);
+
+    final Finder field = find.byType(SpectraTextField).first;
+    await tester.enterText(field, '999999');
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+    expect(
+      readProvider(tester, settingsProvider).value!.blePairingKey,
+      '999999',
+    );
+
+    await tester.tap(find.text('Restore device defaults'));
+    await pumpFrames(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraDialog),
+        matching: find.text('Restore device defaults'),
+      ),
+    );
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+
+    expect(
+      readProvider(tester, settingsProvider).value!.blePairingKey,
+      '123456',
+    );
+    // `find.text` also matches an `EditableText`'s current content, so this
+    // is the pairing key field itself showing the reset value, not merely
+    // the device's own state.
+    expect(find.text('123456'), findsOneWidget);
+  });
 }

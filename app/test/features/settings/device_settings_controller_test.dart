@@ -151,6 +151,49 @@ void main() {
   });
 
   testWidgetsApp(
+    'a second pairing key submitted before the first lands is not dropped '
+    '— the device ends up holding the last one',
+    (tester) async {
+      final FakeDevice device = FakeDevice();
+      await pumpTestApp(tester, transport: (_) => device);
+      await connectToEmulator(tester);
+      keepAlive(tester, settingsProvider);
+      keepAlive(tester, deviceSettingsControllerProvider);
+      await pumpFrames(tester);
+
+      final DeviceSettingsController controller = readProvider(
+        tester,
+        deviceSettingsControllerProvider.notifier,
+      );
+      // Unlike `setAnimation` above, `setBlePairingKey` does not drop a
+      // second call made while the first is still in flight — the pairing
+      // key field commits on submit and on focus loss, either of which a
+      // fast typist can trigger twice before the first write reaches the
+      // device (docstring on `setBlePairingKey`).
+      final Future<void> first = controller.setBlePairingKey('111111');
+      final Future<void> second = controller.setBlePairingKey('222222');
+      await pumpFrames(
+        tester,
+        count: 10,
+        step: const Duration(milliseconds: 20),
+      );
+      await first;
+      await second;
+      await pumpFrames(
+        tester,
+        count: 10,
+        step: const Duration(milliseconds: 20),
+      );
+
+      expect(
+        readProvider(tester, settingsProvider).value!.blePairingKey,
+        '222222',
+      );
+      expect(device.received.where((Frame f) => f.command == 1030).length, 2);
+    },
+  );
+
+  testWidgetsApp(
     'setSleepTimeout refuses an out-of-range value without touching the '
     'device',
     (tester) async {

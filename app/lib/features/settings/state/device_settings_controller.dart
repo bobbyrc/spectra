@@ -56,6 +56,8 @@ class DeviceSettingsController extends _$DeviceSettingsController {
     ref.onDispose(() {
       // Not `state` — the element is gone by now (Global Constraints).
       _inFlight = false;
+      _sendingPairingKey = false;
+      _pendingPairingKey = null;
     });
     return const DeviceSettingsEditState();
   }
@@ -96,8 +98,40 @@ class DeviceSettingsController extends _$DeviceSettingsController {
   /// The caller validates with `isValidPairingKey` first: the firmware wants
   /// exactly six ASCII digits, and a shorter string would be a wire-format
   /// error rather than a message the catalog has words for.
-  Future<void> setBlePairingKey(String key) =>
-      _run((SettingsFacade s) => s.setBlePairingKey(key));
+  ///
+  /// Unlike every other setter here, a second call made while one is
+  /// already sending a key is not dropped by `_run`'s drop-not-queue rule —
+  /// it replaces [_pendingPairingKey] and is sent as soon as the in-flight
+  /// one lands. The pairing key field commits on submit and on focus loss
+  /// (`DeviceSettingsSection`'s `_PairingKeyField`), either of which a fast
+  /// typist can trigger twice before the first write reaches the device;
+  /// dropping the second would leave the device holding neither key the
+  /// user meant to set. Scoped to pairing-key sends specifically — an
+  /// unrelated setting in flight (the whole section is disabled while any
+  /// write is, so this is only reachable by two pairing-key sends
+  /// overlapping) still drops here rather than queuing forever.
+  Future<void> setBlePairingKey(String key) async {
+    if (_sendingPairingKey) {
+      _pendingPairingKey = key;
+      return;
+    }
+    _sendingPairingKey = true;
+    try {
+      String next = key;
+      while (true) {
+        await _run((SettingsFacade s) => s.setBlePairingKey(next));
+        final String? pending = _pendingPairingKey;
+        if (pending == null) break;
+        _pendingPairingKey = null;
+        next = pending;
+      }
+    } finally {
+      _sendingPairingKey = false;
+    }
+  }
+
+  bool _sendingPairingKey = false;
+  String? _pendingPairingKey;
 
   /// SAVE_SETTINGS, then a re-read: the settings struct is the one payload
   /// the wiki's length is uncertain about (spec 11), so reading back what

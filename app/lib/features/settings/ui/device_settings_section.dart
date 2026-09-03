@@ -312,21 +312,54 @@ class _PairingKeyFieldState extends ConsumerState<_PairingKeyField> {
   late final TextEditingController _text = TextEditingController(
     text: widget.initialValue,
   );
+  late final FocusNode _focus = FocusNode()..addListener(_onFocusChange);
   bool _invalid = false;
 
   @override
+  void didUpdateWidget(_PairingKeyField old) {
+    super.didUpdateWidget(old);
+    // The device's own key changed (a reset landed, or a refresh): pick it
+    // up, unless the user is part-way through typing a different one — the
+    // `SlotSenseSection` nickname precedent.
+    if (old.initialValue != widget.initialValue &&
+        _text.text == old.initialValue) {
+      _text.text = widget.initialValue;
+      setState(() => _invalid = false);
+    }
+  }
+
+  @override
   void dispose() {
+    _focus.removeListener(_onFocusChange);
+    _focus.dispose();
     _text.dispose();
     super.dispose();
   }
 
-  Future<void> _onChanged(String value) async {
-    final bool ok = isValidPairingKey(value);
-    setState(() => _invalid = !ok);
-    if (!ok) return;
+  void _onFocusChange() {
+    if (!_focus.hasFocus) unawaited(_commit());
+  }
+
+  /// Live validation feedback only — no write. The write happens on submit
+  /// or focus loss ([_commit]), not per keystroke: writing on every valid
+  /// keystroke made `DeviceSettingsController._run`'s drop-not-queue rule
+  /// bite on a fast typist, dropping a second valid key typed before the
+  /// first write reached the device.
+  void _onChanged(String value) =>
+      setState(() => _invalid = !isValidPairingKey(value));
+
+  /// Writes the field's current value through, replacing whatever the
+  /// device already holds.
+  ///
+  /// `DeviceSettingsController.setBlePairingKey` itself coalesces a second
+  /// call made while one is already sending — see its doc — so this needs
+  /// no queue of its own.
+  Future<void> _commit([String? value]) async {
+    final String v = value ?? _text.text;
+    if (!isValidPairingKey(v)) return;
     await ref
         .read(deviceSettingsControllerProvider.notifier)
-        .setBlePairingKey(value);
+        .setBlePairingKey(v);
   }
 
   @override
@@ -335,9 +368,11 @@ class _PairingKeyFieldState extends ConsumerState<_PairingKeyField> {
     return SpectraTextField(
       label: l10n.settingsBlePairingKey,
       controller: _text,
+      focusNode: _focus,
       enabled: widget.enabled,
       errorText: _invalid ? l10n.settingsBlePairingKeyInvalid : null,
-      onChanged: (String v) => unawaited(_onChanged(v)),
+      onChanged: _onChanged,
+      onSubmitted: (String v) => unawaited(_commit(v)),
     );
   }
 }
