@@ -48,6 +48,14 @@ run with no device attached, never for H1 itself.
 - [ ] pending: **slot round trip.** On the session page, tap
       "Rename slot 1" and report whether the last line reads
       `slot round trip OK` or `slot round trip MISMATCH`.
+- [ ] pending: **an active slot survives a power cycle.** In Spectra itself
+      (`cd app && flutter run -d macos`, device attached), open Slots, open a
+      slot that is not the active one, tap "Make active" and confirm the
+      grid moves the marker. Then unplug the device, plug it back in,
+      reconnect and report which slot the app shows as active.
+      `SlotsFacade.setActive` sends SET_ACTIVE_SLOT on its own, with no
+      SLOT_DATA_CONFIG_SAVE after it — if the marker goes back to where it
+      was, Phase 6/7 has to add that save.
 - [ ] pending: **the contract suite on hardware.** With the device attached:
       `cd packages/chameleon_flutter && flutter test --tags hardware --run-skipped test/contract`
       (`dart_test.yaml` marks the `hardware` tag `skip:`, so `--run-skipped`
