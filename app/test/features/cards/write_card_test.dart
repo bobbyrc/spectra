@@ -869,6 +869,34 @@ void main() {
       await pending;
     });
 
+    testWidgetsApp('an EM410x write shows no sector-trailers toggle', (
+      tester,
+    ) async {
+      await openWriterWithLfCard(
+        tester,
+        Uint8List.fromList(<int>[0x11, 0x22, 0x33, 0x44, 0x55]),
+      );
+      final BuildContext context = tester.element(find.byType(SpectraAppShell));
+
+      final Future<bool?> pending = showWriteToCardSheet(
+        context,
+        type: TagType.em410x,
+        bytes: Uint8List.fromList(<int>[1, 2, 3, 4, 5]),
+        name: 'Gate fob',
+      );
+      await pumpFrames(tester);
+
+      // Review M2: sector trailers are a MIFARE Classic notion and
+      // `CardWriter` only passes `writeTrailers` down that branch, so on an
+      // EM410x the toggle was a control that changed nothing.
+      expect(_inSheet(find.byType(Switch)), findsNothing);
+      expect(_inSheet(find.text('Write')), findsOneWidget);
+
+      await tester.tap(_inSheet(find.byIcon(Icons.close)));
+      await pumpFrames(tester);
+      expect(await pending, isNull);
+    });
+
     testWidgetsApp(
       'the unread-sector warning goes back to confirm with the toggle intact',
       (tester) async {

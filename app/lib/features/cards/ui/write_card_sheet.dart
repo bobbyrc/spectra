@@ -12,6 +12,7 @@ import '../../../core/format/tag_labels.dart';
 import '../../../core/routing/routes.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/write_card_controller.dart';
+import '../state/write_target.dart';
 
 /// Spec 7.7 step 5: write [bytes] onto the card in the reader's field.
 ///
@@ -196,14 +197,21 @@ class _WriteCardBodyState extends ConsumerState<_WriteCardBody> {
           const SizedBox(height: SpectraSpacing.md),
           Text(l10n.cardsWriteNotice),
           const SizedBox(height: SpectraSpacing.md),
-          SpectraListTile(
-            title: l10n.cardsWriteTrailersLabel,
-            subtitle: l10n.cardsWriteTrailersWarning,
-            trailing: Switch(
-              value: _writeTrailers,
-              onChanged: (bool next) => setState(() => _writeTrailers = next),
+          // Sector trailers are a MIFARE Classic notion, and `CardWriter`
+          // only passes `writeTrailers` down the Classic branch: on an
+          // EM410x the toggle was a control that changed nothing (review
+          // M2).
+          if (writeMethodFor(widget.type) ==
+              CardWriteMethod.mifareClassicBlocks) ...<Widget>[
+            SpectraListTile(
+              title: l10n.cardsWriteTrailersLabel,
+              subtitle: l10n.cardsWriteTrailersWarning,
+              trailing: Switch(
+                value: _writeTrailers,
+                onChanged: (bool next) => setState(() => _writeTrailers = next),
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: SpectraSpacing.lg),
           SpectraButton(
             label: l10n.cardsWriteConfirm,
