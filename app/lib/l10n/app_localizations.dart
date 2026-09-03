@@ -994,6 +994,96 @@ abstract class AppLocalizations {
   /// **'Load anyway'**
   String get cardsLoadUnreadSectorsConfirm;
 
+  /// Action on a saved card: put it onto a physical blank.
+  ///
+  /// In en, this message translates to:
+  /// **'Write to a card'**
+  String get cardsWriteToCard;
+
+  /// Title of the write-to-card sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Write to a card'**
+  String get cardsWriteTitle;
+
+  /// What writing will do, before it is confirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold a writable blank against the back of the Chameleon, then write {name} onto it.'**
+  String cardsWritePrompt(String name);
+
+  /// Standing hardware-validation notice on the write sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing to a physical card has not been checked on real hardware yet. Use a card you can afford to lose.'**
+  String get cardsWriteNotice;
+
+  /// Label of the opt-in toggle for writing sector trailers.
+  ///
+  /// In en, this message translates to:
+  /// **'Also write sector keys and access bits'**
+  String get cardsWriteTrailersLabel;
+
+  /// Warning shown under the sector-trailers toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'This rewrites the sector trailers (keys and access bits) and can lock the card.'**
+  String get cardsWriteTrailersWarning;
+
+  /// Starts the write.
+  ///
+  /// In en, this message translates to:
+  /// **'Write'**
+  String get cardsWriteConfirm;
+
+  /// Progress label while a card is being written.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing to the card…'**
+  String get cardsWriteProgress;
+
+  /// Summary after a write.
+  ///
+  /// In en, this message translates to:
+  /// **'{written} of {attempted} blocks written.'**
+  String cardsWriteDone(int written, int attempted);
+
+  /// Extra line shown when some blocks were refused.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocks that did not take the write are unchanged on the card.'**
+  String get cardsWritePartial;
+
+  /// Shown for a tag type with no reader write.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectra cannot write this tag type onto a card yet.'**
+  String get cardsWriteUnsupported;
+
+  /// Shown when the user cancelled a write mid-flight.
+  ///
+  /// In en, this message translates to:
+  /// **'Write stopped. How much reached the card is unknown.'**
+  String get cardsWriteCancelled;
+
+  /// Heading of the unread-sector-trailer warning before a write.
+  ///
+  /// In en, this message translates to:
+  /// **'Some sectors have no known key'**
+  String get cardsWriteUnreadSectorsTitle;
+
+  /// Names the sector trailers a saved dump has no recovered key for.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one {Sector {sectors} has no recovered key; writing it puts a zero key on the card.} other {Sectors {sectors} have no recovered key; writing them puts zero keys on the card.}}'**
+  String cardsWriteUnreadSectorsBody(int count, String sectors);
+
+  /// Proceeds with a write despite the unread sectors.
+  ///
+  /// In en, this message translates to:
+  /// **'Write anyway'**
+  String get cardsWriteUnreadSectorsConfirm;
+
   /// Placeholder body of the Settings tab.
   ///
   /// In en, this message translates to:

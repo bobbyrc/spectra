@@ -3,10 +3,14 @@ import 'dart:typed_data';
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra/app.dart';
 import 'package:spectra/core/emulator/demo_cards.dart';
 import 'package:spectra/core/errors/app_failures.dart';
+import 'package:spectra/core/errors/problem_view.dart';
 import 'package:spectra/features/cards/state/write_card_controller.dart';
+import 'package:spectra/features/cards/ui/write_card_sheet.dart';
+import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../support/app_harness.dart';
 import 'card_fixtures.dart';
@@ -496,5 +500,104 @@ void main() {
     // The write itself must not throw even though nothing is left to
     // report its outcome to.
     await pending;
+  });
+
+  group('the sheet', () {
+    testWidgetsApp('warns, writes and summarises', (tester) async {
+      await openWriter(tester);
+      final BuildContext context = tester.element(find.byType(SpectraAppShell));
+
+      final Future<bool?> pending = showWriteToCardSheet(
+        context,
+        type: TagType.mifare1k,
+        bytes: _withDataFill(classic1kFilled(), 0x66),
+        name: 'Office badge',
+      );
+      await pumpFrames(tester);
+      expect(
+        find.text(
+          'Writing to a physical card has not been checked on real hardware '
+          'yet. Use a card you can afford to lose.',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SpectraBottomSheet),
+          matching: find.text('Write'),
+        ),
+      );
+      await pumpFrames(tester, count: 40);
+      expect(find.text('47 of 47 blocks written.'), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SpectraBottomSheet),
+          matching: find.text('Close'),
+        ),
+      );
+      await pumpFrames(tester);
+      expect(await pending, isTrue);
+    });
+
+    testWidgetsApp('says so for a type it cannot write', (tester) async {
+      await openWriter(tester);
+      final BuildContext context = tester.element(find.byType(SpectraAppShell));
+
+      final Future<bool?> pending = showWriteToCardSheet(
+        context,
+        type: TagType.ntag215,
+        bytes: Uint8List(135 * 4),
+        name: 'Tag',
+      );
+      await pumpFrames(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SpectraBottomSheet),
+          matching: find.text('Write'),
+        ),
+      );
+      await pumpFrames(tester);
+      expect(
+        find.text('Spectra cannot write this tag type onto a card yet.'),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SpectraBottomSheet),
+          matching: find.text('Close'),
+        ),
+      );
+      await pumpFrames(tester);
+      expect(await pending, isNull);
+    });
+
+    testWidgetsApp('a failure lands in the shared ProblemView', (tester) async {
+      final CardWriter writer = await openWriter(tester);
+      final BuildContext context = tester.element(find.byType(SpectraAppShell));
+
+      final Future<bool?> pending = showWriteToCardSheet(
+        context,
+        type: TagType.mifare1k,
+        bytes: _withDataFill(classic1kFilled(), 0x66),
+        name: 'Office badge',
+      );
+      await pumpFrames(tester);
+      writer.debugFail(const HfTagNotFound());
+      await pumpFrames(tester);
+      expect(
+        find.descendant(
+          of: find.byType(SpectraBottomSheet),
+          matching: find.byType(ProblemView),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byIcon(Icons.close));
+      await pumpFrames(tester);
+      await pending;
+    });
   });
 }

@@ -577,6 +577,71 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsLoadUnreadSectorsConfirm => 'Load anyway';
 
   @override
+  String get cardsWriteToCard => 'Write to a card';
+
+  @override
+  String get cardsWriteTitle => 'Write to a card';
+
+  @override
+  String cardsWritePrompt(String name) {
+    return 'Hold a writable blank against the back of the Chameleon, then write $name onto it.';
+  }
+
+  @override
+  String get cardsWriteNotice =>
+      'Writing to a physical card has not been checked on real hardware yet. Use a card you can afford to lose.';
+
+  @override
+  String get cardsWriteTrailersLabel =>
+      'Also write sector keys and access bits';
+
+  @override
+  String get cardsWriteTrailersWarning =>
+      'This rewrites the sector trailers (keys and access bits) and can lock the card.';
+
+  @override
+  String get cardsWriteConfirm => 'Write';
+
+  @override
+  String get cardsWriteProgress => 'Writing to the card…';
+
+  @override
+  String cardsWriteDone(int written, int attempted) {
+    return '$written of $attempted blocks written.';
+  }
+
+  @override
+  String get cardsWritePartial =>
+      'Blocks that did not take the write are unchanged on the card.';
+
+  @override
+  String get cardsWriteUnsupported =>
+      'Spectra cannot write this tag type onto a card yet.';
+
+  @override
+  String get cardsWriteCancelled =>
+      'Write stopped. How much reached the card is unknown.';
+
+  @override
+  String get cardsWriteUnreadSectorsTitle => 'Some sectors have no known key';
+
+  @override
+  String cardsWriteUnreadSectorsBody(int count, String sectors) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Sectors $sectors have no recovered key; writing them puts zero keys on the card.',
+      one:
+          'Sector $sectors has no recovered key; writing it puts a zero key on the card.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get cardsWriteUnreadSectorsConfirm => 'Write anyway';
+
+  @override
   String get comingSoonSettings => 'Settings arrive in Phase 9.';
 
   @override

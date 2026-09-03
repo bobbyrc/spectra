@@ -20,6 +20,7 @@ import '../state/card_import.dart';
 import 'card_hex_editor.dart';
 import 'load_to_slot_sheet.dart';
 import 'save_card_sheet.dart';
+import 'write_card_sheet.dart';
 
 /// The sector trailers of a MIFARE Classic, so the keys and access bits are
 /// visible at a glance in the hex viewer. Empty for every other family:
@@ -84,6 +85,7 @@ class CardDetailPage extends ConsumerWidget {
         onDelete: () => _confirmDelete(context, editor),
         onEditDetails: () => _editDetails(context, ref, editor),
         onLoadToSlot: () => _loadToSlot(context, value),
+        onWriteToCard: () => _writeToCard(context, value),
         // The retry runs the operation that failed, not always `save`
         // (R-2): retrying a failed discard by saving would write the very
         // bytes the user was throwing away.
@@ -195,6 +197,16 @@ class CardDetailPage extends ConsumerWidget {
     );
   }
 
+  /// Spec 7.7 step 5: put this card back onto a physical blank. The sheet
+  /// owns every outcome, so nothing is reported here beyond it.
+  Future<void> _writeToCard(BuildContext context, CardEditState state) =>
+      showWriteToCardSheet(
+        context,
+        type: state.tagType,
+        bytes: state.bytes,
+        name: state.card.name,
+      );
+
   Future<void> _confirmDelete(BuildContext context, CardEditor editor) async {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final GoRouter router = GoRouter.of(context);
@@ -232,6 +244,7 @@ class _Detail extends StatelessWidget {
     required this.onDelete,
     required this.onEditDetails,
     required this.onLoadToSlot,
+    required this.onWriteToCard,
     required this.onRetry,
   });
 
@@ -249,6 +262,9 @@ class _Detail extends StatelessWidget {
 
   /// Spec 7.7 step 5: opens the slot picker, then [showLoadToSlotSheet].
   final VoidCallback onLoadToSlot;
+
+  /// Spec 7.7 step 5: opens [showWriteToCardSheet].
+  final VoidCallback onWriteToCard;
 
   /// [ProblemView]'s action when [CardEditState.error] is set (Phase 6
   /// ruling 29 item 1, R-2): re-runs [CardEditState.failedOp] — the edits
@@ -357,6 +373,12 @@ class _Detail extends StatelessWidget {
           label: l10n.cardsLoadToSlot,
           variant: SpectraButtonVariant.secondary,
           onPressed: loading ? null : onLoadToSlot,
+        ),
+        const SizedBox(height: SpectraSpacing.md),
+        SpectraButton(
+          label: l10n.cardsWriteToCard,
+          variant: SpectraButtonVariant.secondary,
+          onPressed: loading ? null : onWriteToCard,
         ),
         const SizedBox(height: SpectraSpacing.md),
         SpectraButton(
