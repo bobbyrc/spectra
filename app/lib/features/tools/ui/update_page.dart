@@ -10,6 +10,7 @@ import '../../../core/session/active_device.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/firmware_package_source.dart';
 import '../state/update_controller.dart';
+import '../state/update_steps.dart';
 
 /// Firmware update (spec 7.7 step 6, 4.5, 5.6).
 ///
@@ -121,12 +122,48 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
           else
             SpectraCard(child: Text(l10n.updateNoTarget)),
           const SizedBox(height: SpectraSpacing.md),
-          SpectraButton(
-            label: l10n.updateStart,
-            onPressed: package == null || busy || deviceName == null
-                ? null
-                : () => controller.start(),
-          ),
+          if (state.running) ...<Widget>[
+            SpectraCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  SpectraStepIndicator(
+                    steps: updateStepLabels(l10n),
+                    currentIndex: updateStepIndex(state.phase),
+                  ),
+                  const SizedBox(height: SpectraSpacing.md),
+                  SpectraProgressIndicator(
+                    label: l10n.updateProgressLabel,
+                    // Null until the transfer reports its first byte count:
+                    // the reboot and the two scans have no fraction to show,
+                    // and an indeterminate bar says exactly that.
+                    value: state.fraction,
+                    detail: state.progress == null
+                        ? null
+                        : l10n.updateProgressDetail(
+                            state.progress!.bytesSent,
+                            state.progress!.bytesTotal,
+                          ),
+                    onCancel: controller.cancel,
+                  ),
+                  const SizedBox(height: SpectraSpacing.md),
+                  Text(l10n.updateDoNotDisconnect),
+                ],
+              ),
+            ),
+            const SizedBox(height: SpectraSpacing.md),
+          ],
+          if (state.completed) ...<Widget>[
+            SpectraCard(child: Text(l10n.updateSucceeded)),
+            const SizedBox(height: SpectraSpacing.md),
+          ],
+          if (!state.running)
+            SpectraButton(
+              label: l10n.updateStart,
+              onPressed: package == null || busy || deviceName == null
+                  ? null
+                  : () => controller.start(),
+            ),
           if (!flags.dfuOverBleEnabled) ...<Widget>[
             const SizedBox(height: SpectraSpacing.md),
             SpectraCard(child: Text(l10n.updateBleNotice)),

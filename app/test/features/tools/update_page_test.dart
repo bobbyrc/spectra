@@ -8,6 +8,7 @@ import 'package:spectra/app.dart';
 import 'package:spectra/core/dfu/dfu_runtime.dart';
 import 'package:spectra/core/errors/problem_view.dart';
 import 'package:spectra/features/tools/state/firmware_package_source.dart';
+import 'package:spectra/features/tools/state/update_controller.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../fixtures/dfu_package_fixture.dart';
@@ -114,4 +115,58 @@ void main() {
       );
     },
   );
+
+  testWidgetsApp('a run shows the steps, the bar and a cancel', (tester) async {
+    useDesktopSurface(tester);
+    await tester.pumpWidget(
+      buildDfuTestApp(
+        source: MemoryFirmwarePackageSource(buildDfuZip(size: 8192)),
+      ),
+    );
+    await tester.pump();
+    await connectToEmulator(tester);
+    await openUpdate(tester);
+
+    await tester.enterText(
+      find.byType(SpectraTextField).first,
+      '/tmp/ultra-dfu-app.zip',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Load package'));
+    await pumpFrames(tester);
+
+    await tester.tap(find.text('Install firmware'));
+    await tester.pump();
+    // Mid-flight: the progress bar and the step indicator are up.
+    expect(find.byType(SpectraProgressIndicator), findsOneWidget);
+    expect(find.byType(SpectraStepIndicator), findsOneWidget);
+    expect(
+      find.text('Keep the device connected and powered until this finishes.'),
+      findsOneWidget,
+    );
+
+    await pumpFrames(tester, count: 80);
+    expect(find.text('Firmware installed.'), findsOneWidget);
+    expect(find.byType(SpectraProgressIndicator), findsNothing);
+  });
+
+  testWidgetsApp('a failed run shows the problem and offers a retry', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    await tester.pumpWidget(
+      buildDfuTestApp(source: MemoryFirmwarePackageSource(buildDfuZip())),
+    );
+    await tester.pump();
+    await connectToEmulator(tester);
+    await openUpdate(tester);
+
+    readProvider(
+      tester,
+      updateControllerProvider.notifier,
+    ).debugFail(DfuError('scripted failure'));
+    await pumpFrames(tester);
+
+    expect(find.byType(ProblemView), findsOneWidget);
+  });
 }
