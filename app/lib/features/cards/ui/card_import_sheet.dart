@@ -17,7 +17,10 @@ import '../state/saved_cards_provider.dart';
 /// partway through the write, say — never reaches here: [_ImportFormState]
 /// routes that case through [ProblemView] and the shared [ErrorCatalog]
 /// instead, so a storage failure is never worded as "not a card export"
-/// (Phase 6 ruling 21).
+/// (Phase 6 ruling 21). A [CardImportException] always carries
+/// `ImportOutcome.written == 0` — [parseCardsJson] reads the whole paste
+/// before anything is written — so this is only ever shown alongside a
+/// nothing-written result.
 String importProblemMessage(CardImportProblem problem, AppLocalizations l10n) =>
     switch (problem) {
       CardImportProblem.notJson => l10n.cardsImportNotJson,
@@ -35,7 +38,11 @@ String importProblemMessage(CardImportProblem problem, AppLocalizations l10n) =>
 /// exported text works on every platform today and needs nothing new.
 ///
 /// Resolves to the number of cards written, or null when the sheet was
-/// dismissed without a successful import.
+/// dismissed without a fully successful import. A *partial* import (some
+/// cards written, then a failure) never resolves this future — the sheet
+/// stays open and shows both the count already written and the problem
+/// that stopped the rest, so the user sees the honest outcome before
+/// deciding to dismiss.
 Future<int?> showCardImportSheet(BuildContext context) {
   final AppLocalizations l10n = AppLocalizations.of(context);
   return SpectraBottomSheet.show<int>(
@@ -54,8 +61,12 @@ class _ImportForm extends ConsumerStatefulWidget {
 
 class _ImportFormState extends ConsumerState<_ImportForm> {
   final TextEditingController _text = TextEditingController();
-  CardImportException? _typedFailure;
-  Object? _otherFailure;
+
+  /// Set only when the last attempt did not fully succeed — a
+  /// [CardImportException] (always `written == 0`) or a repository failure
+  /// partway through (possibly `written > 0`). Null again on a fresh
+  /// attempt, and on the button that dismisses [ProblemView].
+  ImportOutcome? _failure;
 
   @override
   void initState() {
@@ -76,39 +87,27 @@ class _ImportFormState extends ConsumerState<_ImportForm> {
 
   Future<void> _import() async {
     final NavigatorState navigator = Navigator.of(context);
-    setState(() {
-      _typedFailure = null;
-      _otherFailure = null;
-    });
-    final int count = await ref
+    setState(() => _failure = null);
+    final ImportOutcome outcome = await ref
         .read(cardLibraryProvider.notifier)
         .importJson(_text.text);
     if (!mounted) return;
-    if (count == 0) {
-      final Object? failure = ref.read(cardLibraryProvider).error;
-      setState(() {
-        if (failure is CardImportException) {
-          _typedFailure = failure;
-        } else {
-          _otherFailure =
-              failure ??
-              const CardImportException(
-                CardImportProblem.notJson,
-                'no cards were written',
-              );
-        }
-      });
+    if (outcome.ok) {
+      navigator.pop(outcome.written);
       return;
     }
-    navigator.pop(count);
+    setState(() => _failure = outcome);
   }
 
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final bool busy = ref.watch(cardLibraryProvider).isLoading;
-    final CardImportException? typedFailure = _typedFailure;
-    final Object? otherFailure = _otherFailure;
+    final ImportOutcome? failure = _failure;
+    final Object? error = failure?.error;
+    final CardImportException? typedFailure = error is CardImportException
+        ? error
+        : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -122,12 +121,14 @@ class _ImportFormState extends ConsumerState<_ImportForm> {
               ? null
               : importProblemMessage(typedFailure.problem, l10n),
         ),
-        if (otherFailure != null) ...<Widget>[
+        if (failure != null && typedFailure == null) ...<Widget>[
+          const SizedBox(height: SpectraSpacing.md),
+          if (failure.written > 0) Text(l10n.cardsImported(failure.written)),
           const SizedBox(height: SpectraSpacing.md),
           ProblemView(
-            error: otherFailure,
+            error: error!,
             variant: SpectraButtonVariant.secondary,
-            onAction: () => setState(() => _otherFailure = null),
+            onAction: () => setState(() => _failure = null),
           ),
         ],
         const SizedBox(height: SpectraSpacing.lg),

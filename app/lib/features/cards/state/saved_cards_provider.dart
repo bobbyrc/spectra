@@ -30,6 +30,31 @@ const List<int> cardColors = <int>[
   0xFF8C8C99,
 ];
 
+/// What [CardLibrary.importJson] actually did: how many cards were written,
+/// and — when the import did not fully succeed — the failure that stopped
+/// it going further.
+///
+/// [importJson] writes one card at a time, so a failure partway through
+/// (the repository rejects card 2 of 3, say) still leaves the cards before
+/// it in the library. Collapsing that to a bare `0` on any failure would be
+/// dishonest: the sheet has to be able to say "1 card imported" *and* show
+/// the problem that stopped the rest, not just one or the other.
+/// [written] is never rounded down because [error] is set — it is always
+/// the number of `save()` calls that actually completed.
+final class ImportOutcome {
+  const ImportOutcome({required this.written, this.error});
+
+  final int written;
+
+  /// Null when every card in the paste was written. A [CardImportException]
+  /// (the text could not even be parsed) always carries [written] `== 0`,
+  /// since [parseCardsJson] reads the whole paste before any card is
+  /// written; any other error can carry a positive [written].
+  final Object? error;
+
+  bool get ok => error == null;
+}
+
 int _seq = 0;
 
 /// A unique id for a new card, without adding a uuid dependency: the
@@ -115,21 +140,32 @@ class CardLibrary extends _$CardLibrary {
   /// never collides with an existing card because nothing exported carries
   /// one back in.
   ///
-  /// Returns how many cards were written; 0 with the failure in [state]
-  /// when the text could not be read at all (a [CardImportException]) or
-  /// a card wrote and failed partway through (any other error) — the sheet
-  /// renders either through the spec 9 catalog, so a storage failure is
-  /// never worded as a parse failure (Phase 6 ruling 21).
+  /// Writes one card at a time rather than inside a single
+  /// `AsyncValue.guard`: a guard would report `0` written the moment any
+  /// card failed, even after earlier `save()` calls had already completed
+  /// and landed in the library — dishonest, and unrecoverable by the sheet,
+  /// which would then have no way to say "1 card imported, and here is what
+  /// stopped the rest". [ImportOutcome.written] is always the number of
+  /// `save()` calls that actually finished; [ImportOutcome.error] is set
+  /// when the paste could not be read at all (a [CardImportException],
+  /// always with `written == 0` — [parseCardsJson] reads the whole paste
+  /// before anything is written) or a card failed partway through (any
+  /// other error, possibly with `written > 0`). The sheet renders either
+  /// through the spec 9 catalog, so a storage failure is never worded as a
+  /// parse failure (Phase 6 ruling 21).
   ///
   /// Same drop-not-queue and `ref.mounted` discipline as [_run] (Phase 6
-  /// ruling 2): the sheet can be popped while the write is still on the
-  /// wire, and there is then nowhere left to report it, but the writes
-  /// already issued still complete.
-  Future<int> importJson(String text) async {
-    if (_inFlight) return 0;
+  /// ruling 2): the sheet can be popped while a write is still on the wire,
+  /// and there is then nowhere left to report it, but the writes already
+  /// issued still complete.
+  Future<ImportOutcome> importJson(String text) async {
+    if (_inFlight) return const ImportOutcome(written: 0);
     _inFlight = true;
     state = const AsyncLoading<void>();
-    final AsyncValue<int> result = await AsyncValue.guard<int>(() async {
+    int written = 0;
+    Object? error;
+    StackTrace? stackTrace;
+    try {
       final List<ImportedCard> cards = parseCardsJson(text);
       final SavedCardsRepository repo = ref.read(savedCardsRepositoryProvider);
       for (final ImportedCard card in cards) {
@@ -144,18 +180,21 @@ class CardLibrary extends _$CardLibrary {
             color: card.color,
           ),
         );
+        written++;
       }
-      return cards.length;
-    });
+    } on Object catch (e, st) {
+      error = e;
+      stackTrace = st;
+    }
     if (!ref.mounted) {
       _inFlight = false;
-      return 0;
+      return ImportOutcome(written: written, error: error);
     }
-    state = result.hasError
-        ? AsyncError<void>(result.error!, result.stackTrace!)
-        : const AsyncData<void>(null);
+    state = error == null
+        ? const AsyncData<void>(null)
+        : AsyncError<void>(error, stackTrace!);
     _inFlight = false;
-    return result.value ?? 0;
+    return ImportOutcome(written: written, error: error);
   }
 
   Future<void> remove(String id) async {
