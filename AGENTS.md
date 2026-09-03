@@ -30,13 +30,14 @@ catalog (internal), freezed models, `Transport`/`DeviceScanner` seams, a
 firmware version matrix, `DeviceSession` (handshake, connection state,
 dispatch with timeouts/retry/cancellation, reader lease, write-through cache
 and idle poll) with six typed facades, MIFARE Classic/Ultralight/EM410x dump
-formats, and Nordic Secure DFU with an orchestrator and recovery path. 294
+formats, and Nordic Secure DFU with an orchestrator and recovery path. 319
 tests, no hardware needed; 91.5% line coverage of the hand-written sources.
 See `packages/chameleon/README.md`.
 
 Phase 3 (`packages/chameleon_flutter`) is complete (2026-09-03): BLE and
 serial transports behind the `BleAdapter`/`SerialPortAdapter` seams,
-`BleScanner`/`SerialScanner`, `BleDfuChannel`/`SlipSerialDfuChannel`,
+`BleScanner`/`SerialScanner` (identical stream semantics) and `mergedScan`
+over them, `BleDfuChannel`/`SlipSerialDfuChannel`,
 `ChameleonTransports.defaultScanners`/`transportFor`, the transport contract
 suite (tagged `hardware` for the real-device run), and the `serial_probe`
 example app for hardware handoff H1. The H1 section of
