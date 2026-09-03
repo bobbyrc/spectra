@@ -266,18 +266,95 @@ Written in Phase 8.
       Execute at the boundary it picks up from; `FakeBootloader` models it as
       harmless, which is the assumption to verify on an interrupted transfer.
 
-## H3 (before release): full checklist (spec section 10)
+## H3 (before release): the release-candidate pass (spec section 10)
 
-Written in Phase 10.
+Run against the **`v1.0.0-rc.1` artifacts**, not a `flutter run` debug
+build — the point of H3 is that the thing being shipped works. Download them
+from the release page:
 
-- [ ] pending: connect
-- [ ] pending: pairing
-- [ ] pending: slot round trip
-- [ ] pending: HF scan
-- [ ] pending: LF scan
-- [ ] pending: USB DFU
-- [ ] pending: BLE DFU
-- [ ] pending: recovery from interrupted DFU
+```bash
+gh release download v1.0.0-rc.1 -D ~/Downloads/spectra-rc1
+```
+
+Nothing below may be ticked from inference or from a green CI run. Report
+each result and the agent records it here.
+
+### Install the RC on each platform you have
+
+- [ ] pending: **macOS.** Open `spectra-1.0.0-rc.1-macos.dmg`, drag Spectra
+      to Applications, launch it. The dmg is ad-hoc signed unless the
+      Developer ID secrets were set, so Gatekeeper will refuse the first
+      launch: right-click the app and choose Open, or
+      `xattr -dr com.apple.quarantine /Applications/spectra.app`. Report
+      whether it launches and what Gatekeeper said.
+- [ ] pending: **Windows.** Run
+      `spectra-1.0.0-rc.1-windows-setup.exe`, accept the SmartScreen prompt
+      (expected while unsigned), and confirm the Start-menu entry launches.
+      Also unzip `spectra-1.0.0-rc.1-windows.zip` and run `spectra.exe` from
+      it. Report both.
+- [ ] pending: **Linux.**
+      `chmod +x spectra-1.0.0-rc.1-linux-x86_64.AppImage &&
+      ./spectra-1.0.0-rc.1-linux-x86_64.AppImage`. Report whether it starts
+      and whether the window title and icon are right.
+- [ ] pending: **Android.**
+      `adb install spectra-1.0.0-rc.1-android-unsigned.apk` (or sideload it)
+      and launch. Report whether Android complains about the debug
+      signature.
+- [ ] pending: **iOS.** The `.ipa` is unsigned and cannot be installed
+      as-is. Confirm only that it unzips and that `Payload/Runner.app`
+      exists; leave the install for the TestFlight route in
+      `docs/RELEASING.md`.
+
+### The hardware pass, on the RC build (macOS at minimum)
+
+Chameleon Ultra attached over USB unless the item says otherwise. Turn
+emulator mode **off** in Settings first, so no item can be satisfied by the
+`Emulated Chameleon Ultra` row.
+
+- [ ] pending: **connect over USB.** The connect screen lists the device;
+      connecting reaches the dashboard. Report the firmware version, chip
+      id and battery the dashboard shows.
+- [ ] pending: **connect over BLE and pairing.** Unplug USB, wake the device
+      with a button press, connect from the RC build. Report whether the OS
+      pairing prompt appears, whether accepting it reaches the dashboard,
+      and whether a second connect skips the prompt.
+- [ ] pending: **slot round trip.** Rename a slot, change its tag type,
+      make it active, disconnect, power-cycle the device, reconnect, and
+      report whether all three survived.
+- [ ] pending: **HF scan.** Present a MIFARE Classic card on the Read
+      screen. Report the UID, ATQA/SAK, and whether the key check finds
+      keys and the dump saves to the library.
+- [ ] pending: **LF scan.** Present an EM410x tag. Report the id shown and
+      whether it saves.
+- [ ] pending: **write and emulate.** Load a saved card into a slot, make
+      the slot active, and read it back with a second reader (or the
+      Chameleon itself in reader mode). Report whether the emulated card is
+      seen with the right UID.
+- [ ] pending: **USB DFU with the RC build.** Update the device from the
+      Tools tab over USB with a real Chameleon release package. Report the
+      progress behaviour, the total time, and the firmware version after the
+      reboot.
+- [ ] pending: **recovery from an interrupted DFU.** Start a USB DFU and
+      unplug the cable mid-transfer. Report whether the app detects the
+      bootloader on reconnect and completes the recovery flow.
+- [ ] pending: **BLE DFU — only if `dfuOverBleEnabled` is on.** The flag
+      defaults off and flips only after H2 passed. If it is on, run a DFU
+      over BLE from macOS and report the result; if it is off, report that
+      and tick nothing.
+- [ ] pending: **background and foreground on mobile.** On Android (and iOS
+      if a signed build is available), connect, send the app to the
+      background for under 30 seconds and return: the session should still
+      be live. Then background it for over a minute and return: it should
+      have closed and silently reconnected. Report both.
+- [ ] pending: **USB detach.** With the app connected, unplug the device.
+      Report whether the app returns to the connect screen with that device
+      preselected, and the message it shows.
+- [ ] pending: **the frame log.** Open Tools -> frame log after the runs
+      above and export it. Attach the export to the report; it is the
+      evidence for every item here.
+
+### Cards and reads (carried over from Phase 6)
+
 - [ ] pending: **a real reference-app export imports.** Export a library
       from the Chameleon Ultra GUI (Settings → export) and paste it into
       Spectra's import. Confirm every card lands with the right name, tag
@@ -298,3 +375,19 @@ Written in Phase 10.
 - [ ] pending: **a real NTAG identify-only read.** An NTAG215 held to the
       reader shows its UID and the "cannot read its memory yet" line — the
       documented v1 limit (no Ultralight read facade), not a crash.
+
+### Sign-off list for `v1.0.0`
+
+This is the sign-off list: `v1.0.0` is tagged only when all of these are
+true. An agent may not tick any of them.
+
+- [ ] pending: every H1 item above reported and recorded.
+- [ ] pending: every H2 item above reported and recorded.
+- [ ] pending: every H3 item in this section reported and recorded.
+- [ ] pending: the LICENSE decision made (see `docs/RELEASING.md`).
+- [ ] pending: the `dfuOverBleEnabled` default decided from the H2/H3 BLE
+      results.
+- [ ] pending: the vendored `usb_serial` override re-checked against
+      upstream.
+- [ ] pending: the release workflow green on the `v1.0.0-rc.1` tag with
+      every artifact attached.
