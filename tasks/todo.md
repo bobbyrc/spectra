@@ -7,7 +7,7 @@
 - [x] Spec self-review (renamed CommandTimeout, defined Tools tab contents)
 - [x] Adversarial review by a context-free Fable 5.1 agent; spec revised (DFU strategy, session state machine, BLE runtime, cache, lease, l10n, lifecycle, import, testing, cuts)
 - [x] User reviews spec (approved 2026-09-02)
-- [ ] Invoke writing-plans for implementation plan
+- [x] Invoke writing-plans: roadmap + Phase 0 + Phase 1 plans written (2026-09-02)
 
 ## Review
 (filled in when the brainstorm closes)

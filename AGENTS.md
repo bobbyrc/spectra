@@ -8,17 +8,22 @@ progressive disclosure (simple default path, expert detail one tap away).
 
 ## Current status (2026-09-02)
 
-Design spec approved by the user, including an adversarial-review revision:
-`docs/superpowers/specs/2026-09-02-spectra-design.md`. It is the source of
-truth for architecture; `docs/research/DECISIONS.md` records why. No
-application code exists yet. Next steps, in order:
+Design spec approved (including an adversarial-review revision):
+`docs/superpowers/specs/2026-09-02-spectra-design.md`. Rationale in
+`docs/research/DECISIONS.md`. Implementation planning is done for the first
+two phases. No application code exists yet.
 
-1. Write the implementation plan with the writing-plans skill, from the spec.
-2. Upgrade the toolchain via mise, run the two spikes named in spec section 11.
-3. Build foundation-first per the plan with TDD, committing as each task lands.
+Plans, in `docs/superpowers/plans/`:
 
-Hardware validation steps (tagged `hardware-validate` in the spec) need the
-user's physical device; everything else must be verified against the fake.
+- `2026-09-02-spectra-v1-roadmap.md`: the ten phases, gates and the three
+  hardware handoffs. Start here.
+- `2026-09-02-phase-0-foundation.md`: toolchain, workspace, lint, CI, spikes.
+- `2026-09-02-phase-1-chameleon-sdk.md`: the pure-Dart SDK, task by task.
+- Phases 2 to 10: write each plan with the writing-plans skill from the spec
+  sections the roadmap lists, when that phase starts.
+
+Execute plans with superpowers:subagent-driven-development. Hardware steps
+need the user's device; stop at the handoffs the roadmap names.
 
 ## Decisions already made (do not re-ask)
 
