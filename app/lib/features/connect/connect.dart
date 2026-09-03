@@ -1,5 +1,8 @@
-/// The Connect feature's public API: its screens. Nothing else in the app
-/// may import `features/connect/…` directly (spec 8.3).
+/// The Connect feature's public API (spec 8.3). Nothing else in the app may
+/// import `features/connect/…` directly.
 library;
 
+export 'state/connect_controller.dart';
+export 'state/connect_row.dart';
+export 'state/connect_rows_provider.dart';
 export 'ui/connect_page.dart';
