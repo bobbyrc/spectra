@@ -60,9 +60,9 @@ export 'src/model/models.dart'
         SectorKeys,
         Slot;
 
-// Errors (spec 9) and the status codes they carry.
+// Errors (spec 9). The raw firmware status codes stay internal: a caller
+// sees a typed `DeviceError`, never a status int to compare (spec 3.3).
 export 'src/protocol/errors.dart';
-export 'src/protocol/status.dart';
 
 // Session, state and the typed facades (spec 4.3, 8.1).
 export 'src/session/cancel_token.dart';

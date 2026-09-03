@@ -53,6 +53,9 @@ final class DeviceSession {
 
   static const int supportedMajor = 2;
 
+  /// The firmware has eight emulation slots, fixed by the protocol.
+  static const int slotCount = 8;
+
   final Transport transport;
   final FrameLog frameLog;
   final Duration idlePollInterval;

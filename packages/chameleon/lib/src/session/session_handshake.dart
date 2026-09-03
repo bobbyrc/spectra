@@ -1,8 +1,5 @@
 part of 'device_session.dart';
 
-/// The firmware has eight emulation slots, fixed by the protocol.
-const int slotCount = 8;
-
 /// The connect handshake and the tolerant background load (spec 4.3).
 ///
 /// Only three commands gate readiness: capabilities (1035), app version
@@ -118,6 +115,10 @@ extension SessionHandshake on DeviceSession {
   /// Nicknames come from GET_ALL_SLOT_NICKS (1038) when the device admits to
   /// supporting it, and from sixteen GET_SLOT_TAG_NICK (1008) calls otherwise:
   /// 2.0 firmware has no 1038.
+  ///
+  /// Internal to the SDK: an app refreshes slots through
+  /// `session.slots.refresh()`, which also tracks busy state.
+  @internal
   Future<List<Slot>> refreshSlots() async {
     final caps = _requireInfo.capabilities;
     final active = await send(const GetActiveSlot());
@@ -128,14 +129,14 @@ extension SessionHandshake on DeviceSession {
       nicks = await send(const GetAllSlotNicks());
     } else {
       nicks = [];
-      for (var i = 0; i < slotCount; i++) {
+      for (var i = 0; i < DeviceSession.slotCount; i++) {
         final hf = await _nickOrEmpty(i, Sense.hf);
         final lf = await _nickOrEmpty(i, Sense.lf);
         nicks.add(SlotNicks(hf, lf));
       }
     }
     final list = List.generate(
-      slotCount,
+      DeviceSession.slotCount,
       (i) => Slot(
         index: i,
         hfType: types[i].hf,

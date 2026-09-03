@@ -34,6 +34,10 @@ void main() {
         'UID',
       );
       expect(MifareGeometry.sectorCount(TagType.mifare1k), 16);
+      // The slot count belongs to the session, not to a loose top-level
+      // constant, and `Status` is deliberately not exported (spec 3.3).
+      expect(DeviceSession.slotCount, 8);
+      expect(slots, hasLength(DeviceSession.slotCount));
 
       final scanners = <DeviceScanner>[FakeScanner()];
       expect(
