@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/lifecycle/wakelock.dart';
 import 'l10n/app_localizations.dart';
 
 /// The application root. Everything above it is `ProviderScope`; everything
@@ -12,11 +13,28 @@ import 'l10n/app_localizations.dart';
 /// without a `MediaQuery` ancestor throws in `pumpWidget`. So this renders
 /// the minimum `Localizations` + `Directionality` + `MediaQuery` stack a
 /// widget test needs, with nothing but the app title on screen.
-class SpectraRoot extends ConsumerWidget {
+class SpectraRoot extends ConsumerStatefulWidget {
   const SpectraRoot({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SpectraRoot> createState() => _SpectraRootState();
+}
+
+class _SpectraRootState extends ConsumerState<SpectraRoot> {
+  @override
+  void initState() {
+    super.initState();
+    // Task 11's AppLifecycleHost does not exist yet; this belongs in its
+    // initState (after adding the lifecycle observer) once it lands. Reading
+    // it once is enough: the provider is keepAlive and starts its own timer.
+    // Deferred so the first frame is not blocked by a plugin call.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ref.read(wakelockProvider),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Localizations(
       locale: const Locale('en'),
       delegates: const <LocalizationsDelegate<Object?>>[
