@@ -80,6 +80,14 @@ dated entry per lesson; keep each one actionable.
   `*_localizations*.dart`), add `--intent-to-add` per glob pattern so a
   plain `git diff` (which ignores untracked files) still catches newly
   generated, never-before-committed output as stale.
+- **Alchemist's `obscureText` does not make CI goldens byte-identical across
+  host platforms.** Non-text anti-aliasing (borders, rounded corners, icons)
+  still differs by a fraction of a percent of pixels between the macOS host
+  goldens were authored on and the Ubuntu `check` runner. Set
+  `CiGoldensConfig(diffThreshold: 0.01)` (or similar) in
+  `flutter_test_config.dart` so a real Ubuntu CI run doesn't fail on this
+  noise; verify the actual diff percentages from a CI log before picking a
+  number, rather than guessing.
 - **`mise x --` can race on this Mac.** It sometimes resolves the fvm Dart
   (3.8.1) instead of mise's pinned Flutter Dart (3.13.2) when invoked
   repeatedly in the same session, especially under concurrent shell

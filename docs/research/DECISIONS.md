@@ -80,6 +80,16 @@ Status: design approved in brainstorm; spec at docs/superpowers/specs/2026-09-02
   and their directories are git-ignored, so macOS-rendered images can never be
   committed. Goldens run in the existing Ubuntu `check` job via
   `melos run test:flutter`; no extra CI job.
+- **Goldens comparator tolerance (revised 2026-09-03, Task 17).** CI-mode
+  text obscuring does not make renders byte-identical across host platforms:
+  the first real Ubuntu `check` run of the full component set failed nine
+  golden tests with pixel diffs from 0.01% to 0.68%, from anti-aliasing on
+  borders, rounded corners and icons rather than any layout/colour/shape
+  regression. `flutter_test_config.dart` now sets
+  `CiGoldensConfig(diffThreshold: 0.01)` (1% of pixels) so that
+  macOS-authored goldens verify cleanly on the Ubuntu runner without masking
+  a real difference; the images committed under `test/*/goldens/ci/` did not
+  need regenerating.
 - **Font fallback.** One variable sans (Inter) and one mono (JetBrains Mono),
   both bundled under `packages/spectra_ui/assets/google_fonts/` with
   `GoogleFonts.config.allowRuntimeFetching = false`. Production is offline
