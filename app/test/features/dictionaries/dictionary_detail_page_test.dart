@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/features/dictionaries/state/dictionaries_provider.dart';
 import 'package:spectra_ui/spectra_ui.dart';
@@ -145,6 +146,38 @@ void main() {
     await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
 
     expect(find.text('Default keys copy'), findsWidgets);
+  });
+
+  testWidgetsApp('copies the list as .dic and confirms it', (tester) async {
+    final List<MethodCall> clipboard = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (MethodCall call) async {
+        if (call.method == 'Clipboard.setData') clipboard.add(call);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    await _openHotel(tester);
+    await _addKey(tester, 'A0A1A2A3A4A5');
+
+    await tester.tap(find.text('Copy list'));
+    await pumpFrames(tester);
+
+    expect(clipboard, hasLength(1));
+    final Map<String, Object?> args =
+        clipboard.single.arguments as Map<String, Object?>;
+    // The `.dic` form — one key per line behind a `# <name>` comment, not
+    // the whole-library JSON shape `app_settings_section.dart`'s export
+    // uses.
+    expect(args['text'], '# Hotel\nA0A1A2A3A4A5');
+    expect(find.text('List copied to the clipboard.'), findsOneWidget);
   });
 
   testWidgetsApp('a failed write shows the shared problem view', (

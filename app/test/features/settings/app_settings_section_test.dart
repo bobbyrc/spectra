@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:chameleon/chameleon.dart';
 import 'package:flutter/services.dart';
@@ -87,6 +88,26 @@ void main() {
   testWidgetsApp('offers the licences', (tester) async {
     await _openSettings(tester);
     expect(find.text('Open-source licences'), findsOneWidget);
+  });
+
+  testWidgetsApp('the version shown matches the app pubspec', (tester) async {
+    // `_appVersion` in `app_settings_section.dart` is a hand-kept literal
+    // (`package_info_plus` is not a dependency yet, per that file's own
+    // doc comment) — this pins it to `app/pubspec.yaml`'s `version:` field
+    // so the two cannot drift silently. `test/` runs with the package
+    // root as its working directory, so the path is relative.
+    final String pubspec = File('pubspec.yaml').readAsStringSync();
+    final RegExpMatch match = RegExp(
+      r'^version:\s*(\S+)',
+      multiLine: true,
+    ).firstMatch(pubspec)!;
+    final String pubspecVersion = match.group(1)!;
+
+    await _openSettings(tester);
+    await tester.ensureVisible(find.text('Version'));
+    await pumpFrames(tester);
+
+    expect(find.text(pubspecVersion), findsOneWidget);
   });
 
   testWidgetsApp('exports every key list as JSON', (tester) async {
