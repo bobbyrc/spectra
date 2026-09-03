@@ -4,6 +4,7 @@ import 'package:chameleon/chameleon.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spectra/core/dfu/dfu_runtime.dart';
 import 'package:spectra/core/errors/app_failures.dart';
+import 'package:spectra/core/session/sessions.dart';
 import 'package:spectra/features/tools/state/update_controller.dart';
 
 import '../../fixtures/dfu_package_fixture.dart';
@@ -107,6 +108,12 @@ void main() {
     expect(state.phase, DfuPhase.done);
     expect(state.progress?.bytesSent, 4096);
     expect(readProvider(tester, dfuActivityProvider), isFalse);
+    // Not just the byte count the controller reported: what the bootloader
+    // actually holds, which is the only proof the image went across intact.
+    expect(
+      readProvider(tester, emulatorBootloaderProvider).bootloader.flashed,
+      buildBin(4096),
+    );
   });
 
   testWidgetsApp('a failed run clears the activity flag and reports why', (
@@ -166,6 +173,141 @@ void main() {
     expect(state.running, isFalse);
     expect(state.completed, isFalse);
     expect(state.error, isA<CommandCancelled>());
+    expect(readProvider(tester, dfuActivityProvider), isFalse);
+  });
+
+  testWidgetsApp('a BLE bootloader is refused while the flag is off', (
+    tester,
+  ) async {
+    var opened = false;
+    await tester.pumpWidget(
+      buildDfuTestApp(
+        source: MemoryFirmwarePackageSource(buildDfuZip(size: 4096)),
+        openChannel: (_) async {
+          opened = true;
+          throw DfuError('the channel must never be opened');
+        },
+      ),
+    );
+    await tester.pump();
+
+    final controller = readProvider(tester, updateControllerProvider.notifier);
+    await controller.loadPackage('ultra-dfu-app.zip');
+    await pumpFrames(tester);
+
+    await controller.start(
+      bootloader: const DiscoveredDevice(
+        name: 'Chameleon Ultra DFU',
+        kind: TransportKind.ble,
+        transportId: 'ble-bootloader',
+        isBootloader: true,
+      ),
+    );
+    await pumpFrames(tester);
+
+    final state = readProvider(tester, updateControllerProvider);
+    expect(state.error, isA<UpdateBleDisabled>());
+    expect(state.running, isFalse);
+    expect(opened, isFalse, reason: 'nothing may be opened over BLE yet (H2)');
+    expect(readProvider(tester, dfuActivityProvider), isFalse);
+  });
+
+  testWidgetsApp('a failed connected run leaves no session behind', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    await tester.pumpWidget(
+      buildDfuTestApp(
+        source: MemoryFirmwarePackageSource(buildDfuZip(size: 4096)),
+        // Fails after ENTER_BOOTLOADER has gone out, which is the only way
+        // to reach a session the flash has left in SessionUpdating.
+        openChannel: (_) async => throw DfuError('scripted channel failure'),
+      ),
+    );
+    await connectToEmulator(tester);
+
+    final controller = readProvider(tester, updateControllerProvider.notifier);
+    await controller.loadPackage('ultra-dfu-app.zip');
+    await pumpFrames(tester);
+
+    final run = controller.start();
+    await pumpFrames(tester, count: 60);
+    await run;
+
+    final state = readProvider(tester, updateControllerProvider);
+    expect(state.error, isA<DfuError>());
+    expect(state.running, isFalse);
+    expect(state.completed, isFalse);
+    expect(readProvider(tester, dfuActivityProvider), isFalse);
+    // Ruling 8-11: a session left in SessionUpdating pins routing to the
+    // update screen, so a failed run has to close it exactly as a
+    // successful one does.
+    expect(readProvider(tester, sessionsProvider).sessions, isEmpty);
+  });
+
+  testWidgetsApp('a run refused before ENTER_BOOTLOADER keeps the session', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+    await tester.pumpWidget(
+      buildDfuTestApp(
+        source: MemoryFirmwarePackageSource(
+          buildDfuZip(size: 4096, reverseHash: false),
+        ),
+      ),
+    );
+    await connectToEmulator(tester);
+
+    final controller = readProvider(tester, updateControllerProvider.notifier);
+    await controller.loadPackage('ultra-dfu-app.zip');
+    await pumpFrames(tester);
+
+    final run = controller.start();
+    await pumpFrames(tester, count: 20);
+    await run;
+
+    expect(
+      readProvider(tester, updateControllerProvider).error,
+      isA<DfuError>(),
+    );
+    // The other half of ruling 8-11: the image was refused before a byte
+    // went out, so the device never rebooted and its session is still good.
+    expect(readProvider(tester, sessionsProvider).sessions, isNotEmpty);
+  });
+
+  testWidgetsApp('a second start while one is running is dropped', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildDfuTestApp(
+        source: MemoryFirmwarePackageSource(buildDfuZip(size: 4096)),
+        openChannel: slowBootloaderOpener(),
+      ),
+    );
+    await tester.pump();
+
+    final controller = readProvider(tester, updateControllerProvider.notifier);
+    await controller.loadPackage('ultra-dfu-app.zip');
+    await pumpFrames(tester);
+
+    final run = controller.start(bootloader: FakeScanner.emulatedBootloader);
+    await pumpFrames(tester, count: 5, step: const Duration(milliseconds: 20));
+    final progressed = readProvider(tester, updateControllerProvider).progress;
+    expect(progressed, isNotNull, reason: 'the first run has to be under way');
+
+    // Drop, do not queue: the second call returns at once and leaves the run
+    // in flight untouched — no reset of phase or progress, no second flash.
+    await controller.start(bootloader: FakeScanner.emulatedBootloader);
+    final during = readProvider(tester, updateControllerProvider);
+    expect(during.running, isTrue);
+    expect(
+      during.progress?.bytesSent,
+      greaterThanOrEqualTo(progressed!.bytesSent),
+    );
+
+    controller.cancel();
+    await pumpFrames(tester, count: 60);
+    await run;
     expect(readProvider(tester, dfuActivityProvider), isFalse);
   });
 

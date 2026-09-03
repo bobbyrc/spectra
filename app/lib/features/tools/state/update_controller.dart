@@ -205,7 +205,8 @@ class UpdateController extends _$UpdateController {
     _cancel = null;
     _inFlight = false;
 
-    if (failure == null) await _reconnect(previous: active, device: found);
+    await _closeUpdatingSession(active, succeeded: failure == null);
+    if (failure == null && ref.mounted) await _reconnect(found);
     ref.read(dfuActivityProvider.notifier).setRunning(false);
     if (!ref.mounted) return;
     state = state.copyWith(
@@ -215,22 +216,42 @@ class UpdateController extends _$UpdateController {
     );
   }
 
-  /// Closes the session the flash left in `SessionUpdating` and opens one on
-  /// the device the orchestrator found coming back (spec 4.5: the reconnect
-  /// is the app's, not the orchestrator's).
+  /// Closes the session the flash left behind, on every ending (ruling 8-11).
+  ///
+  /// `enterBootloader()` puts the session in `SessionUpdating` and the
+  /// device then reboots away from it; the session stays in that state
+  /// through success, failure and cancellation alike, because the
+  /// orchestrator deliberately leaves it to the app. Routing pins
+  /// `SessionUpdating` to the update screen, so a failed or cancelled run
+  /// that did not close it would strand the user there with a session that
+  /// can never answer again.
+  ///
+  /// A run that failed its pre-flight checks — wrong model, an image whose
+  /// hash does not match — never sent ENTER_BOOTLOADER. That session is
+  /// still live and is left alone, which is why [succeeded] is not the only
+  /// thing consulted.
+  Future<void> _closeUpdatingSession(
+    ActiveSession? previous, {
+    required bool succeeded,
+  }) async {
+    if (previous == null) return;
+    final updating = previous.session.connectionState.value is SessionUpdating;
+    if (!succeeded && !updating) return;
+    await ref.read(sessionsProvider.notifier).disconnect(previous.identity);
+  }
+
+  /// Opens a session on the device the orchestrator found coming back (spec
+  /// 4.5: the reconnect is the app's, not the orchestrator's).
   ///
   /// A reconnect that fails is not an update failure: the image is written.
-  /// The session is gone either way, so routing puts the connect screen one
-  /// tap away and the user retries there.
-  Future<void> _reconnect({
-    required ActiveSession? previous,
-    required DiscoveredDevice? device,
-  }) async {
-    final sessions = ref.read(sessionsProvider.notifier);
-    if (previous != null) await sessions.disconnect(previous.identity);
-    if (device == null || !ref.mounted) return;
+  /// The old session is gone either way, so routing puts the connect screen
+  /// one tap away and the user retries there.
+  Future<void> _reconnect(DiscoveredDevice? device) async {
+    if (device == null) return;
     try {
-      final identity = await sessions.connect(device);
+      final identity = await ref
+          .read(sessionsProvider.notifier)
+          .connect(device);
       if (!ref.mounted) return;
       ref.read(activeDeviceProvider.notifier).select(identity);
     } on Object {
