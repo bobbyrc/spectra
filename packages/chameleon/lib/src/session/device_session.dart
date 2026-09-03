@@ -309,7 +309,15 @@ final class DeviceSession {
 
   Future<void> _releaseTransport() async {
     _spent = true;
-    await _transportSub?.cancel();
+    // Not awaited: a broadcast StreamSubscription's cancel() removes the
+    // listener synchronously, but the Future it returns is only for any
+    // async work an `onCancel` callback does (there is none here). Awaiting
+    // it anyway is harmless in production, but under a virtual clock — the
+    // FakeAsync zone flutter_test's widget tests run in — that Future never
+    // completes (a dart:async/fake_async interaction with broadcast-stream
+    // cancellation, not a logic bug), which would hang every close() a
+    // widget test runs after a failed connect.
+    unawaited(_transportSub?.cancel());
     _transportSub = null;
     await _dispatcher.dispose();
   }

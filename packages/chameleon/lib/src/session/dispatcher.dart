@@ -174,8 +174,12 @@ final class CommandDispatcher {
     _disposed = true;
     _closed = true;
     _failAll(const Disconnected('dispatcher disposed'));
-    await _incomingSub.cancel();
-    await _stateSub.cancel();
+    // Not awaited: see the matching note on DeviceSession._releaseTransport
+    // — a broadcast StreamSubscription's cancel() Future never completes
+    // under a virtual clock (FakeAsync/flutter_test), only its synchronous
+    // unsubscribe effect matters here.
+    unawaited(_incomingSub.cancel());
+    unawaited(_stateSub.cancel());
     if (!_unexpected.isClosed) await _unexpected.close();
   }
 
