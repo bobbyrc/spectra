@@ -11,9 +11,13 @@ import 'ble_failure.dart';
 import 'ble_uuids.dart';
 
 /// The whole of the largest frame the protocol defines: 4096 data bytes plus
-/// the 9-byte header, length and LRCs. Mirrors the SDK's fake device, which
-/// is the reference for what [Transport.maxWriteLength] means.
-const int _maxFrameLength = 4105;
+/// the 9-byte header, length and LRCs.
+///
+/// Copied rather than imported: the SDK has the parts (`frameMaxDataLength`
+/// and `frameHeaderLength` in `package:chameleon/src/codec/frame.dart`) but
+/// its barrel exports that file with `show Frame`, so neither is reachable.
+/// `FakeDevice.maxWriteLength` carries the same literal for the same reason.
+const int _maxFrameLength = 4096 + 9;
 
 /// The Nordic UART link to a Chameleon in application mode (spec 5.1).
 ///
@@ -23,6 +27,10 @@ const int _maxFrameLength = 4105;
 /// length. The firmware asks for MTU 247 but this class never assumes it: it
 /// asks, and falls back to [fallbackMaxWrite] when the platform will not
 /// answer.
+///
+/// Writes are serialised: each [write] waits for the previous one to finish,
+/// success or failure, so two callers can never interleave their chunks on
+/// the wire.
 ///
 /// Single use, like the SDK's `FakeDevice`: [close] closes the streams this
 /// transport owns and a closed transport does not open again. Make a new one.
@@ -68,6 +76,7 @@ final class BleTransport implements Transport, GuidedTransport {
   StreamSubscription<Uint8List>? _notifySub;
   StreamSubscription<bool>? _connectionSub;
   int _chunkSize = 20;
+  Future<void> _writeTail = Future<void>.value();
   bool _disposed = false;
   Future<void>? _opening;
 
@@ -129,46 +138,58 @@ final class BleTransport implements Transport, GuidedTransport {
         throw const AdapterOff('the Bluetooth adapter is not powered on');
     }
 
+    // Watch the link before asking for it, so a drop during the handshake is
+    // never missed. hardware-validate: universal_ble must deliver connection
+    // changes for a device that is not connected yet.
+    _connectionSub = adapter.connectionChanges(deviceId).listen((connected) {
+      if (!connected) _dropped();
+    }, onError: (Object _) => _dropped());
+
     await _connectWithRetry();
 
     try {
-      _connectionSub = adapter.connectionChanges(deviceId).listen((connected) {
-        if (!connected) _dropped();
-      }, onError: (Object _) => _dropped());
-
       await adapter.discoverServices(deviceId);
       await _subscribeWithPairing();
       _chunkSize = await _negotiateWriteLength();
-      _notifySub = adapter
-          .notifications(
-            deviceId,
-            service: NusUuids.service,
-            characteristic: NusUuids.notify,
-          )
-          .listen(
-            (b) {
-              if (!_incoming.isClosed) _incoming.add(b);
-            },
-            onError: (Object e, StackTrace s) {
-              if (!_incoming.isClosed) _incoming.addError(e, s);
-            },
-          );
     } on BleAdapterException catch (e) {
+      // Publish the failure state first: _finish cancels the connection
+      // subscription, so the disconnect below cannot overwrite it with a
+      // spurious linkLost.
+      final error = _reportFailure(e);
       await _disconnectQuietly();
-      _failOpen(e);
+      throw error;
     } on TransportError {
-      // Already mapped and reported by _failOpen; just let go of the link.
-      await _disconnectQuietly();
+      // Already published by _pairOrFail, which also let go of the link.
       rethrow;
     }
 
     // The link can drop while the handshake is still running; _dropped() has
-    // already closed us in that case and open must not paper over it.
-    if (_current is! TransportOpening) {
-      await _disconnectQuietly();
-      throw const Disconnected('the BLE link dropped while opening');
-    }
+    // already closed us in that case and open must not paper over it, nor
+    // leave a notify subscription feeding a closed transport.
+    if (_current is! TransportOpening) await _abortOpen();
+
+    _notifySub = adapter
+        .notifications(
+          deviceId,
+          service: NusUuids.service,
+          characteristic: NusUuids.notify,
+        )
+        .listen(
+          (b) {
+            if (!_incoming.isClosed) _incoming.add(b);
+          },
+          onError: (Object e, StackTrace s) {
+            if (!_incoming.isClosed) _incoming.addError(e, s);
+          },
+        );
+
     _set(const TransportOpen());
+  }
+
+  Future<Never> _abortOpen() async {
+    _cancelSubscriptions();
+    await _disconnectQuietly();
+    throw const Disconnected('the BLE link dropped while opening');
   }
 
   void _dropped() {
@@ -188,7 +209,9 @@ final class BleTransport implements Transport, GuidedTransport {
         await adapter.connect(deviceId);
         return;
       } on BleAdapterException catch (e) {
-        if (_fatal(e.failure) || attempt == connectAttempts) _failOpen(e);
+        if (_fatal(e.failure) || attempt == connectAttempts) {
+          throw _reportFailure(e);
+        }
         await Future<void>.delayed(backoff);
         final next = backoff * 2;
         backoff = next > maxBackoff ? maxBackoff : next;
@@ -206,20 +229,24 @@ final class BleTransport implements Transport, GuidedTransport {
     _ => false,
   };
 
-  Never _failOpen(BleAdapterException e) {
+  /// Publishes the state and guidance [e] calls for and returns the error to
+  /// throw. Publishing before any teardown is deliberate: [_finish] cancels
+  /// the connection subscription, so a disconnect the caller does afterwards
+  /// cannot overwrite the real reason with a `linkLost`.
+  TransportError _reportFailure(BleAdapterException e) {
     switch (e.failure) {
       case BleFailure.permissionDenied:
         _guidance = _permissionGuidance();
         _finish(const TransportPermissionDenied());
-        throw PermissionDenied(e.message);
+        return PermissionDenied(e.message);
       case BleFailure.adapterOff:
         _guidance = TransportGuidance.bluetoothAdapterOff;
         _finish(const TransportAdapterOff());
-        throw AdapterOff(e.message);
+        return AdapterOff(e.message);
       case BleFailure.insufficientAuthentication:
         _guidance = _pairingGuidance();
         _finish(const TransportPairingRequired());
-        throw PairingRequired(e.message);
+        return PairingRequired(e.message);
       case BleFailure.deviceNotFound:
       case BleFailure.timeout:
         _guidance = TransportGuidance.portNotFound;
@@ -229,14 +256,14 @@ final class BleTransport implements Transport, GuidedTransport {
             error: DeviceNotFound(e.message),
           ),
         );
-        throw DeviceNotFound(e.message);
+        return DeviceNotFound(e.message);
       case BleFailure.disconnected:
       case BleFailure.writeFailed:
       case BleFailure.unknown:
         _finish(
           TransportClosed(CloseCause.linkLost, error: Disconnected(e.message)),
         );
-        throw Disconnected(e.message);
+        return Disconnected(e.message);
     }
   }
 
@@ -244,6 +271,10 @@ final class BleTransport implements Transport, GuidedTransport {
   /// authentication error on subscribe. Windows will not pair on its own, so
   /// there the bond is established up front; every other platform prompts by
   /// itself and only needs the retry after [BleAdapter.pair].
+  ///
+  /// hardware-validate: a subscribe that still reports insufficient
+  /// authentication after a Windows pre-pair calls [BleAdapter.pair] a second
+  /// time. That is assumed to be harmless for an already-bonded device.
   Future<void> _subscribeWithPairing() async {
     if (_platform == HostPlatform.windows &&
         await adapter.isPaired(deviceId) == false) {
@@ -271,9 +302,11 @@ final class BleTransport implements Transport, GuidedTransport {
     try {
       await adapter.pair(deviceId);
     } on BleAdapterException catch (e) {
-      await _disconnectQuietly();
+      // State before teardown, so the disconnect cannot land a linkLost on
+      // top of the pairing prompt the app needs to show.
       _guidance = _pairingGuidance();
       _finish(const TransportPairingRequired());
+      await _disconnectQuietly();
       throw PairingRequired(e.message);
     }
   }
@@ -304,8 +337,19 @@ final class BleTransport implements Transport, GuidedTransport {
     _ => null,
   };
 
+  /// Chunks reach the characteristic in order and never interleave with
+  /// another caller's: each call waits on the previous one, whether that one
+  /// succeeded or failed. The dispatcher's timeout path can start a second
+  /// write while the first is still draining, and a half-written frame would
+  /// desynchronise the device.
   @override
-  Future<void> write(Uint8List bytes) async {
+  Future<void> write(Uint8List bytes) {
+    final result = _writeTail.then((_) => _writeChunks(bytes));
+    _writeTail = result.catchError((Object _) {});
+    return result;
+  }
+
+  Future<void> _writeChunks(Uint8List bytes) async {
     if (_current is! TransportOpen) {
       throw const Disconnected('the BLE transport is not open');
     }

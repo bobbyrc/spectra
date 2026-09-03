@@ -56,6 +56,11 @@ base class FakeBleAdapter implements BleAdapter {
   bool pairSucceeds = true;
   int pairCalls = 0;
 
+  /// What [isPaired] reports, independent of whether [pair] would succeed —
+  /// the Windows pre-pair path needs "not bonded yet, but pairing works".
+  /// Trailing underscore because `isPaired` is the method.
+  bool? isPaired_ = true;
+
   bool discovered = false;
   bool disconnected = false;
   bool scanStopped = false;
@@ -217,7 +222,7 @@ base class FakeBleAdapter implements BleAdapter {
   }
 
   @override
-  Future<bool?> isPaired(String deviceId) async => pairSucceeds;
+  Future<bool?> isPaired(String deviceId) async => isPaired_;
 
   Future<void> dispose() async {
     await _scan.close();

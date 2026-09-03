@@ -147,7 +147,10 @@ void main() {
     t.state.listen(seen.add);
     await expectLater(t.open(), throwsA(isA<AdapterOff>()));
     await Future<void>.delayed(Duration.zero);
-    expect(seen.any((s) => s is TransportAdapterOff), isTrue);
+    expect(seen.map((s) => s.runtimeType).toList(), [
+      TransportOpening,
+      TransportAdapterOff,
+    ]);
     expect(adapter.connectAttempts, 0);
     expect(t.guidance, TransportGuidance.bluetoothAdapterOff);
     await t.close();
@@ -165,7 +168,10 @@ void main() {
       t.state.listen(seen.add);
       await expectLater(t.open(), throwsA(isA<PermissionDenied>()));
       await Future<void>.delayed(Duration.zero);
-      expect(seen.any((s) => s is TransportPermissionDenied), isTrue);
+      expect(seen.map((s) => s.runtimeType).toList(), [
+        TransportOpening,
+        TransportPermissionDenied,
+      ]);
       expect(t.guidance, TransportGuidance.androidBluetoothPermission);
       await t.close();
       await adapter.dispose();
@@ -206,11 +212,38 @@ void main() {
   );
 
   test('Windows pairs an unpaired device before subscribing', () async {
-    final adapter = FakeBleAdapter()..pairSucceeds = false;
+    final adapter = FakeBleAdapter()..isPaired_ = false;
     final t = build(adapter, platform: HostPlatform.windows);
-    await expectLater(t.open(), throwsA(isA<PairingRequired>()));
+    await t.open();
     expect(adapter.pairCalls, 1);
-    expect(t.currentState, isA<TransportPairingRequired>());
+    expect(t.currentState, isA<TransportOpen>());
+    await t.close();
+    await adapter.dispose();
+  });
+
+  test('a bonded Windows device is not paired again', () async {
+    final adapter = FakeBleAdapter()..isPaired_ = true;
+    final t = build(adapter, platform: HostPlatform.windows);
+    await t.open();
+    expect(adapter.pairCalls, 0);
+    await t.close();
+    await adapter.dispose();
+  });
+
+  test('a failed Windows pre-pair reports pairingRequired, in order', () async {
+    final adapter = FakeBleAdapter()
+      ..isPaired_ = false
+      ..pairSucceeds = false;
+    final t = build(adapter, platform: HostPlatform.windows);
+    final seen = <TransportState>[];
+    t.state.listen(seen.add);
+    await expectLater(t.open(), throwsA(isA<PairingRequired>()));
+    await Future<void>.delayed(Duration.zero);
+    expect(adapter.pairCalls, 1);
+    expect(seen.map((s) => s.runtimeType).toList(), [
+      TransportOpening,
+      TransportPairingRequired,
+    ]);
     expect(t.guidance, TransportGuidance.windowsPairDevice);
     await t.close();
     await adapter.dispose();
@@ -227,7 +260,11 @@ void main() {
       t.state.listen(seen.add);
       await expectLater(t.open(), throwsA(isA<PairingRequired>()));
       await Future<void>.delayed(Duration.zero);
-      expect(seen.any((s) => s is TransportPairingRequired), isTrue);
+      // The quiet disconnect must not land a linkLost on top of this.
+      expect(seen.map((s) => s.runtimeType).toList(), [
+        TransportOpening,
+        TransportPairingRequired,
+      ]);
       expect(t.guidance, TransportGuidance.linuxPairFromSettings);
       await t.close();
       await adapter.dispose();
@@ -261,10 +298,16 @@ void main() {
   test('a link that drops mid-handshake does not report open', () async {
     final adapter = _DropsOnSubscribe();
     final t = build(adapter);
+    final got = <List<int>>[];
+    t.incoming.listen((b) => got.add(b.toList()));
     await expectLater(t.open(), throwsA(isA<Disconnected>()));
     final state = t.currentState;
     expect(state, isA<TransportClosed>());
     expect((state as TransportClosed).cause, CloseCause.linkLost);
+    // Nothing may still be feeding incoming after the transport gave up.
+    adapter.emitNotification(NusUuids.notify, const [9, 9]);
+    await Future<void>.delayed(Duration.zero);
+    expect(got, isEmpty);
     await t.close();
     await adapter.dispose();
   });
@@ -279,6 +322,42 @@ void main() {
     expect(state, isA<TransportClosed>());
     expect((state as TransportClosed).cause, CloseCause.linkLost);
     expect(state.error, isA<Disconnected>());
+    await t.close();
+    await adapter.dispose();
+  });
+
+  test('concurrent writes are serialised, never interleaved', () async {
+    final adapter = FakeBleAdapter(mtu: 23); // -> 20 byte chunks
+    final t = build(adapter);
+    await t.open();
+    final first = t.write(Uint8List.fromList(List<int>.filled(50, 1)));
+    final second = t.write(Uint8List.fromList(List<int>.filled(50, 2)));
+    await Future.wait(<Future<void>>[first, second]);
+    expect(adapter.writes.map((c) => c.length).toList(), [
+      20,
+      20,
+      10,
+      20,
+      20,
+      10,
+    ]);
+    expect(adapter.writes.map((c) => c.first).toList(), [1, 1, 1, 2, 2, 2]);
+    await t.close();
+    await adapter.dispose();
+  });
+
+  test('a write queued behind a failed one still runs in order', () async {
+    final adapter = FakeBleAdapter(mtu: 23)
+      ..failWriteWith = BleFailure.writeFailed;
+    final t = build(adapter);
+    await t.open();
+    final first = t.write(Uint8List.fromList(List<int>.filled(50, 1)));
+    final second = t.write(Uint8List.fromList(List<int>.filled(10, 2)));
+    await expectLater(first, throwsA(isA<Disconnected>()));
+    // The first write closed the link, so the queued one is refused rather
+    // than interleaved onto a dead characteristic.
+    await expectLater(second, throwsA(isA<Disconnected>()));
+    expect(adapter.writes, isEmpty);
     await t.close();
     await adapter.dispose();
   });
@@ -312,7 +391,12 @@ void main() {
         throwsA(isA<PairingRequired>()),
       );
       await Future<void>.delayed(Duration.zero);
-      expect(seen.any((s) => s is TransportPairingRequired), isTrue);
+      expect(seen.map((s) => s.runtimeType).toList(), [
+        TransportOpening,
+        TransportOpen,
+        TransportPairingRequired,
+        TransportClosed,
+      ]);
       final state = t.currentState;
       expect(state, isA<TransportClosed>());
       expect((state as TransportClosed).error, isA<PairingRequired>());
