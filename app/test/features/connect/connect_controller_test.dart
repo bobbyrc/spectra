@@ -19,6 +19,7 @@ const emulated = FakeScanner.emulatedUltra;
 ProviderContainer harness(
   Transport Function(DiscoveredDevice) factory, {
   List<DeviceScanner> scanners = const <DeviceScanner>[],
+  bool hold = true,
 }) {
   final container = ProviderContainer(
     overrides: [
@@ -36,8 +37,10 @@ ProviderContainer harness(
     ],
   );
   addTearDown(container.dispose);
-  final sub = container.listen(connectControllerProvider, (_, _) {});
-  addTearDown(sub.close);
+  if (hold) {
+    final sub = container.listen(connectControllerProvider, (_, _) {});
+    addTearDown(sub.close);
+  }
   return container;
 }
 
@@ -156,5 +159,42 @@ void main() {
 
     expect(container.read(connectControllerProvider).hasError, isFalse);
     expect(container.read(connectControllerProvider).isLoading, isFalse);
+  });
+
+  test(
+    'a connect that lands after the controller is disposed is silent',
+    () async {
+      // Nothing holds the autoDispose notifier but the listener below, so
+      // closing it mid-connect is the "user left the connect screen while it
+      // was still connecting" case.
+      final container = harness((_) => FakeDevice(), hold: false);
+      final sub = container.listen(connectControllerProvider, (_, _) {});
+      final pending = container
+          .read(connectControllerProvider.notifier)
+          .connect(emulated);
+
+      sub.close();
+
+      // No UnmountedRefException from the post-await `state =`.
+      await pending;
+      // The session the attempt opened is still real: it is the reporting
+      // that is dropped, not the work.
+      expect(container.read(sessionsProvider).sessions, isNotEmpty);
+      expect(container.read(activeDeviceProvider), isNotNull);
+
+      await container.read(sessionsProvider.notifier).disconnectAll();
+    },
+  );
+
+  test('a reconnectLast that lands after disposal is silent', () async {
+    final container = harness((_) => FakeDevice(), hold: false);
+    final sub = container.listen(connectControllerProvider, (_, _) {});
+    final pending = container
+        .read(connectControllerProvider.notifier)
+        .reconnectLast();
+
+    sub.close();
+
+    await pending;
   });
 }

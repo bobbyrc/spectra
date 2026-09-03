@@ -82,7 +82,18 @@ class SlotEditor extends _$SlotEditor {
       return;
     }
     state = const AsyncLoading<void>();
-    state = await AsyncValue.guard<void>(() => body(active.session.slots));
+    final AsyncValue<void> result = await AsyncValue.guard<void>(
+      () => body(active.session.slots),
+    );
+    // The screen may have been popped while the write was on the wire: this
+    // notifier is autoDispose, and assigning `state` on a disposed element
+    // throws `UnmountedRefException`. The device change itself already
+    // happened — there is simply no longer anywhere to report it.
+    if (!ref.mounted) {
+      _inFlight = false;
+      return;
+    }
+    state = result;
     _inFlight = false;
   }
 }

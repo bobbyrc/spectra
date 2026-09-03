@@ -223,4 +223,46 @@ void main() {
       isFalse,
     );
   });
+
+  testWidgetsApp(
+    'a mutation that lands after the editor is disposed stays silent',
+    (tester) async {
+      final FakeDevice device = FakeDevice();
+      await tester.pumpWidget(testApp(transport: (_) => device));
+      await connectToEmulator(tester);
+
+      keepAlive(tester, slotViewsProvider);
+      final ProviderSubscription<AsyncValue<void>> alive = keepAlive(
+        tester,
+        slotEditorProvider(2),
+      );
+      final SlotEditor editor = readProvider(
+        tester,
+        slotEditorProvider(2).notifier,
+      );
+
+      // Slow the fake down so the write is still in flight when the detail
+      // page goes away.
+      device.latency = const Duration(milliseconds: 200);
+      final Future<void> pending = editor.rename(Sense.hf, 'Late');
+      await tester.pump(const Duration(milliseconds: 20));
+
+      // The user pressed Back: the autoDispose element is torn down while
+      // the device write is still running.
+      alive.close();
+      await tester.pump();
+
+      device.latency = Duration.zero;
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      // No UnmountedRefException: the notifier notices it is gone and
+      // simply stops writing state.
+      await pending;
+
+      // The device write itself still completed — cancelling the screen
+      // does not cancel the command already on the wire.
+      expect(_view(tester, 2).slot.hfNick, 'Late');
+    },
+  );
 }

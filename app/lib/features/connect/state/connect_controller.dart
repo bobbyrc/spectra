@@ -19,13 +19,19 @@ class ConnectController extends _$ConnectController {
   Future<void> build() async {}
 
   Future<void> connect(DiscoveredDevice device) async {
+    // Both notifiers are keepAlive and are read *before* the await: this
+    // controller is autoDispose, and the user leaving the connect screen
+    // mid-attempt must not stop the attempt from finishing and recording
+    // its result.
+    final Sessions sessions = ref.read(sessionsProvider.notifier);
+    final ActiveDevice active = ref.read(activeDeviceProvider.notifier);
     state = const AsyncLoading<void>();
-    state = await AsyncValue.guard<void>(() async {
-      final identity = await ref
-          .read(sessionsProvider.notifier)
-          .connect(device);
-      ref.read(activeDeviceProvider.notifier).select(identity);
+    final AsyncValue<void> result = await AsyncValue.guard<void>(() async {
+      final identity = await sessions.connect(device);
+      active.select(identity);
     });
+    if (!ref.mounted) return;
+    state = result;
   }
 
   /// "Reconnect to last device" (spec 4.2), on the same
@@ -40,12 +46,16 @@ class ConnectController extends _$ConnectController {
   /// resume path stays silent.
   Future<void> reconnectLast() async {
     state = const AsyncLoading<void>();
-    state = await AsyncValue.guard<void>(() async {
+    final AsyncValue<void> result = await AsyncValue.guard<void>(() async {
       final outcome = await reconnectLastDevice(ref);
       if (outcome != ReconnectOutcome.connected) {
         throw const NoKnownDeviceVisible();
       }
     });
+    // Disposed while the wait ran (see [connect]): there is nowhere left to
+    // report the outcome.
+    if (!ref.mounted) return;
+    state = result;
   }
 
   /// "Try again" (spec 5.1): clears a failed attempt back to the idle
