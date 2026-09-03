@@ -133,4 +133,98 @@ void main() {
     adapter.mtu = 185;
     expect(await adapter.requestMtu('d', 247), 185);
   });
+
+  test(
+    'a scripted scan failure reaches the listener as a stream error',
+    () async {
+      adapter.failScanWith = BleFailure.adapterOff;
+
+      await expectLater(
+        adapter.scan(),
+        emitsError(
+          isA<BleAdapterException>().having(
+            (e) => e.failure,
+            'failure',
+            BleFailure.adapterOff,
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'a scripted discoverServices failure throws once, then clears',
+    () async {
+      adapter.failDiscoverWith = BleFailure.disconnected;
+
+      await expectLater(
+        adapter.discoverServices('d'),
+        throwsA(
+          isA<BleAdapterException>().having(
+            (e) => e.failure,
+            'failure',
+            BleFailure.disconnected,
+          ),
+        ),
+      );
+      expect(adapter.discovered, isFalse);
+
+      await adapter.discoverServices('d');
+      expect(adapter.discovered, isTrue);
+    },
+  );
+
+  test('stream errors are injectable as BleAdapterExceptions', () async {
+    // The interface promises every failure is a BleAdapterException,
+    // including ones delivered on a stream rather than thrown from a
+    // future. The fake has to be able to script that so the transport's
+    // handling of it can be proved.
+    final onNotify = <Object>[];
+    final onConnection = <Object>[];
+    adapter
+        .notifications('d', service: 's', characteristic: 'n')
+        .listen((_) {}, onError: onNotify.add);
+    adapter.connectionChanges('d').listen((_) {}, onError: onConnection.add);
+
+    adapter
+      ..emitNotificationError('n', BleFailure.disconnected)
+      ..emitConnectionError(BleFailure.adapterOff);
+    await pumpEventQueue();
+
+    expect(onNotify.single, isA<BleAdapterException>());
+    expect(onConnection.single, isA<BleAdapterException>());
+  });
+
+  test('notifications support a second listener', () async {
+    final a = <int>[];
+    final b = <int>[];
+    final stream = adapter.notifications(
+      'd',
+      service: 's',
+      characteristic: 'n',
+    );
+    stream.listen((v) => a.addAll(v));
+    stream.listen((v) => b.addAll(v));
+
+    adapter.emitNotification('n', [1]);
+    await pumpEventQueue();
+
+    expect(a, [1]);
+    expect(b, [1]);
+  });
+
+  test('seeded advertisements replay only on the first scan', () async {
+    final seeded = FakeBleAdapter(
+      advertisements: const [BleScanEntry(deviceId: 'd', name: 'A')],
+    );
+    addTearDown(seeded.dispose);
+
+    final seen = <String?>[];
+    seeded.scan().listen((e) => seen.add(e.name));
+    await pumpEventQueue();
+    seeded.scan();
+    await pumpEventQueue();
+
+    expect(seen, ['A']);
+  });
 }

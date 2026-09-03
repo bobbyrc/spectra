@@ -26,6 +26,36 @@ final class BleScanEntry {
 
   /// Advertised service UUIDs, already run through `normalizeUuid`.
   final List<String> services;
+
+  /// By value, so a scan can de-duplicate repeated advertisements of the
+  /// same device without holding on to the instances it has already seen.
+  /// [services] is compared by content and in order.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BleScanEntry &&
+          other.deviceId == deviceId &&
+          other.name == name &&
+          _sameServices(other.services, services);
+
+  @override
+  int get hashCode => Object.hash(deviceId, name, Object.hashAll(services));
+
+  @override
+  String toString() =>
+      'BleScanEntry($deviceId, name: $name, services: $services)';
+
+  /// Hand-rolled rather than `package:flutter/foundation.dart`'s
+  /// `listEquals`: this file describes the seam and has no reason to pull
+  /// Flutter in for four lines.
+  static bool _sameServices(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 }
 
 /// The seam over the native BLE stack.
@@ -36,8 +66,15 @@ final class BleScanEntry {
 abstract interface class BleAdapter {
   Future<BleAvailability> availability();
 
-  /// Advertisements matching the filters. Cancelling the subscription is
-  /// not enough to stop the radio: call [stopScan].
+  /// Advertisements matching the filters.
+  ///
+  /// Cancelling the subscription also stops the radio, unconditionally — an
+  /// implementation may not leave a scan running behind a cancelled stream,
+  /// because a scan is a global resource and the caller has no other handle
+  /// on it. Call [stopScan] to stop scanning while keeping the stream.
+  ///
+  /// Errors arrive on the stream as [BleAdapterException], never as a
+  /// platform type.
   Stream<BleScanEntry> scan({
     List<String> withServices = const <String>[],
     List<String> withNamePrefix = const <String>[],
@@ -50,6 +87,9 @@ abstract interface class BleAdapter {
   Future<void> disconnect(String deviceId);
 
   /// true on connect, false on disconnect, for the life of the adapter.
+  ///
+  /// Broadcast: it may be listened to more than once, and it does not
+  /// replay. Errors arrive as [BleAdapterException].
   Stream<bool> connectionChanges(String deviceId);
 
   Future<void> discoverServices(String deviceId);
@@ -63,6 +103,12 @@ abstract interface class BleAdapter {
     required String characteristic,
   });
 
+  /// Values pushed by the peripheral, after [subscribe] has succeeded.
+  ///
+  /// Broadcast: it may be listened to more than once, and it does not
+  /// replay — a listener sees only what arrives after it attaches. Errors,
+  /// including a failed characteristic lookup, arrive on the stream as
+  /// [BleAdapterException].
   Stream<Uint8List> notifications(
     String deviceId, {
     required String service,

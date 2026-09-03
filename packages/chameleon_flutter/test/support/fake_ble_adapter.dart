@@ -19,9 +19,14 @@ base class FakeBleAdapter implements BleAdapter {
     List<BleScanEntry> advertisements = const <BleScanEntry>[],
   }) : _seed = advertisements;
 
-  /// Replayed once per [scan] call, on a microtask so a listener attached
-  /// synchronously after `scan()` still sees them.
+  /// Replayed on a microtask after the *first* [scan] call, so a listener
+  /// attached synchronously after `scan()` still sees them. A second
+  /// `scan()` does not replay them: the seeds model advertisements the
+  /// radio happened to catch, not a queue the fake re-delivers to
+  /// listeners already holding the stream. Use [emitAdvertisement] to push
+  /// more at any time.
   final List<BleScanEntry> _seed;
+  bool _seedsDelivered = false;
 
   /// What [availability] reports; mutable so a test can turn the radio off
   /// mid-flight. Trailing underscore because `availability` is the method.
@@ -37,9 +42,16 @@ base class FakeBleAdapter implements BleAdapter {
   int failConnectTimes = 0;
   BleFailure failConnectWith = BleFailure.timeout;
 
-  /// Thrown by the next [subscribe] / [write], then cleared.
+  /// Thrown by the next [subscribe] / [write] / [discoverServices], then
+  /// cleared.
   BleFailure? failSubscribeWith;
   BleFailure? failWriteWith;
+  BleFailure? failDiscoverWith;
+
+  /// Delivered as an error on the next [scan] stream instead of the seeds,
+  /// then cleared — how "the adapter was off when we started scanning" is
+  /// scripted.
+  BleFailure? failScanWith;
 
   bool pairSucceeds = true;
   int pairCalls = 0;
@@ -70,6 +82,17 @@ base class FakeBleAdapter implements BleAdapter {
 
   void emitDisconnect() => _connection.add(false);
 
+  /// The interface promises stream failures are [BleAdapterException]s too,
+  /// so the fake has to be able to script one.
+  void emitNotificationError(String characteristic, BleFailure failure) =>
+      _controllerFor(
+        characteristic,
+      ).addError(BleAdapterException(failure, 'scripted notification failure'));
+
+  void emitConnectionError(BleFailure failure) => _connection.addError(
+    BleAdapterException(failure, 'scripted connection failure'),
+  );
+
   void emitAdvertisement(BleScanEntry entry) => _scan.add(entry);
 
   @override
@@ -80,12 +103,24 @@ base class FakeBleAdapter implements BleAdapter {
     List<String> withServices = const <String>[],
     List<String> withNamePrefix = const <String>[],
   }) {
-    scheduleMicrotask(() {
-      for (final e in _seed) {
+    final failure = failScanWith;
+    if (failure != null) {
+      failScanWith = null;
+      scheduleMicrotask(() {
         if (_scan.isClosed) return;
-        _scan.add(e);
-      }
-    });
+        _scan.addError(BleAdapterException(failure, 'scripted scan failure'));
+      });
+      return _scan.stream;
+    }
+    if (!_seedsDelivered) {
+      _seedsDelivered = true;
+      scheduleMicrotask(() {
+        for (final e in _seed) {
+          if (_scan.isClosed) return;
+          _scan.add(e);
+        }
+      });
+    }
     return _scan.stream;
   }
 
@@ -112,7 +147,14 @@ base class FakeBleAdapter implements BleAdapter {
   Stream<bool> connectionChanges(String deviceId) => _connection.stream;
 
   @override
-  Future<void> discoverServices(String deviceId) async => discovered = true;
+  Future<void> discoverServices(String deviceId) async {
+    final failure = failDiscoverWith;
+    if (failure != null) {
+      failDiscoverWith = null;
+      throw BleAdapterException(failure, 'scripted discoverServices failure');
+    }
+    discovered = true;
+  }
 
   @override
   Future<int> requestMtu(String deviceId, int expectedMtu) async {

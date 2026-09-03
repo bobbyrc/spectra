@@ -33,19 +33,29 @@ final class UniversalBleAdapter implements BleAdapter {
     () => BleDevice(deviceId: deviceId, name: null),
   );
 
-  /// Funnels every plugin failure into [BleAdapterException].
+  /// Translates anything universal_ble throws into a [BleAdapterException].
   ///
-  /// The bare `catch` is deliberate: universal_ble throws non-`Exception`
-  /// values in places (a bare `String` when a characteristic has no
-  /// metadata, an `Error` subtype from its web layer), and letting those
-  /// through the seam would defeat the point of having one.
+  /// Accepting `Object` rather than `Exception` is deliberate: universal_ble
+  /// throws non-`Exception` values in places (a bare `String` when a
+  /// characteristic has no metadata, an `Error` subtype from its web layer),
+  /// and letting those through the seam would defeat the point of having
+  /// one. An exception that is already mapped passes through unchanged, so
+  /// this is safe to apply twice.
+  BleAdapterException _mapError(Object e) => switch (e) {
+    BleAdapterException() => e,
+    UniversalBleException() => BleAdapterException(
+      bleFailureFromCode(e.code.name),
+      e.toString(),
+    ),
+    _ => BleAdapterException(BleFailure.unknown, e.toString()),
+  };
+
+  /// [_mapError] for a future. The stream equivalent is `.handleError`.
   Future<T> _guard<T>(Future<T> Function() body) async {
     try {
       return await body();
-    } on UniversalBleException catch (e) {
-      throw BleAdapterException(bleFailureFromCode(e.code.name), e.toString());
     } catch (e) {
-      throw BleAdapterException(BleFailure.unknown, e.toString());
+      throw _mapError(e);
     }
   }
 
@@ -73,18 +83,22 @@ final class UniversalBleAdapter implements BleAdapter {
     // between startScan returning and the listener attaching would
     // otherwise be dropped.
     controller.onListen = () {
-      sub = UniversalBle.scanStream.listen((device) {
-        _devices[device.deviceId] = device;
-        controller.add(
-          BleScanEntry(
-            deviceId: device.deviceId,
-            name: device.name,
-            services: device.services
-                .map(normalizeUuid)
-                .toList(growable: false),
-          ),
-        );
-      }, onError: controller.addError);
+      sub = UniversalBle.scanStream.listen(
+        (device) {
+          _devices[device.deviceId] = device;
+          controller.add(
+            BleScanEntry(
+              deviceId: device.deviceId,
+              name: device.name,
+              services: device.services
+                  .map(normalizeUuid)
+                  .toList(growable: false),
+            ),
+          );
+        },
+        onError: (Object e, StackTrace st) =>
+            controller.addError(_mapError(e), st),
+      );
       unawaited(
         _guard(
           () => UniversalBle.startScan(
@@ -124,7 +138,8 @@ final class UniversalBleAdapter implements BleAdapter {
 
   @override
   Stream<bool> connectionChanges(String deviceId) =>
-      _device(deviceId).connectionStream;
+      _device(deviceId).connectionStream
+          .handleError((Object e) => throw _mapError(e));
 
   @override
   Future<void> discoverServices(String deviceId) =>
@@ -150,16 +165,27 @@ final class UniversalBleAdapter implements BleAdapter {
     String deviceId, {
     required String service,
     required String characteristic,
-  }) async* {
-    // An `async*` body does not run until the stream is listened to, so the
-    // characteristic lookup cannot race ahead of the subscriber and drop
-    // notifications, and a lookup failure surfaces as a stream error.
-    final c = await _guard(
-      () =>
-          _device(deviceId).getCharacteristic(characteristic, service: service),
-    );
-    yield* c.onValueReceived;
-  }
+  }) => Stream<Uint8List>.multi((controller) async {
+    // `Stream.multi` gives both properties the interface promises: the body
+    // does not run until someone listens, so the characteristic lookup
+    // cannot race ahead of the subscriber and drop notifications, and it
+    // runs once per listener, so a second listener is allowed just as it is
+    // on the fake. A lookup failure surfaces as a stream error rather than
+    // a synchronous throw.
+    try {
+      final c = await _guard(
+        () =>
+            _device(deviceId)
+                .getCharacteristic(characteristic, service: service),
+      );
+      await controller.addStream(
+        c.onValueReceived.handleError((Object e) => throw _mapError(e)),
+      );
+    } catch (e, st) {
+      controller.addError(_mapError(e), st);
+    }
+    await controller.close();
+  }, isBroadcast: true);
 
   @override
   Future<void> write(
