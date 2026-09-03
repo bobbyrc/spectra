@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
+import '../../../core/errors/problem_view.dart';
 import '../../../data/data.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/saved_cards_provider.dart';
@@ -55,8 +56,17 @@ class CardPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = AppLocalizations.of(context);
-    final List<SavedCard> cards =
-        ref.watch(savedCardsProvider).value ?? const <SavedCard>[];
+    final AsyncValue<List<SavedCard>> library = ref.watch(savedCardsProvider);
+    // R32: the same rule as the library screen — a broken stream is a
+    // problem to report, not an empty library to apologise for.
+    if (library.hasError) {
+      return ProblemView(
+        error: library.error!,
+        variant: SpectraButtonVariant.secondary,
+        onAction: () => ref.invalidate(savedCardsProvider),
+      );
+    }
+    final List<SavedCard> cards = library.value ?? const <SavedCard>[];
     if (cards.isEmpty) return SpectraCard(child: Text(l10n.cardsEmpty));
 
     return ConstrainedBox(

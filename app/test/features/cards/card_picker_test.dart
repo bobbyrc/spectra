@@ -1,8 +1,12 @@
 import 'dart:typed_data';
 
 import 'package:chameleon/chameleon.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
+import 'package:spectra/app.dart';
+import 'package:spectra/core/errors/problem_view.dart';
 import 'package:spectra/data/data.dart';
 import 'package:spectra/features/cards/cards.dart';
 import 'package:spectra/features/cards/state/saved_cards_provider.dart';
@@ -10,9 +14,44 @@ import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../support/app_harness.dart';
 
-Future<CardLibrary> openCards(WidgetTester tester) async {
+/// A repository whose [watchAll] always fails, for the picker's error path
+/// (R32).
+final class _BrokenStreamRepository implements SavedCardsRepository {
+  @override
+  Future<List<SavedCard>> all() async => <SavedCard>[];
+
+  @override
+  Future<SavedCard?> byId(String id) async => null;
+
+  @override
+  Future<void> save(SavedCard card) async {}
+
+  @override
+  Future<void> delete(String id) async {}
+
+  @override
+  Stream<List<SavedCard>> watchAll() =>
+      Stream<List<SavedCard>>.error(const SessionNotReady('boom'));
+}
+
+Future<CardLibrary> openCards(
+  WidgetTester tester, {
+  List<Override> extraOverrides = const <Override>[],
+}) async {
   useDesktopSurface(tester);
-  await pumpTestApp(tester, transport: (_) => FakeDevice());
+  if (extraOverrides.isEmpty) {
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+  } else {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          ...appOverrides(transport: (_) => FakeDevice()),
+          ...extraOverrides,
+        ],
+        child: const SpectraRoot(),
+      ),
+    );
+  }
   await connectToEmulator(tester);
   keepAlive(tester, cardLibraryProvider);
   await tester.tap(find.text('Cards').last);
@@ -37,6 +76,38 @@ Future<void> add(
 }
 
 void main() {
+  testWidgetsApp('a broken library stream shows the problem in the picker', (
+    tester,
+  ) async {
+    await openCards(
+      tester,
+      extraOverrides: <Override>[
+        savedCardsRepositoryProvider.overrideWithValue(
+          _BrokenStreamRepository(),
+        ),
+      ],
+    );
+    final BuildContext context = tester.element(find.byType(CardsPage));
+    final Future<SavedCard?> pending = showCardPicker(context);
+    await pumpFrames(tester);
+
+    expect(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.byType(ProblemView),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('No cards yet. Read one, or import from another app.'),
+      findsNothing,
+    );
+
+    await tester.tap(find.byIcon(Icons.close));
+    await pumpFrames(tester);
+    expect(await pending, isNull);
+  });
+
   testWidgetsApp('the picker resolves to the chosen card', (tester) async {
     final CardLibrary library = await openCards(tester);
     await add(tester, library, 'Office badge', TagType.mifare1k);

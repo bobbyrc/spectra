@@ -3281,3 +3281,969 @@ MSG
 ```
 
 ---
+
+### Task 10: The device settings controller
+
+Spec 8.1 and 4: `session.settings` is the only way app code touches device settings, and `SettingsFacade` (`packages/chameleon/lib/src/session/facades/settings.dart`) deliberately does not auto-save — "a BLE pairing change needs an explicit `save` and a reboot, and batching the rest behind one save keeps the settings screen's save button honest". This task is that button's state.
+
+**Files:**
+- Create: `app/lib/features/settings/state/device_settings_controller.dart`, `app/lib/features/settings/state/settings_labels.dart`
+- Test: `app/test/features/settings/device_settings_controller_test.dart`
+
+**Interfaces:**
+- Consumes (all landed, all in `packages/chameleon`): `SettingsFacade.setAnimation(AnimationMode)`, `.setButton(DeviceButton button, ButtonFunction fn, {bool long = false})`, `.setSleepTimeout(int seconds)`, `.setBlePairingEnabled(bool)`, `.setBlePairingKey(String)`, `.save()`, `.reset()`, `.refresh()`, `.deleteAllBleBonds()`, `.current`; `DeviceSettings({required int version, required AnimationMode animation, required ButtonFunction buttonA, required ButtonFunction buttonB, required ButtonFunction longButtonA, required ButtonFunction longButtonB, required bool blePairingEnabled, required String blePairingKey, int? sleepTimeoutSeconds})`; `AnimationMode.{full,minimal,none,symmetric}`; `ButtonFunction.{none,nextSlot,prevSlot,cloneUid,battery,nfcFieldGenerator}`; `DeviceButton.{a,b}`; `SessionNotReady`. From the app: `activeSessionProvider`, `ActiveSession.session` (`app/lib/core/session/active_device.dart`, `active_session.dart`); `settingsProvider` (`app/lib/core/session/session_streams.dart`) is what the *screen* watches for values — the controller does not duplicate them.
+- Produces:
+  - `final class DeviceSettingsEditState { const DeviceSettingsEditState({this.busy = false, this.dirty = false, this.error}); final bool busy; final bool dirty; final Object? error; }`
+  - `@riverpod class DeviceSettingsController extends _$DeviceSettingsController` with `DeviceSettingsEditState build()`, `Future<void> setAnimation(AnimationMode)`, `Future<void> setButton(DeviceButton, ButtonFunction, {bool long = false})`, `Future<void> setSleepTimeout(int)`, `Future<void> setBlePairingEnabled(bool)`, `Future<void> setBlePairingKey(String)`, `Future<void> saveToDevice()`, `Future<void> resetToFactory()`, `Future<void> deleteBonds()`, `void clearError()`, `@visibleForTesting void debugFail(Object)`.
+  - `String animationLabel(AnimationMode, AppLocalizations)`, `String buttonFunctionLabel(ButtonFunction, AppLocalizations)` — exhaustive switches, so an enum value added to the SDK is a compile error here rather than a blank row.
+  - `bool isValidPairingKey(String)` — six ASCII digits (`docs/research/chameleon-protocol.md`: "1030/1031 SET/GET_BLE_PAIRING_KEY 6 ascii digits").
+
+- [ ] **Step 1: Write the failing test**
+
+Create `app/test/features/settings/device_settings_controller_test.dart`:
+
+```dart
+import 'package:chameleon/chameleon.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:spectra/core/session/session_streams.dart';
+import 'package:spectra/features/settings/state/device_settings_controller.dart';
+
+import '../../support/app_harness.dart';
+
+void main() {
+  testWidgetsApp('a change writes through and marks the settings unsaved', (
+    tester,
+  ) async {
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+    await connectToEmulator(tester);
+    keepAlive(tester, settingsProvider);
+    await pumpFrames(tester);
+
+    final DeviceSettingsController controller = readProvider(
+      tester,
+      deviceSettingsControllerProvider.notifier,
+    );
+    final Future<void> pending = controller.setAnimation(AnimationMode.none);
+    await pumpFrames(tester, count: 5, step: const Duration(milliseconds: 20));
+    await pending;
+    await pumpFrames(tester, count: 3);
+
+    expect(
+      readProvider(tester, settingsProvider).value!.animation,
+      AnimationMode.none,
+    );
+    expect(
+      readProvider(tester, deviceSettingsControllerProvider).dirty,
+      isTrue,
+    );
+  });
+
+  testWidgetsApp('saving clears the unsaved marker', (tester) async {
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+    await connectToEmulator(tester);
+    keepAlive(tester, settingsProvider);
+    await pumpFrames(tester);
+
+    final DeviceSettingsController controller = readProvider(
+      tester,
+      deviceSettingsControllerProvider.notifier,
+    );
+    final Future<void> changed = controller.setButton(
+      DeviceButton.a,
+      ButtonFunction.battery,
+    );
+    await pumpFrames(tester, count: 5, step: const Duration(milliseconds: 20));
+    await changed;
+
+    final Future<void> saved = controller.saveToDevice();
+    await pumpFrames(tester, count: 5, step: const Duration(milliseconds: 20));
+    await saved;
+    await pumpFrames(tester, count: 3);
+
+    final DeviceSettingsEditState state = readProvider(
+      tester,
+      deviceSettingsControllerProvider,
+    );
+    expect(state.dirty, isFalse);
+    expect(state.error, isNull);
+    expect(
+      readProvider(tester, settingsProvider).value!.buttonA,
+      ButtonFunction.battery,
+    );
+  });
+
+  testWidgetsApp('reset restores the firmware defaults and re-reads them', (
+    tester,
+  ) async {
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+    await connectToEmulator(tester);
+    keepAlive(tester, settingsProvider);
+    await pumpFrames(tester);
+
+    final DeviceSettingsController controller = readProvider(
+      tester,
+      deviceSettingsControllerProvider.notifier,
+    );
+    final Future<void> changed = controller.setAnimation(AnimationMode.none);
+    await pumpFrames(tester, count: 5, step: const Duration(milliseconds: 20));
+    await changed;
+
+    final Future<void> reset = controller.resetToFactory();
+    await pumpFrames(tester, count: 5, step: const Duration(milliseconds: 20));
+    await reset;
+    await pumpFrames(tester, count: 3);
+
+    expect(
+      readProvider(tester, settingsProvider).value!.animation,
+      AnimationMode.full,
+    );
+    expect(readProvider(tester, deviceSettingsControllerProvider).dirty, isFalse);
+  });
+
+  testWidgetsApp('with no session the failure is typed, not thrown', (
+    tester,
+  ) async {
+    await pumpTestApp(tester);
+    await pumpFrames(tester);
+
+    final DeviceSettingsController controller = readProvider(
+      tester,
+      deviceSettingsControllerProvider.notifier,
+    );
+    await controller.setAnimation(AnimationMode.none);
+    await pumpFrames(tester, count: 3);
+
+    expect(
+      readProvider(tester, deviceSettingsControllerProvider).error,
+      isA<SessionNotReady>(),
+    );
+  });
+
+  testWidgetsApp('a second call while one is in flight is dropped', (
+    tester,
+  ) async {
+    await pumpTestApp(tester, transport: (_) => FakeDevice());
+    await connectToEmulator(tester);
+    await pumpFrames(tester);
+
+    final DeviceSettingsController controller = readProvider(
+      tester,
+      deviceSettingsControllerProvider.notifier,
+    );
+    final Future<void> first = controller.setAnimation(AnimationMode.none);
+    final Future<void> second = controller.setAnimation(AnimationMode.minimal);
+    await pumpFrames(tester, count: 5, step: const Duration(milliseconds: 20));
+    await first;
+    await second;
+    await pumpFrames(tester, count: 3);
+
+    // The second call never reached the device: the first one's value stands.
+    expect(
+      readProvider(tester, settingsProvider).value!.animation,
+      AnimationMode.none,
+    );
+  });
+
+  group('validation and labels', () {
+    test('a pairing key is six digits', () {
+      expect(isValidPairingKey('123456'), isTrue);
+      expect(isValidPairingKey('12345'), isFalse);
+      expect(isValidPairingKey('1234567'), isFalse);
+      expect(isValidPairingKey('12345a'), isFalse);
+    });
+  });
+}
+```
+
+`isValidPairingKey` lives in `settings_labels.dart`; import it in the test.
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+cd app && flutter test test/features/settings/device_settings_controller_test.dart
+```
+
+Expected: FAIL — `Target of URI doesn't exist: '.../device_settings_controller.dart'`.
+
+- [ ] **Step 3: Write the controller**
+
+Create `app/lib/features/settings/state/device_settings_controller.dart`:
+
+```dart
+import 'package:chameleon/chameleon.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import '../../../core/session/active_device.dart';
+import '../../../core/session/active_session.dart';
+
+part 'device_settings_controller.g.dart';
+
+/// What the settings screen needs beyond the values themselves.
+///
+/// The values are not here: `SettingsFacade` writes every change through to
+/// `DeviceSession.settingsState` (spec 4.3's cache contract), which
+/// `settingsProvider` (`core/session/session_streams.dart`) already streams.
+/// Mirroring them into this state would give the screen two sources for one
+/// fact.
+final class DeviceSettingsEditState {
+  const DeviceSettingsEditState({
+    this.busy = false,
+    this.dirty = false,
+    this.error,
+  });
+
+  final bool busy;
+
+  /// True when a change has reached the device's RAM but not its flash.
+  /// The firmware needs an explicit SAVE_SETTINGS (1013); until then a
+  /// reboot loses the change, so the screen says so.
+  final bool dirty;
+
+  final Object? error;
+}
+
+/// Every device-settings change, as state the screen renders (spec 7.7 step
+/// 7, spec 8.1).
+///
+/// Failures stay in [DeviceSettingsEditState.error] rather than being
+/// thrown, so the screen shows them through the spec 9 catalog. A call made
+/// while another is in flight is dropped, not queued, and the screen
+/// disables its controls while `busy`. Every post-`await` assignment is
+/// guarded with `ref.mounted` (R25): the Settings tab can be left while a
+/// write is on the wire.
+@riverpod
+class DeviceSettingsController extends _$DeviceSettingsController {
+  @override
+  DeviceSettingsEditState build() {
+    ref.onDispose(() {
+      // Not `state` — the element is gone by now (Global Constraints).
+      _inFlight = false;
+    });
+    return const DeviceSettingsEditState();
+  }
+
+  bool _inFlight = false;
+
+  Future<void> setAnimation(AnimationMode mode) =>
+      _run((SettingsFacade s) => s.setAnimation(mode));
+
+  Future<void> setButton(
+    DeviceButton button,
+    ButtonFunction fn, {
+    bool long = false,
+  }) => _run((SettingsFacade s) => s.setButton(button, fn, long: long));
+
+  /// The firmware accepts 5..60 seconds (`docs/research/chameleon-protocol.md`,
+  /// 1039/1040); the screen only offers values in that range.
+  Future<void> setSleepTimeout(int seconds) =>
+      _run((SettingsFacade s) => s.setSleepTimeout(seconds));
+
+  Future<void> setBlePairingEnabled(bool enabled) =>
+      _run((SettingsFacade s) => s.setBlePairingEnabled(enabled));
+
+  /// The caller validates with `isValidPairingKey` first: the firmware wants
+  /// exactly six ASCII digits, and a shorter string would be a wire-format
+  /// error rather than a message the catalog has words for.
+  Future<void> setBlePairingKey(String key) =>
+      _run((SettingsFacade s) => s.setBlePairingKey(key));
+
+  /// SAVE_SETTINGS, then a re-read: the settings struct is the one payload
+  /// the wiki's length is uncertain about (spec 11), so reading back what
+  /// the device actually kept is cheaper than trusting the write.
+  Future<void> saveToDevice() => _run((SettingsFacade s) async {
+    await s.save();
+    await s.refresh();
+  }, clearsDirty: true);
+
+  /// RESET_SETTINGS. `SettingsFacade.reset` already re-reads.
+  Future<void> resetToFactory() =>
+      _run((SettingsFacade s) => s.reset(), clearsDirty: true);
+
+  /// Clears the bonds a paired host holds (1032). Spec 5.1: with pairing
+  /// enabled the device is invisible to hosts that are not bonded, so this
+  /// is the way back.
+  Future<void> deleteBonds() =>
+      _run((SettingsFacade s) => s.deleteAllBleBonds(), marksDirty: false);
+
+  void clearError() =>
+      state = DeviceSettingsEditState(dirty: state.dirty);
+
+  @visibleForTesting
+  void debugFail(Object error) =>
+      state = DeviceSettingsEditState(dirty: state.dirty, error: error);
+
+  Future<void> _run(
+    Future<void> Function(SettingsFacade settings) body, {
+    bool marksDirty = true,
+    bool clearsDirty = false,
+  }) async {
+    if (_inFlight) return;
+    final ActiveSession? active = ref.read(activeSessionProvider);
+    if (active == null) {
+      state = DeviceSettingsEditState(
+        dirty: state.dirty,
+        error: const SessionNotReady('no active session'),
+      );
+      return;
+    }
+    _inFlight = true;
+    state = DeviceSettingsEditState(busy: true, dirty: state.dirty);
+    Object? error;
+    try {
+      await body(active.session.settings);
+    } on Object catch (e) {
+      error = e;
+    }
+    if (!ref.mounted) {
+      _inFlight = false;
+      return;
+    }
+    final bool dirty = switch ((error != null, clearsDirty, marksDirty)) {
+      (true, _, _) => state.dirty, // a failed write changed nothing
+      (false, true, _) => false,
+      (false, false, true) => true,
+      _ => state.dirty,
+    };
+    state = DeviceSettingsEditState(dirty: dirty, error: error);
+    _inFlight = false;
+  }
+}
+```
+
+- [ ] **Step 4: Write the labels**
+
+Create `app/lib/features/settings/state/settings_labels.dart`:
+
+```dart
+import 'package:chameleon/chameleon.dart';
+
+import '../../../l10n/app_localizations.dart';
+
+/// How the SDK's settings enums become words. Both switches are exhaustive,
+/// so a value added to the SDK is a compile error here rather than a blank
+/// row in the settings screen.
+String animationLabel(AnimationMode mode, AppLocalizations l10n) =>
+    switch (mode) {
+      AnimationMode.full => l10n.settingsAnimationFull,
+      AnimationMode.minimal => l10n.settingsAnimationMinimal,
+      AnimationMode.none => l10n.settingsAnimationNone,
+      AnimationMode.symmetric => l10n.settingsAnimationSymmetric,
+    };
+
+String buttonFunctionLabel(ButtonFunction fn, AppLocalizations l10n) =>
+    switch (fn) {
+      ButtonFunction.none => l10n.settingsButtonNone,
+      ButtonFunction.nextSlot => l10n.settingsButtonNextSlot,
+      ButtonFunction.prevSlot => l10n.settingsButtonPrevSlot,
+      ButtonFunction.cloneUid => l10n.settingsButtonCloneUid,
+      ButtonFunction.battery => l10n.settingsButtonBattery,
+      ButtonFunction.nfcFieldGenerator => l10n.settingsButtonField,
+    };
+
+final RegExp _sixDigits = RegExp(r'^[0-9]{6}$');
+
+/// The firmware's BLE pairing passkey is exactly six ASCII digits
+/// (`docs/research/chameleon-protocol.md`, command 1030).
+bool isValidPairingKey(String key) => _sixDigits.hasMatch(key);
+```
+
+The ARB keys it names land in Task 11, which owns the ARB. Land `settings_labels.dart` in **this** task only if Task 11 runs immediately after; otherwise land the controller here and the labels file with Task 11. Whichever order the executor picks, `flutter analyze` must be green at the commit — do not commit a file that names ARB getters that do not exist yet.
+
+- [ ] **Step 5: Regenerate, run, check and commit**
+
+```bash
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+cd app && dart run build_runner build --delete-conflicting-outputs
+flutter test test/features/settings/
+cd .. && dart run melos run check:all
+git add -A app/lib app/test
+git commit -m "$(cat <<'MSG'
+add the device settings controller
+
+SettingsFacade deliberately does not auto-save, so the screen needs state
+that knows a change is in the device's RAM but not yet in its flash.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+MSG
+)"
+```
+
+---
+
+### Task 11: The device settings screen
+
+Spec 7.7 step 7: "device settings (LEDs, buttons, sleep, pairing)". **This task owns the ARB.**
+
+**Files:**
+- Create: `app/lib/features/settings/ui/device_settings_section.dart`, `app/lib/features/settings/ui/option_sheet.dart`
+- Modify: `app/lib/features/settings/ui/settings_page.dart`, `app/lib/l10n/app_en.arb`
+- Test: `app/test/features/settings/device_settings_section_test.dart`
+
+**Interfaces:**
+- Consumes: `DeviceSettingsController`, `DeviceSettingsEditState` (Task 10); `animationLabel`, `buttonFunctionLabel`, `isValidPairingKey` (Task 10); `settingsProvider` (`app/lib/core/session/session_streams.dart`) — a `Stream<DeviceSettings?>`, null when nothing is connected; `ProblemView`; `SpectraCard`, `SpectraSectionHeader`, `SpectraListTile`, `SpectraButton`, `SpectraTextField`, `SpectraBottomSheet`, `SpectraDialog`, `SpectraSpacing`; `Switch` from `material_ui`.
+- Produces:
+  - `class DeviceSettingsSection extends ConsumerWidget`.
+  - `Future<T?> showOptionSheet<T>({required BuildContext context, required String title, required List<T> options, required String Function(T) labelOf, T? selected})`.
+
+- [ ] **Step 1: Add the ARB keys**
+
+Append to `app/lib/l10n/app_en.arb` and run `cd app && flutter gen-l10n`:
+
+```json
+  "settingsDeviceTitle": "Device",
+  "@settingsDeviceTitle": {"description": "Section header above the connected device's settings."},
+  "settingsNoDevice": "Connect a device to change its settings.",
+  "@settingsNoDevice": {"description": "Shown in place of device settings with nothing connected."},
+  "settingsAnimation": "Start-up animation",
+  "@settingsAnimation": {"description": "The LED animation the device plays when it wakes."},
+  "settingsAnimationFull": "Full",
+  "@settingsAnimationFull": {"description": "Animation mode: full."},
+  "settingsAnimationMinimal": "Minimal",
+  "@settingsAnimationMinimal": {"description": "Animation mode: minimal."},
+  "settingsAnimationNone": "None",
+  "@settingsAnimationNone": {"description": "Animation mode: none."},
+  "settingsAnimationSymmetric": "Symmetric",
+  "@settingsAnimationSymmetric": {"description": "Animation mode: symmetric."},
+  "settingsButtonA": "Button A",
+  "@settingsButtonA": {"description": "Short press of button A."},
+  "settingsButtonB": "Button B",
+  "@settingsButtonB": {"description": "Short press of button B."},
+  "settingsLongButtonA": "Button A, held",
+  "@settingsLongButtonA": {"description": "Long press of button A."},
+  "settingsLongButtonB": "Button B, held",
+  "@settingsLongButtonB": {"description": "Long press of button B."},
+  "settingsButtonNone": "Nothing",
+  "@settingsButtonNone": {"description": "Button function: none."},
+  "settingsButtonNextSlot": "Next slot",
+  "@settingsButtonNextSlot": {"description": "Button function: next slot."},
+  "settingsButtonPrevSlot": "Previous slot",
+  "@settingsButtonPrevSlot": {"description": "Button function: previous slot."},
+  "settingsButtonCloneUid": "Clone UID",
+  "@settingsButtonCloneUid": {"description": "Button function: clone the UID of a card in the field."},
+  "settingsButtonBattery": "Show battery",
+  "@settingsButtonBattery": {"description": "Button function: show the battery level."},
+  "settingsButtonField": "NFC field detector",
+  "@settingsButtonField": {"description": "Button function: NFC field generator/detector."},
+  "settingsSleep": "Sleep after",
+  "@settingsSleep": {"description": "How long the device waits before sleeping."},
+  "settingsSleepSeconds": "{seconds} seconds",
+  "@settingsSleepSeconds": {
+    "description": "A sleep timeout in seconds.",
+    "placeholders": {"seconds": {"type": "int"}}
+  },
+  "settingsBlePairing": "Require Bluetooth pairing",
+  "@settingsBlePairing": {"description": "Whether the device demands pairing before it talks."},
+  "settingsBlePairingWarning": "With pairing on, the device only advertises to hosts it has already bonded with. Forget the paired hosts to make it visible again.",
+  "@settingsBlePairingWarning": {"description": "Spec 5.1 warning about enabling pairing."},
+  "settingsBlePairingKey": "Pairing passkey",
+  "@settingsBlePairingKey": {"description": "The six-digit passkey the device displays."},
+  "settingsBlePairingKeyInvalid": "The passkey is six digits.",
+  "@settingsBlePairingKeyInvalid": {"description": "Validation message for the passkey field."},
+  "settingsDeleteBonds": "Forget paired hosts",
+  "@settingsDeleteBonds": {"description": "Clears the device's BLE bonds."},
+  "settingsBondsDeleted": "The device forgot its paired hosts.",
+  "@settingsBondsDeleted": {"description": "Confirms the bonds were cleared."},
+  "settingsSave": "Save to device",
+  "@settingsSave": {"description": "Writes the settings to the device's flash."},
+  "settingsUnsaved": "Unsaved. Save these settings to the device so they survive a reboot.",
+  "@settingsUnsaved": {"description": "Shown while a change is in RAM but not in flash."},
+  "settingsSaved": "Settings saved to the device.",
+  "@settingsSaved": {"description": "Confirms SAVE_SETTINGS."},
+  "settingsResetDevice": "Restore device defaults",
+  "@settingsResetDevice": {"description": "Runs RESET_SETTINGS on the device."},
+  "settingsResetTitle": "Restore the device's defaults?",
+  "@settingsResetTitle": {"description": "Title of the reset confirmation."},
+  "settingsResetBody": "Animation, buttons, sleep and pairing all go back to the firmware defaults. Slots and cards are untouched.",
+  "@settingsResetBody": {"description": "Body of the reset confirmation."}
+```
+
+- [ ] **Step 2: Write the failing test**
+
+Create `app/test/features/settings/device_settings_section_test.dart`:
+
+```dart
+import 'package:chameleon/chameleon.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:spectra/core/session/session_streams.dart';
+import 'package:spectra/features/settings/state/device_settings_controller.dart';
+import 'package:spectra_ui/spectra_ui.dart';
+
+import '../../support/app_harness.dart';
+
+Future<void> _openSettings(WidgetTester tester) async {
+  useDesktopSurface(tester);
+  await pumpTestApp(tester, transport: (_) => FakeDevice());
+  await connectToEmulator(tester);
+  await tester.tap(find.text('Settings').last);
+  await pumpFrames(tester);
+}
+
+void main() {
+  testWidgetsApp('shows the device settings the fake reports', (tester) async {
+    await _openSettings(tester);
+
+    expect(find.text('Start-up animation'), findsOneWidget);
+    expect(find.text('Full'), findsOneWidget);
+    expect(find.text('Next slot'), findsOneWidget); // button A default
+  });
+
+  testWidgetsApp('changing the animation writes through and asks to be saved', (
+    tester,
+  ) async {
+    await _openSettings(tester);
+
+    await tester.tap(find.text('Start-up animation'));
+    await pumpFrames(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.text('None'),
+      ),
+    );
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+
+    expect(
+      readProvider(tester, settingsProvider).value!.animation,
+      AnimationMode.none,
+    );
+    expect(
+      find.text(
+        'Unsaved. Save these settings to the device so they survive a reboot.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Save to device'));
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+    expect(
+      readProvider(tester, deviceSettingsControllerProvider).dirty,
+      isFalse,
+    );
+  });
+
+  testWidgetsApp('the pairing switch carries the spec 5.1 warning', (
+    tester,
+  ) async {
+    await _openSettings(tester);
+    expect(
+      find.textContaining('only advertises to hosts it has already bonded'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgetsApp('a six-digit passkey is required', (tester) async {
+    await _openSettings(tester);
+
+    await tester.enterText(find.byType(SpectraTextField).first, '12345');
+    await tester.pump();
+    expect(find.text('The passkey is six digits.'), findsOneWidget);
+  });
+
+  testWidgetsApp('with nothing connected the section says so', (tester) async {
+    useDesktopSurface(tester);
+    await pumpTestAppWithNoDevices(tester);
+    await pumpFrames(tester);
+
+    // No session: the app is on the connect route, so drive the section's
+    // own empty state by reading what it renders when settings are null.
+    expect(readProvider(tester, settingsProvider).value, isNull);
+  });
+
+  testWidgetsApp('a failed write is shown through ProblemView', (tester) async {
+    await _openSettings(tester);
+    readProvider(
+      tester,
+      deviceSettingsControllerProvider.notifier,
+    ).debugFail(const HfTagNotFound());
+    await pumpFrames(tester, count: 3);
+
+    expect(find.byType(ProblemView), findsOneWidget);
+  });
+}
+```
+
+Import `ProblemView` from `package:spectra/core/errors/problem_view.dart`.
+
+- [ ] **Step 3: Run it and watch it fail**
+
+```bash
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+cd app && flutter test test/features/settings/device_settings_section_test.dart
+```
+
+Expected: FAIL — the Settings tab still shows the Phase 4 placeholder.
+
+- [ ] **Step 4: Write the option sheet**
+
+Create `app/lib/features/settings/ui/option_sheet.dart`:
+
+```dart
+import 'package:material_ui/material_ui.dart';
+import 'package:spectra_ui/spectra_ui.dart';
+
+/// One radio-style chooser for every enum on the settings screen: the
+/// animation mode, four button functions and the sleep timeout all pick one
+/// value out of a short list, and five bespoke sheets would be five places
+/// for the same layout to drift.
+///
+/// Resolves to the chosen value, or null when dismissed.
+Future<T?> showOptionSheet<T>({
+  required BuildContext context,
+  required String title,
+  required List<T> options,
+  required String Function(T option) labelOf,
+  T? selected,
+}) => SpectraBottomSheet.show<T>(
+  context: context,
+  title: title,
+  builder: (BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: <Widget>[
+      for (final T option in options)
+        SpectraListTile(
+          title: labelOf(option),
+          trailing: option == selected ? const Icon(Icons.check) : null,
+          onTap: () => Navigator.of(context).pop(option),
+        ),
+    ],
+  ),
+);
+```
+
+- [ ] **Step 5: Write the section**
+
+Create `app/lib/features/settings/ui/device_settings_section.dart`. Layout only; every mutation goes through `DeviceSettingsController`, every value comes from `settingsProvider`:
+
+```dart
+import 'dart:async';
+
+import 'package:chameleon/chameleon.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart' hide ConnectionState;
+import 'package:spectra_ui/spectra_ui.dart';
+
+import '../../../core/errors/problem_view.dart';
+import '../../../core/session/session_streams.dart';
+import '../../../l10n/app_localizations.dart';
+import '../state/device_settings_controller.dart';
+import '../state/settings_labels.dart';
+import 'option_sheet.dart';
+
+/// Spec 7.7 step 7: LEDs, buttons, sleep and pairing.
+///
+/// The values come from `settingsProvider` — the session's write-through
+/// cache (spec 4.3) — not from this widget's own state, so a change made
+/// with the device's buttons shows up here too.
+class DeviceSettingsSection extends ConsumerWidget {
+  const DeviceSettingsSection({super.key});
+
+  /// The firmware accepts 5..60 seconds (1039/1040); these are the values
+  /// worth offering.
+  static const List<int> sleepOptions = <int>[5, 8, 15, 30, 60];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final DeviceSettings? settings = ref.watch(settingsProvider).value;
+    final DeviceSettingsEditState edit = ref.watch(
+      deviceSettingsControllerProvider,
+    );
+    final DeviceSettingsController controller = ref.read(
+      deviceSettingsControllerProvider.notifier,
+    );
+
+    if (settings == null) {
+      return SpectraCard(child: Text(l10n.settingsNoDevice));
+    }
+    final bool busy = edit.busy;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SpectraSectionHeader(title: l10n.settingsDeviceTitle),
+        if (edit.error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: SpectraSpacing.md),
+            child: ProblemView(
+              error: edit.error!,
+              variant: SpectraButtonVariant.secondary,
+              onAction: controller.clearError,
+            ),
+          ),
+        SpectraCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              SpectraListTile(
+                title: l10n.settingsAnimation,
+                subtitle: animationLabel(settings.animation, l10n),
+                onTap: busy
+                    ? null
+                    : () => unawaited(
+                        _pickAnimation(context, controller, settings, l10n),
+                      ),
+              ),
+              for (final (String label, ButtonFunction current, DeviceButton
+                  button, bool long) row in <(
+                String,
+                ButtonFunction,
+                DeviceButton,
+                bool,
+              )>[
+                (l10n.settingsButtonA, settings.buttonA, DeviceButton.a, false),
+                (l10n.settingsButtonB, settings.buttonB, DeviceButton.b, false),
+                (
+                  l10n.settingsLongButtonA,
+                  settings.longButtonA,
+                  DeviceButton.a,
+                  true,
+                ),
+                (
+                  l10n.settingsLongButtonB,
+                  settings.longButtonB,
+                  DeviceButton.b,
+                  true,
+                ),
+              ])
+                SpectraListTile(
+                  title: row.$1,
+                  subtitle: buttonFunctionLabel(row.$2, l10n),
+                  onTap: busy
+                      ? null
+                      : () => unawaited(
+                          _pickButton(context, controller, row, l10n),
+                        ),
+                ),
+              if (settings.sleepTimeoutSeconds case final int seconds)
+                SpectraListTile(
+                  title: l10n.settingsSleep,
+                  subtitle: l10n.settingsSleepSeconds(seconds),
+                  onTap: busy
+                      ? null
+                      : () => unawaited(
+                          _pickSleep(context, controller, seconds, l10n),
+                        ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: SpectraSpacing.md),
+        SpectraCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              SpectraListTile(
+                title: l10n.settingsBlePairing,
+                subtitle: l10n.settingsBlePairingWarning,
+                trailing: Switch(
+                  value: settings.blePairingEnabled,
+                  onChanged: busy
+                      ? null
+                      : (bool v) =>
+                            unawaited(controller.setBlePairingEnabled(v)),
+                ),
+              ),
+              const SizedBox(height: SpectraSpacing.md),
+              _PairingKeyField(
+                initialValue: settings.blePairingKey,
+                enabled: !busy,
+              ),
+              const SizedBox(height: SpectraSpacing.md),
+              SpectraButton(
+                label: l10n.settingsDeleteBonds,
+                variant: SpectraButtonVariant.secondary,
+                onPressed: busy
+                    ? null
+                    : () => unawaited(_deleteBonds(context, controller, l10n)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: SpectraSpacing.md),
+        if (edit.dirty) ...<Widget>[
+          SpectraCard(child: Text(l10n.settingsUnsaved)),
+          const SizedBox(height: SpectraSpacing.sm),
+        ],
+        SpectraButton(
+          label: l10n.settingsSave,
+          busy: busy,
+          onPressed: busy ? null : () => unawaited(controller.saveToDevice()),
+        ),
+        const SizedBox(height: SpectraSpacing.sm),
+        SpectraButton(
+          label: l10n.settingsResetDevice,
+          variant: SpectraButtonVariant.secondary,
+          onPressed: busy
+              ? null
+              : () => unawaited(_reset(context, controller, l10n)),
+        ),
+      ],
+    );
+  }
+}
+```
+
+The five handlers, in the same file:
+
+```dart
+Future<void> _pickAnimation(
+  BuildContext context,
+  DeviceSettingsController controller,
+  DeviceSettings settings,
+  AppLocalizations l10n,
+) async {
+  final AnimationMode? mode = await showOptionSheet<AnimationMode>(
+    context: context,
+    title: l10n.settingsAnimation,
+    options: AnimationMode.values,
+    labelOf: (AnimationMode m) => animationLabel(m, l10n),
+    selected: settings.animation,
+  );
+  if (mode == null) return;
+  await controller.setAnimation(mode);
+}
+
+Future<void> _pickButton(
+  BuildContext context,
+  DeviceSettingsController controller,
+  (String, ButtonFunction, DeviceButton, bool) row,
+  AppLocalizations l10n,
+) async {
+  final ButtonFunction? fn = await showOptionSheet<ButtonFunction>(
+    context: context,
+    title: row.$1,
+    options: ButtonFunction.values,
+    labelOf: (ButtonFunction f) => buttonFunctionLabel(f, l10n),
+    selected: row.$2,
+  );
+  if (fn == null) return;
+  await controller.setButton(row.$3, fn, long: row.$4);
+}
+
+Future<void> _pickSleep(
+  BuildContext context,
+  DeviceSettingsController controller,
+  int current,
+  AppLocalizations l10n,
+) async {
+  final int? seconds = await showOptionSheet<int>(
+    context: context,
+    title: l10n.settingsSleep,
+    options: DeviceSettingsSection.sleepOptions,
+    labelOf: l10n.settingsSleepSeconds,
+    selected: current,
+  );
+  if (seconds == null) return;
+  await controller.setSleepTimeout(seconds);
+}
+
+Future<void> _deleteBonds(
+  BuildContext context,
+  DeviceSettingsController controller,
+  AppLocalizations l10n,
+) async {
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  await controller.deleteBonds();
+  if (!context.mounted) return;
+  messenger.showSnackBar(SnackBar(content: Text(l10n.settingsBondsDeleted)));
+}
+
+Future<void> _reset(
+  BuildContext context,
+  DeviceSettingsController controller,
+  AppLocalizations l10n,
+) async {
+  final bool? confirmed = await SpectraDialog.show<bool>(
+    context: context,
+    title: l10n.settingsResetTitle,
+    content: Text(l10n.settingsResetBody),
+    actions: (BuildContext context) => <Widget>[
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(false),
+        child: Text(l10n.commonCancel),
+      ),
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(true),
+        child: Text(l10n.settingsResetDevice),
+      ),
+    ],
+  );
+  if (confirmed != true) return;
+  await controller.resetToFactory();
+}
+```
+
+And the passkey field, which validates as the user types and only writes a valid key:
+
+```dart
+class _PairingKeyField extends ConsumerStatefulWidget {
+  const _PairingKeyField({required this.initialValue, required this.enabled});
+
+  final String initialValue;
+  final bool enabled;
+
+  @override
+  ConsumerState<_PairingKeyField> createState() => _PairingKeyFieldState();
+}
+
+class _PairingKeyFieldState extends ConsumerState<_PairingKeyField> {
+  late final TextEditingController _text = TextEditingController(
+    text: widget.initialValue,
+  );
+  bool _invalid = false;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onChanged(String value) async {
+    final bool ok = isValidPairingKey(value);
+    setState(() => _invalid = !ok);
+    if (!ok) return;
+    await ref
+        .read(deviceSettingsControllerProvider.notifier)
+        .setBlePairingKey(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    return SpectraTextField(
+      label: l10n.settingsBlePairingKey,
+      controller: _text,
+      enabled: widget.enabled,
+      errorText: _invalid ? l10n.settingsBlePairingKeyInvalid : null,
+      onChanged: (String v) => unawaited(_onChanged(v)),
+    );
+  }
+}
+```
+
+- [ ] **Step 6: Put it on the screen**
+
+Replace the placeholder body of `app/lib/features/settings/ui/settings_page.dart` with a `ListView` whose only child (for now) is `const DeviceSettingsSection()` under the existing `SpectraSectionHeader(title: l10n.navSettings)`. Task 12 adds the rest. Delete `comingSoonSettings` from the ARB once nothing references it (`grep -rn comingSoonSettings app`).
+
+- [ ] **Step 7: Run, check and commit**
+
+```bash
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+cd app && flutter test test/features/settings/
+cd .. && dart run melos run check:all
+git add -A app/lib app/test
+git commit -m "$(cat <<'MSG'
+add the device settings screen
+
+Spec 7.7 step 7 wants LEDs, buttons, sleep and pairing; the pairing warning
+is spec 5.1's, because turning it on hides the device from other hosts.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+MSG
+)"
+```
+
+---

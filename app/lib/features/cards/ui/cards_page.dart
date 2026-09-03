@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
+import '../../../core/errors/problem_view.dart';
 import '../../../core/routing/routes.dart';
 import '../../../data/data.dart';
 import '../../../l10n/app_localizations.dart';
@@ -19,8 +20,12 @@ class CardsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = AppLocalizations.of(context);
-    final List<SavedCard> all =
-        ref.watch(savedCardsProvider).value ?? const <SavedCard>[];
+    final AsyncValue<List<SavedCard>> library = ref.watch(savedCardsProvider);
+    // R32: a database failure is not an empty library. Falling back to
+    // `.value ?? []` renders the "No cards yet" invitation over a stream
+    // that is broken, so the user is told to read a card instead of being
+    // told storage failed — and their cards look deleted.
+    final List<SavedCard> all = library.value ?? const <SavedCard>[];
     final CardsFilter filter = ref.watch(cardsFilterStateProvider);
     final CardsFilterState filterState = ref.read(
       cardsFilterStateProvider.notifier,
@@ -77,7 +82,13 @@ class CardsPage extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: SpectraSpacing.lg),
-        if (all.isEmpty)
+        if (library.hasError)
+          ProblemView(
+            error: library.error!,
+            variant: SpectraButtonVariant.secondary,
+            onAction: () => ref.invalidate(savedCardsProvider),
+          )
+        else if (all.isEmpty)
           SpectraCard(child: Text(l10n.cardsEmpty))
         else if (shown.isEmpty)
           SpectraCard(child: Text(l10n.cardsNoMatches))
