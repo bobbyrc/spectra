@@ -71,7 +71,7 @@ final class UpdateControllerProvider
   }
 }
 
-String _$updateControllerHash() => r'8c65ab005b4e15a5f8c2b74d7982ce0b92e5b722';
+String _$updateControllerHash() => r'375118d1d0d9ed6c6b533784df7e6243da22539e';
 
 /// Drives `DfuOrchestrator` for the update screen (spec 4.5, 7.7 step 6).
 ///

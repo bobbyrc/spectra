@@ -18,11 +18,12 @@ part of 'device_settings_controller.dart';
 /// guarded with `ref.mounted` (R25): the Settings tab can be left while a
 /// write is on the wire.
 ///
-/// Unlike `SlotsFacade`, `SettingsFacade`'s methods do not wrap themselves in
-/// `DeviceSession.busy` — they are not "load a full tag dump" long, but they
-/// are still a round trip over the wire, so this controller wraps every
-/// facade call itself, holding the wakelock (`core/lifecycle/wakelock.dart`)
-/// for its duration the same way the slots and cards controllers do.
+/// `SlotsFacade`'s own methods call `DeviceSession.busy` internally;
+/// `SettingsFacade`'s do not. Its writes are not "load a full tag dump"
+/// long, but they are still a round trip over the wire, so this controller
+/// wraps every facade call itself in `active.session.busy`, holding the
+/// wakelock (`core/lifecycle/wakelock.dart`) for its duration the same way
+/// a slot mutation does.
 
 @ProviderFor(DeviceSettingsController)
 final deviceSettingsControllerProvider = DeviceSettingsControllerProvider._();
@@ -37,11 +38,12 @@ final deviceSettingsControllerProvider = DeviceSettingsControllerProvider._();
 /// guarded with `ref.mounted` (R25): the Settings tab can be left while a
 /// write is on the wire.
 ///
-/// Unlike `SlotsFacade`, `SettingsFacade`'s methods do not wrap themselves in
-/// `DeviceSession.busy` — they are not "load a full tag dump" long, but they
-/// are still a round trip over the wire, so this controller wraps every
-/// facade call itself, holding the wakelock (`core/lifecycle/wakelock.dart`)
-/// for its duration the same way the slots and cards controllers do.
+/// `SlotsFacade`'s own methods call `DeviceSession.busy` internally;
+/// `SettingsFacade`'s do not. Its writes are not "load a full tag dump"
+/// long, but they are still a round trip over the wire, so this controller
+/// wraps every facade call itself in `active.session.busy`, holding the
+/// wakelock (`core/lifecycle/wakelock.dart`) for its duration the same way
+/// a slot mutation does.
 final class DeviceSettingsControllerProvider
     extends
         $NotifierProvider<DeviceSettingsController, DeviceSettingsEditState> {
@@ -55,11 +57,12 @@ final class DeviceSettingsControllerProvider
   /// guarded with `ref.mounted` (R25): the Settings tab can be left while a
   /// write is on the wire.
   ///
-  /// Unlike `SlotsFacade`, `SettingsFacade`'s methods do not wrap themselves in
-  /// `DeviceSession.busy` — they are not "load a full tag dump" long, but they
-  /// are still a round trip over the wire, so this controller wraps every
-  /// facade call itself, holding the wakelock (`core/lifecycle/wakelock.dart`)
-  /// for its duration the same way the slots and cards controllers do.
+  /// `SlotsFacade`'s own methods call `DeviceSession.busy` internally;
+  /// `SettingsFacade`'s do not. Its writes are not "load a full tag dump"
+  /// long, but they are still a round trip over the wire, so this controller
+  /// wraps every facade call itself in `active.session.busy`, holding the
+  /// wakelock (`core/lifecycle/wakelock.dart`) for its duration the same way
+  /// a slot mutation does.
   DeviceSettingsControllerProvider._()
     : super(
         from: null,
@@ -88,7 +91,7 @@ final class DeviceSettingsControllerProvider
 }
 
 String _$deviceSettingsControllerHash() =>
-    r'f815e0660872ff1fb3a643ba50d9c453e378b960';
+    r'07f6a91df9a6d85ecbfe9b5e9eee87b0b7c2a81f';
 
 /// Every device-settings change, as state the screen renders (spec 7.7 step
 /// 7, spec 8.1).
@@ -100,11 +103,12 @@ String _$deviceSettingsControllerHash() =>
 /// guarded with `ref.mounted` (R25): the Settings tab can be left while a
 /// write is on the wire.
 ///
-/// Unlike `SlotsFacade`, `SettingsFacade`'s methods do not wrap themselves in
-/// `DeviceSession.busy` — they are not "load a full tag dump" long, but they
-/// are still a round trip over the wire, so this controller wraps every
-/// facade call itself, holding the wakelock (`core/lifecycle/wakelock.dart`)
-/// for its duration the same way the slots and cards controllers do.
+/// `SlotsFacade`'s own methods call `DeviceSession.busy` internally;
+/// `SettingsFacade`'s do not. Its writes are not "load a full tag dump"
+/// long, but they are still a round trip over the wire, so this controller
+/// wraps every facade call itself in `active.session.busy`, holding the
+/// wakelock (`core/lifecycle/wakelock.dart`) for its duration the same way
+/// a slot mutation does.
 
 abstract class _$DeviceSettingsController
     extends $Notifier<DeviceSettingsEditState> {
