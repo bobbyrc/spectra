@@ -103,6 +103,9 @@ void main() {
         );
       },
       timeout: const Timeout(Duration(seconds: 20)),
+      // hdiutil and codesign only exist on macOS; the Linux `check` job
+      // still runs the static assertions above.
+      skip: Platform.isMacOS ? false : 'needs hdiutil/codesign (macOS only)',
     );
   });
 
