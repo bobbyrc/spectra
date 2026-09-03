@@ -21,8 +21,9 @@ abstract final class MifareGeometry {
   /// The most sectors any MIFARE Classic has (4K).
   static const int maxSectors = 40;
 
-  /// The most blocks any MIFARE Classic has (4K).
-  static const int maxBlocks = 256;
+  /// The most blocks any MIFARE Classic has (4K), derived from the table
+  /// below rather than restated.
+  static final int maxBlocks = blockCount(TagType.mifare4k);
 
   static const Map<TagType, int> _sectors = {
     TagType.mifareMini: 5,

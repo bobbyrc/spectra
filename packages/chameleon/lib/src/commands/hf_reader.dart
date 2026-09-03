@@ -141,11 +141,15 @@ final class Mf1CheckKeysOfSectors extends Command<Mf1KeyCheckResult> {
   /// is the largest payload the firmware accepts.
   static const int maxKeys = 83;
 
+  /// This command's id, as a constant, so callers can ask the device's
+  /// capabilities about it without building a request first.
+  static const int commandId = 2012;
+
   final Set<int> sectors;
   final Set<KeyType> keyTypes;
   final List<Uint8List> keys;
   @override
-  int get id => 2012;
+  int get id => commandId;
   @override
   Duration get timeout => keyCheckTimeout;
 

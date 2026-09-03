@@ -24,6 +24,10 @@ final class Mf1DumpReadResult {
   }
 
   /// The card's memory, 16 bytes per block.
+  ///
+  /// The key bytes inside a sector trailer are not authoritative: a real card
+  /// answers a read of its trailer with the keys blanked out (and only the
+  /// access bits meaningful), so use [keys] for the keys that actually work.
   final Uint8List blocks;
 
   /// One flag per block: true when that block was actually read.

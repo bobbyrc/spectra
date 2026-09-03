@@ -28,6 +28,8 @@ final class ReaderFacade {
   ReaderFacade(this._s);
   final DeviceSession _s;
 
+  static const Set<KeyType> _bothKeyTypes = {KeyType.a, KeyType.b};
+
   // Geometry lives in MifareGeometry so the dump model (which has no session)
   // shares one definition with the reader; these forward for convenience.
   static int sectorCount(TagType t) => MifareGeometry.sectorCount(t);
@@ -43,6 +45,10 @@ final class ReaderFacade {
   );
 
   /// Whether the tag in the field answers MIFARE Classic authentication.
+  ///
+  /// Only a tag-level failure is a false: a device that refuses the command
+  /// (a Lite, or firmware answering [NotImplemented]) still throws, because
+  /// that says nothing about the tag.
   Future<bool> detectMf1Support() => _s.withReaderMode(() async {
     try {
       await _s.send(const Mf1DetectSupport());
@@ -158,26 +164,57 @@ final class ReaderFacade {
   }
 
   /// One working key per sector. Uses MF1_CHECK_KEYS_OF_SECTORS, which tries
-  /// the whole dictionary on the device in one round trip, and falls back to
-  /// authenticating sector by sector when the firmware does not have that
-  /// command or the dictionary is larger than one request can carry.
+  /// a whole chunk of the dictionary on the device in one round trip, and
+  /// falls back to authenticating sector by sector only when the firmware
+  /// does not have that command.
   Future<List<SectorKeys>> _keysForDump(
     int sectors,
     List<Uint8List> candidateKeys,
     CancelToken? cancel,
+  ) => _supports(Mf1CheckKeysOfSectors.commandId)
+      ? _checkKeys(sectors, candidateKeys, cancel)
+      : _probeKeys(sectors, candidateKeys, cancel);
+
+  /// Runs the dictionary past the device in chunks of
+  /// [Mf1CheckKeysOfSectors.maxKeys], merging the answers: the first key
+  /// found for a sector and key type wins, and the run stops as soon as every
+  /// sector has both keys, so a dictionary whose first chunk opens the card
+  /// still costs one request.
+  Future<List<SectorKeys>> _checkKeys(
+    int sectors,
+    List<Uint8List> candidateKeys,
+    CancelToken? cancel,
   ) async {
-    if (candidateKeys.length <= Mf1CheckKeysOfSectors.maxKeys) {
-      final check = Mf1CheckKeysOfSectors(
-        sectors: {for (var s = 0; s < sectors; s++) s},
-        keyTypes: const {KeyType.a, KeyType.b},
-        keys: candidateKeys,
+    final out = [for (var s = 0; s < sectors; s++) SectorKeys(sector: s)];
+    if (candidateKeys.isEmpty) return out;
+    final mask = {for (var s = 0; s < sectors; s++) s};
+    const chunkSize = Mf1CheckKeysOfSectors.maxKeys;
+    for (var offset = 0; offset < candidateKeys.length; offset += chunkSize) {
+      _throwIfCancelled(cancel);
+      final found = await _s.send(
+        Mf1CheckKeysOfSectors(
+          sectors: mask,
+          keyTypes: _bothKeyTypes,
+          keys: candidateKeys.skip(offset).take(chunkSize).toList(),
+        ),
+        cancel: cancel,
       );
-      if (_supports(check.id)) {
-        final found = await _s.send(check, cancel: cancel);
-        return found.sectors.take(sectors).toList();
+      var complete = true;
+      for (var s = 0; s < sectors; s++) {
+        final have = out[s];
+        if (have.keyA == null || have.keyB == null) {
+          final got = found.sectors[s];
+          out[s] = SectorKeys(
+            sector: s,
+            keyA: have.keyA ?? got.keyA,
+            keyB: have.keyB ?? got.keyB,
+          );
+        }
+        complete &= out[s].keyA != null && out[s].keyB != null;
       }
+      if (complete) break;
     }
-    return _probeKeys(sectors, candidateKeys, cancel);
+    return out;
   }
 
   Future<List<SectorKeys>> _probeKeys(

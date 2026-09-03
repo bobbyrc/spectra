@@ -152,6 +152,58 @@ void main() {
     expect(dump.keys[5].keyB, isNull);
   });
 
+  test(
+    'mf1ReadDump reads a sector with only key B in the dictionary',
+    () async {
+      final card = FakeMf1Card.classic1k(uid: b([1, 2, 3, 4]));
+      card.keys.remove(FakeMf1Card.keyId(7, KeyType.a));
+      device.firmware.present(card);
+      final dump = await s.reader.mf1ReadDump(
+        type: TagType.mifare1k,
+        candidateKeys: [FakeMf1Card.defaultKey],
+      );
+      expect(dump.keys[7].keyA, isNull);
+      expect(dump.keys[7].keyB, FakeMf1Card.defaultKey);
+      expect(dump.readMask.sublist(28, 32), everyElement(isTrue));
+      expect(dump.isComplete, isTrue);
+      expect(dump.blocks, card.blocks);
+    },
+  );
+
+  test('a dictionary larger than one request is checked in chunks', () async {
+    final card = FakeMf1Card.classic1k(uid: b([1, 2, 3, 4]));
+    device.firmware.present(card);
+    // 100 keys, the only working one in the second chunk (index 90).
+    final dictionary = [
+      for (var i = 0; i < 100; i++) b([0, 0, 0, 0, 0, i & 0xFF]),
+    ];
+    dictionary[90] = FakeMf1Card.defaultKey;
+    final dump = await s.reader.mf1ReadDump(
+      type: TagType.mifare1k,
+      candidateKeys: dictionary,
+    );
+    expect(dump.isComplete, isTrue);
+    expect(dump.keys[0].keyA, FakeMf1Card.defaultKey);
+    expect(device.received.where((f) => f.command == 2012), hasLength(2));
+  });
+
+  test(
+    'a dictionary that works in its first chunk costs one request',
+    () async {
+      device.firmware.present(FakeMf1Card.classic1k(uid: b([1, 2, 3, 4])));
+      final dictionary = [
+        FakeMf1Card.defaultKey,
+        for (var i = 0; i < 99; i++) b([0, 0, 0, 0, 0, i & 0xFF]),
+      ];
+      final dump = await s.reader.mf1ReadDump(
+        type: TagType.mifare1k,
+        candidateKeys: dictionary,
+      );
+      expect(dump.isComplete, isTrue);
+      expect(device.received.where((f) => f.command == 2012), hasLength(1));
+    },
+  );
+
   test('mf1ReadDump falls back to per-block auth without CHECK_KEYS', () async {
     final device = FakeDevice(
       firmware: FakeFirmware(
@@ -163,6 +215,7 @@ void main() {
       ),
     );
     final s = sessionFor(device);
+    addTearDown(s.close);
     await s.open();
     await settle();
     final card = FakeMf1Card.classic1k(uid: b([1, 2, 3, 4]));
@@ -180,7 +233,6 @@ void main() {
     expect(dump.readMask.sublist(8, 12), everyElement(isFalse));
     expect(dump.readMask.sublist(12), everyElement(isTrue));
     expect(device.firmware.mode, DeviceMode.emulator);
-    await s.close();
   });
 
   test(
@@ -245,11 +297,11 @@ void main() {
       firmware: FakeFirmware(FakeFirmwareConfig.lite22()),
     );
     final s = sessionFor(device);
+    addTearDown(s.close);
     await s.open();
     await settle();
     await expectLater(s.reader.scan14a(), throwsA(isA<ReaderUnavailable>()));
     expect(s.readerLeaseCount, 0);
-    await s.close();
   });
 
   test('geometry helpers', () {
