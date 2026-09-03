@@ -45,6 +45,68 @@ void main() {
     expect(data.textTheme.bodyMedium!.color, SpectraColors.light.textPrimary);
   });
 
+  test('spectraThemeData fills every ColorScheme role from a token', () {
+    for (final (SpectraColorScheme colors, Brightness brightness)
+        in <(SpectraColorScheme, Brightness)>[
+          (SpectraColors.light, Brightness.light),
+          (SpectraColors.dark, Brightness.dark),
+        ]) {
+      final ColorScheme scheme = spectraThemeData(
+        colors,
+        brightness,
+      ).colorScheme;
+      // The roles that used to fall back to a Material default.
+      expect(scheme.outline, colors.borderStrong);
+      expect(scheme.outlineVariant, colors.border);
+      expect(scheme.secondaryContainer, colors.surfaceRaised);
+      expect(scheme.onSecondaryContainer, colors.textPrimary);
+      expect(scheme.onSurfaceVariant, colors.textSecondary);
+      expect(scheme.scrim, colors.scrim);
+      expect(scheme.surfaceTint, colors.surface);
+      expect(scheme.surfaceTint, isNot(scheme.primary));
+      expect(scheme.surfaceContainer, colors.surfaceRaised);
+      expect(scheme.surfaceContainerHighest, colors.surfaceRaised);
+      expect(scheme.outline, isNot(scheme.onSurface));
+    }
+  });
+
+  test('spectraThemeData styles the surfaces material_ui paints itself', () {
+    const SpectraColorScheme colors = SpectraColors.light;
+    final ThemeData data = spectraThemeData(colors, Brightness.light);
+
+    final InputDecorationThemeData input = data.inputDecorationTheme;
+    expect(input.filled, isTrue);
+    expect(input.fillColor, colors.surface);
+    expect(
+      (input.enabledBorder! as OutlineInputBorder).borderSide.color,
+      colors.borderStrong,
+    );
+    expect(
+      (input.focusedBorder! as OutlineInputBorder).borderSide.color,
+      colors.accent,
+    );
+
+    expect(data.dialogTheme.backgroundColor, colors.surface);
+    expect(data.dialogTheme.barrierColor, colors.scrim);
+    expect(data.dialogTheme.shape, isA<RoundedRectangleBorder>());
+
+    expect(data.bottomSheetTheme.backgroundColor, colors.surface);
+    expect(data.bottomSheetTheme.modalBarrierColor, colors.scrim);
+    expect(
+      (data.bottomSheetTheme.shape! as RoundedRectangleBorder).borderRadius,
+      const BorderRadius.vertical(top: Radius.circular(SpectraSpacing.lg)),
+    );
+
+    expect(data.appBarTheme.backgroundColor, colors.surface);
+    expect(data.appBarTheme.scrolledUnderElevation, 0);
+    expect(data.appBarTheme.surfaceTintColor!.a, 0);
+    expect(
+      data.appBarTheme.titleTextStyle!.fontFamily,
+      contains(SpectraTypography.sansFamily),
+    );
+    expect(data.appBarTheme.titleTextStyle!.fontSize, 20);
+  });
+
   testWidgets('SpectraApp themes material_ui widgets and installs l10n', (
     tester,
   ) async {
@@ -70,6 +132,57 @@ void main() {
       isNotNull,
     );
   });
+
+  testWidgets('SpectraApp installs extra delegates, a locale and a messenger', (
+    tester,
+  ) async {
+    late BuildContext inner;
+    final GlobalKey<ScaffoldMessengerState> messengerKey =
+        GlobalKey<ScaffoldMessengerState>();
+    await tester.pumpWidget(
+      SpectraApp(
+        themeMode: ThemeMode.light,
+        scaffoldMessengerKey: messengerKey,
+        locale: const Locale('en'),
+        supportedLocales: const <Locale>[Locale('en')],
+        extraDelegates: const <LocalizationsDelegate<Object?>>[
+          _GreetingDelegate(),
+        ],
+        routerConfig: RouterConfig<Object>(
+          routerDelegate: _SingleRouteDelegate((context) {
+            inner = context;
+            return const Scaffold(body: SizedBox.shrink());
+          }),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(Localizations.of<_Greeting>(inner, _Greeting)!.hello, 'hello');
+    // The kit's own delegates are still installed alongside the extra one.
+    expect(SpectraUiLocalizations.of(inner).cancel, 'Cancel');
+    expect(messengerKey.currentState, isNotNull);
+    expect(Localizations.localeOf(inner), const Locale('en'));
+  });
+}
+
+/// A stand-in for an app-supplied localization bundle.
+class _Greeting {
+  const _Greeting(this.hello);
+  final String hello;
+}
+
+class _GreetingDelegate extends LocalizationsDelegate<_Greeting> {
+  const _GreetingDelegate();
+
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<_Greeting> load(Locale locale) async => const _Greeting('hello');
+
+  @override
+  bool shouldReload(_GreetingDelegate old) => false;
 }
 
 /// Minimal router that always builds one page, so the test needs no go_router.

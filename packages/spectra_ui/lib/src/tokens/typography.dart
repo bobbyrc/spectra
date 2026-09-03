@@ -46,14 +46,31 @@ abstract final class SpectraTypography {
 
   /// Maps the scale onto `material_ui`'s [TextTheme] so `material_ui`
   /// components pick up our type without each one being restyled.
+  ///
+  /// All fifteen roles are filled, not just the six the scale names: a role
+  /// left null falls back to Material's Roboto defaults, and `material_ui`
+  /// reads several of them internally (`bodyLarge` for input text,
+  /// `labelMedium` for navigation labels, `titleLarge` for the app bar), so a
+  /// gap shows up as a stray typeface rather than as a missing style.
   static TextTheme textTheme(SpectraColorScheme colors) {
+    final Color primary = colors.textPrimary;
+    final Color secondary = colors.textSecondary;
     return TextTheme(
-      displaySmall: display.copyWith(color: colors.textPrimary),
-      headlineSmall: headline.copyWith(color: colors.textPrimary),
-      titleMedium: title.copyWith(color: colors.textPrimary),
-      bodyMedium: body.copyWith(color: colors.textPrimary),
-      bodySmall: bodySmall.copyWith(color: colors.textSecondary),
-      labelLarge: label.copyWith(color: colors.textPrimary),
+      displayLarge: display.copyWith(color: primary, fontSize: 44),
+      displayMedium: display.copyWith(color: primary, fontSize: 38),
+      displaySmall: display.copyWith(color: primary),
+      headlineLarge: headline.copyWith(color: primary, fontSize: 28),
+      headlineMedium: headline.copyWith(color: primary, fontSize: 26),
+      headlineSmall: headline.copyWith(color: primary),
+      titleLarge: title.copyWith(color: primary, fontSize: 20),
+      titleMedium: title.copyWith(color: primary),
+      titleSmall: title.copyWith(color: primary, fontSize: 16),
+      bodyLarge: body.copyWith(color: primary, fontSize: 16),
+      bodyMedium: body.copyWith(color: primary),
+      bodySmall: bodySmall.copyWith(color: secondary),
+      labelLarge: label.copyWith(color: primary),
+      labelMedium: label.copyWith(color: secondary, fontSize: 11),
+      labelSmall: label.copyWith(color: secondary, fontSize: 10),
     );
   }
 }

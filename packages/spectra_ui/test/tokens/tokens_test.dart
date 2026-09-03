@@ -2,6 +2,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
+/// The WCAG 2.1 relative-contrast ratio between two opaque colours.
+double contrast(Color a, Color b) {
+  final double la = a.computeLuminance();
+  final double lb = b.computeLuminance();
+  final double hi = la > lb ? la : lb;
+  final double lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 void main() {
   group('SpectraColors', () {
     test('both schemes derive from the same brand accent', () {
@@ -28,14 +37,6 @@ void main() {
     });
 
     test('body text on the background clears WCAG AA contrast', () {
-      double contrast(Color a, Color b) {
-        final double la = a.computeLuminance();
-        final double lb = b.computeLuminance();
-        final double hi = la > lb ? la : lb;
-        final double lo = la > lb ? lb : la;
-        return (hi + 0.05) / (lo + 0.05);
-      }
-
       expect(
         contrast(
           SpectraColors.light.textPrimary,
@@ -47,6 +48,37 @@ void main() {
         contrast(SpectraColors.dark.textPrimary, SpectraColors.dark.background),
         greaterThan(4.5),
       );
+    });
+
+    test('borderStrong clears WCAG 1.4.11 on every surface it can sit on', () {
+      for (final SpectraColorScheme scheme in <SpectraColorScheme>[
+        SpectraColors.light,
+        SpectraColors.dark,
+      ]) {
+        for (final Color under in <Color>[
+          scheme.surface,
+          scheme.surfaceRaised,
+          scheme.background,
+        ]) {
+          expect(
+            contrast(scheme.borderStrong, under),
+            greaterThanOrEqualTo(3.0),
+            reason: 'borderStrong on $under',
+          );
+        }
+      }
+    });
+
+    test('borderStrong is stronger than the decorative border', () {
+      for (final SpectraColorScheme scheme in <SpectraColorScheme>[
+        SpectraColors.light,
+        SpectraColors.dark,
+      ]) {
+        expect(
+          contrast(scheme.borderStrong, scheme.surface),
+          greaterThan(contrast(scheme.border, scheme.surface)),
+        );
+      }
     });
   });
 

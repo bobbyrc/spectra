@@ -13,12 +13,33 @@ class SpectraApp extends StatelessWidget {
     required this.routerConfig,
     this.title = 'Spectra',
     this.themeMode = ThemeMode.system,
+    this.extraDelegates = const <LocalizationsDelegate<Object?>>[],
+    this.supportedLocales,
+    this.locale,
+    this.scaffoldMessengerKey,
     super.key,
   });
 
   final RouterConfig<Object> routerConfig;
   final String title;
   final ThemeMode themeMode;
+
+  /// Delegates the app adds on top of the kit's own — a feature package's
+  /// generated localizations, say. They are installed before the kit's, so
+  /// an app delegate wins for a type the kit also resolves.
+  final List<LocalizationsDelegate<Object?>> extraDelegates;
+
+  /// Overrides the locales the kit ships with. Null keeps
+  /// [SpectraUiLocalizations.supportedLocales].
+  final Iterable<Locale>? supportedLocales;
+
+  /// Pins the app to one locale, ignoring the platform's. Null follows the
+  /// device.
+  final Locale? locale;
+
+  /// Lets code outside the widget tree (a background operation reporting a
+  /// failure, for instance) show a snack bar.
+  final GlobalKey<ScaffoldMessengerState>? scaffoldMessengerKey;
 
   @override
   Widget build(BuildContext context) {
@@ -29,8 +50,14 @@ class SpectraApp extends StatelessWidget {
       darkTheme: spectraThemeData(SpectraColors.dark, Brightness.dark),
       themeMode: themeMode,
       routerConfig: routerConfig,
-      localizationsDelegates: SpectraUiLocalizations.localizationsDelegates,
-      supportedLocales: SpectraUiLocalizations.supportedLocales,
+      scaffoldMessengerKey: scaffoldMessengerKey,
+      locale: locale,
+      localizationsDelegates: <LocalizationsDelegate<Object?>>[
+        ...extraDelegates,
+        ...SpectraUiLocalizations.localizationsDelegates,
+      ],
+      supportedLocales:
+          supportedLocales ?? SpectraUiLocalizations.supportedLocales,
       builder: (BuildContext context, Widget? child) {
         final Brightness brightness = Theme.of(context).brightness;
         return SpectraTheme(
