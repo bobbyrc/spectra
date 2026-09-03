@@ -88,7 +88,22 @@ final class CommandDispatcher {
        _log = log,
        _decoder = FrameDecoder(onDiagnostic: onDiagnostic) {
     _closed = _transport.currentState is TransportClosed;
-    _incomingSub = _transport.incoming.listen(_onBytes);
+    // A conforming transport never puts an error on `incoming` (see the
+    // contract on [Transport]); this guard is defensive. Without it the
+    // error would be an uncaught async error and every pending command
+    // would hang until its timeout, with the session still believing the
+    // link is up. Treated exactly like a TransportClosed state.
+    _incomingSub = _transport.incoming.listen(
+      _onBytes,
+      onError: (Object e) {
+        _closed = true;
+        _failAll(
+          e is ChameleonException
+              ? e
+              : Disconnected('the transport stream failed: $e'),
+        );
+      },
+    );
     _stateSub = _transport.state.listen(_onState);
   }
 

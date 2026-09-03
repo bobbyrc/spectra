@@ -12,7 +12,17 @@ Uint8List _getAppVersionRequest() => Frame(command: 1000).encode();
 /// (spec 4.1, 5.8).
 ///
 /// [make] must return a fresh, unopened transport on each call.
-void transportContractTests(String description, Transport Function() make) {
+///
+/// [simulateLinkLoss] makes the link fail underneath the transport the way
+/// a pulled cable or an out-of-range peripheral would: the fake adapter's
+/// disconnect hook, or the fake handle's stream error. Call sites that
+/// cannot stage one (real hardware) leave it null and the link-loss
+/// behaviour is skipped with a reason.
+void transportContractTests(
+  String description,
+  Transport Function() make, {
+  void Function(Transport transport)? simulateLinkLoss,
+}) {
   group('Transport contract: $description', () {
     test('open moves opening -> open and settles on TransportOpen', () async {
       final t = make();
@@ -125,6 +135,41 @@ void transportContractTests(String description, Transport Function() make) {
       await t.close();
       await expectLater(t.open(), throwsA(isA<Disconnected>()));
     });
+
+    if (simulateLinkLoss == null) {
+      test(
+        'a link loss reports TransportClosed(linkLost)',
+        () {},
+        skip: 'this transport cannot stage a link loss',
+      );
+    } else {
+      test('a link loss reports TransportClosed(linkLost)', () async {
+        final t = make();
+        final errors = <Object>[];
+        var incomingClosed = false;
+        final sub = t.incoming.listen(
+          (_) {},
+          onError: errors.add,
+          onDone: () => incomingClosed = true,
+        );
+        final states = <TransportState>[];
+        final stateSub = t.state.listen(states.add);
+        await t.open();
+        simulateLinkLoss(t);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        final closed = states.whereType<TransportClosed>().toList();
+        expect(closed, isNotEmpty, reason: 'the drop must reach `state`');
+        expect(closed.first.cause, CloseCause.linkLost);
+        expect(t.currentState, isA<TransportClosed>());
+        // The contract: `incoming` carries bytes only, and stays open until
+        // close(). A consumer watching it for liveness would see nothing.
+        expect(errors, isEmpty);
+        expect(incomingClosed, isFalse);
+        await sub.cancel();
+        await stateSub.cancel();
+        await t.close();
+      });
+    }
 
     test('maxWriteLength covers the largest protocol frame', () {
       final t = make();

@@ -99,6 +99,37 @@ void main() {
     await adapter.dispose();
   });
 
+  test(
+    'a notify stream error drops the link instead of erroring incoming',
+    () async {
+      final adapter = FakeBleAdapter();
+      final t = build(adapter);
+      final errors = <Object>[];
+      var incomingClosed = false;
+      t.incoming.listen(
+        (_) {},
+        onError: errors.add,
+        onDone: () => incomingClosed = true,
+      );
+      final states = <TransportState>[];
+      t.state.listen(states.add);
+      await t.open();
+      adapter.emitNotificationError(NusUuids.notify, BleFailure.disconnected);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      // The contract on Transport.incoming: no error, no close on a drop.
+      expect(errors, isEmpty);
+      expect(incomingClosed, isFalse);
+      final closed = states.whereType<TransportClosed>().toList();
+      expect(closed, hasLength(1));
+      expect(closed.single.cause, CloseCause.linkLost);
+      expect(t.currentState, isA<TransportClosed>());
+      // The half-dead link is handed back rather than left connected.
+      expect(adapter.disconnected, isTrue);
+      await t.close();
+      await adapter.dispose();
+    },
+  );
+
   test('connect retries up to five times with growing backoff', () async {
     final adapter = FakeBleAdapter()
       ..failConnectTimes = 4

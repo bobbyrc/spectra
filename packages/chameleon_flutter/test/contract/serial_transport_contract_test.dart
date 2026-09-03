@@ -59,12 +59,20 @@ base class _RespondingSerialAdapter extends FakeSerialAdapter {
   }
 }
 
+/// The adapter behind the transport the last [_build] handed out, so the
+/// contract suite can pull the cable on its open handle.
+_RespondingSerialAdapter? _lastAdapter;
+
 SerialTransport _build() => SerialTransport(
   path: '/dev/cu.usbmodem1',
-  adapter: _RespondingSerialAdapter(),
+  adapter: _lastAdapter = _RespondingSerialAdapter(),
   platform: HostPlatform.macos,
 );
 
 void main() {
-  transportContractTests('SerialTransport over FakeSerialAdapter', _build);
+  transportContractTests(
+    'SerialTransport over FakeSerialAdapter',
+    _build,
+    simulateLinkLoss: (_) => _lastAdapter!.handle!.dropLink(),
+  );
 }

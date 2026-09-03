@@ -178,9 +178,12 @@ final class BleTransport implements Transport, GuidedTransport {
           (b) {
             if (!_incoming.isClosed) _incoming.add(b);
           },
-          onError: (Object e, StackTrace s) {
-            if (!_incoming.isClosed) _incoming.addError(e, s);
-          },
+          // A broken notify subscription is a dead link, so it takes the
+          // same path as a connection loss: TransportClosed(linkLost) on
+          // `state`, subscriptions cancelled, the half-open link handed
+          // back. Never an error on `incoming` — the Transport contract
+          // says that stream carries bytes only.
+          onError: (Object _) => _notifyFailed(),
         );
 
     _set(const TransportOpen());
@@ -190,6 +193,15 @@ final class BleTransport implements Transport, GuidedTransport {
     _cancelSubscriptions();
     await _disconnectQuietly();
     throw const Disconnected('the BLE link dropped while opening');
+  }
+
+  /// The notify subscription failed: the link is unusable even though the
+  /// stack may not have reported a disconnect yet, so drop it and let go of
+  /// the connection.
+  void _notifyFailed() {
+    if (_current is TransportClosed) return;
+    _dropped();
+    unawaited(_disconnectQuietly());
   }
 
   void _dropped() {

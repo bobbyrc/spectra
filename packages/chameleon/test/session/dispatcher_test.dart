@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:chameleon/src/codec/frame.dart';
 import 'package:chameleon/src/commands/device.dart';
@@ -329,5 +330,79 @@ void main() {
       throwsA(isA<CommandTimeout>()),
     );
     expect(token.listenerCount, 0);
+  });
+
+  _defensiveIncomingErrorTests();
+}
+
+/// A transport that breaks the [Transport] contract on purpose: it puts an
+/// error on [incoming]. Nothing in the app should do this (see the contract
+/// in `transport.dart`), which is exactly why the dispatcher guards against
+/// it — an unguarded listener would turn the error into an uncaught async
+/// error and leave every pending command hanging.
+final class _ErroringTransport implements Transport {
+  final StreamController<Uint8List> _incoming =
+      StreamController<Uint8List>.broadcast();
+  final StreamController<TransportState> _state =
+      StreamController<TransportState>.broadcast();
+  TransportState _current = const TransportOpen();
+
+  void breakIncoming() =>
+      _incoming.addError(const Disconnected('the notify stream failed'));
+
+  @override
+  TransportKind get kind => TransportKind.fake;
+
+  @override
+  TransportState get currentState => _current;
+
+  @override
+  Stream<TransportState> get state => _state.stream;
+
+  @override
+  Stream<Uint8List> get incoming => _incoming.stream;
+
+  @override
+  int get maxWriteLength => 4105;
+
+  @override
+  Future<void> open() async {
+    _current = const TransportOpen();
+    _state.add(_current);
+  }
+
+  @override
+  Future<void> close() async {
+    _current = const TransportClosed(CloseCause.requested);
+    _state.add(_current);
+    await _incoming.close();
+    await _state.close();
+  }
+
+  @override
+  Future<void> write(Uint8List bytes) async {}
+}
+
+void _defensiveIncomingErrorTests() {
+  test('an error on incoming fails every outstanding command', () async {
+    final t = _ErroringTransport();
+    await t.open();
+    final d = CommandDispatcher(t);
+    final inFlight = d.send(
+      const GetAppVersion().toFrame(),
+      timeout: const Duration(seconds: 5),
+    );
+    final queued = d.send(
+      const GetActiveSlot().toFrame(),
+      timeout: const Duration(seconds: 5),
+    );
+    await Future<void>.delayed(Duration.zero);
+    t.breakIncoming();
+    // Both fail promptly with the transport's own error rather than waiting
+    // out their timeouts, and the error is handled rather than escaping as
+    // an uncaught async error.
+    await expectLater(inFlight, throwsA(isA<Disconnected>()));
+    await expectLater(queued, throwsA(isA<Disconnected>()));
+    await d.dispose();
   });
 }

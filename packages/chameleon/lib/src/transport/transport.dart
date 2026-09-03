@@ -63,6 +63,25 @@ abstract interface class Transport {
   TransportKind get kind;
   Future<void> open();
   Future<void> close();
+
+  /// Bytes from the device, in order. A broadcast stream.
+  ///
+  /// Contract, which every implementation must honour and every consumer
+  /// may rely on:
+  ///
+  /// * [incoming] **never carries an error event**. A link that fails —
+  ///   the cable pulled, the peripheral out of range, the notify
+  ///   subscription broken — is reported on [state] as a
+  ///   [TransportClosed] with [CloseCause.linkLost], and nowhere else.
+  /// * [incoming] **does not close on link loss**, so a consumer cannot
+  ///   use its end-of-stream as a liveness signal either. Watch [state].
+  /// * [incoming] closes only after [close] (which, for a single-use
+  ///   transport, is the end of its life).
+  ///
+  /// The reason is that a byte stream has many listeners and none of them
+  /// owns the link: an error event there is either uncaught or handled
+  /// several times over, while [state] is the one place the session,
+  /// the DFU channel and the UI already agree to look.
   Stream<Uint8List> get incoming;
   Future<void> write(Uint8List bytes);
 

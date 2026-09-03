@@ -44,9 +44,15 @@ base class _RespondingBleAdapter extends FakeBleAdapter {
   }
 }
 
+/// The adapter behind the transport the last [_build] or [_buildSmallMtu]
+/// handed out, so the contract suite can stage a disconnect on it.
+_RespondingBleAdapter? _lastAdapter;
+
+void _drop(Transport _) => _lastAdapter!.emitDisconnect();
+
 BleTransport _build() => BleTransport(
   deviceId: 'AA:BB:CC:DD:EE:FF',
-  adapter: _RespondingBleAdapter(),
+  adapter: _lastAdapter = _RespondingBleAdapter(),
   platform: HostPlatform.macos,
   initialBackoff: const Duration(milliseconds: 1),
   maxBackoff: const Duration(milliseconds: 4),
@@ -57,16 +63,21 @@ BleTransport _build() => BleTransport(
 /// several notifications, exercising [BleTransport]'s chunking.
 BleTransport _buildSmallMtu() => BleTransport(
   deviceId: 'AA:BB:CC:DD:EE:FF',
-  adapter: _RespondingBleAdapter()..mtu = 23,
+  adapter: _lastAdapter = _RespondingBleAdapter()..mtu = 23,
   platform: HostPlatform.macos,
   initialBackoff: const Duration(milliseconds: 1),
   maxBackoff: const Duration(milliseconds: 4),
 );
 
 void main() {
-  transportContractTests('BleTransport over FakeBleAdapter', _build);
+  transportContractTests(
+    'BleTransport over FakeBleAdapter',
+    _build,
+    simulateLinkLoss: _drop,
+  );
   transportContractTests(
     'BleTransport over FakeBleAdapter with mtu=23',
     _buildSmallMtu,
+    simulateLinkLoss: _drop,
   );
 }
