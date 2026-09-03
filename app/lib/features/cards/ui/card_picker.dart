@@ -11,8 +11,8 @@ import 'card_subtitle.dart';
 /// card to use, and resolves to that card — dump bytes and all — or null if
 /// the sheet was dismissed.
 ///
-/// Contract for the features that call it (Phase 7's "load to slot", "write
-/// to card" and "quick emulate"):
+/// Contract for the features that call it (published for a later phase: the
+/// Phase 7 flows start from a card already on screen and do not open it):
 ///
 /// - Import it as `package:spectra/features/cards/cards.dart`. Never reach
 ///   into `features/cards/ui/…` or `features/cards/state/…` (spec 8.4).
