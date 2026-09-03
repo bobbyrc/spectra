@@ -119,7 +119,7 @@ final class CardLibraryProvider
   CardLibrary create() => CardLibrary();
 }
 
-String _$cardLibraryHash() => r'd9ddf3de5e96c4df2ba8922a4546c0e48ef32a17';
+String _$cardLibraryHash() => r'a9770e0430e48e30ac391dc3677fdc6ab6530b98';
 
 /// Every write to the library, as an [AsyncValue] the screen renders.
 ///

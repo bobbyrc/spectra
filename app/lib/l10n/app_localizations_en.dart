@@ -256,7 +256,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String cardsReadPartial(int read, int total) {
-    return '$read of $total blocks could be read. Sectors with no known key are blank.';
+    String _temp0 = intl.Intl.pluralLogic(
+      read,
+      locale: localeName,
+      other:
+          '$read of $total blocks could be read. Sectors with no known key are blank.',
+      one:
+          '1 of $total blocks could be read. Sectors with no known key are blank.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -265,7 +273,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String cardsReadKeysFound(int count) {
-    return 'Keys found for $count sectors.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Keys found for $count sectors.',
+      one: 'Keys found for 1 sector.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -352,7 +366,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsImportLabel => 'Exported JSON';
 
   @override
-  String get cardsImportConfirm => 'Import';
+  String get cardsImportConfirm => 'Import cards';
 
   @override
   String cardsImported(int count) {
@@ -452,9 +466,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsEditBadHex => 'That is not hex.';
 
   @override
-  String cardsEditBadLength(int size) {
-    return 'This card takes $size bytes per block.';
+  String cardsEditBadLength(int size, String unit) {
+    return 'This card takes $size bytes per $unit.';
   }
+
+  @override
+  String get cardsEditChunkUnitBlock => 'block';
+
+  @override
+  String get cardsEditChunkUnitPage => 'page';
+
+  @override
+  String get cardsEditChunkUnitId => 'id';
 
   @override
   String cardsEditBadIndex(int last) {

@@ -15,6 +15,9 @@ import 'package:spectra/data/memory/in_memory_repositories.dart';
 import 'package:spectra/features/cards/cards.dart';
 import 'package:spectra/features/cards/state/card_editor_controller.dart';
 import 'package:spectra/features/cards/state/saved_cards_provider.dart';
+// `trailerHighlights` is this file's own unit under test, not part of the
+// feature's published surface, so it comes from the module directly.
+import 'package:spectra/features/cards/ui/card_detail_page.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../support/app_harness.dart';
@@ -739,6 +742,65 @@ void main() {
     await pumpFrames(tester);
     expect(find.bySemanticsLabel('Colour 4, selected'), findsOne);
     expect(find.bySemanticsLabel('Colour 1'), findsOne);
+  });
+
+  testWidgetsApp('the fields and the export follow the working copy', (
+    tester,
+  ) async {
+    final List<MethodCall> clipboard = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (MethodCall call) async {
+        if (call.method == 'Clipboard.setData') clipboard.add(call);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    final String id = await seedAndOpen(tester);
+    // A new UID with a matching BCC (0xAA^0xBB^0xCC^0xDD == 0x00), so the
+    // dump stays valid and nothing else changes on the screen.
+    await tester.enterText(find.byKey(const Key('cardEditIndex')), '0');
+    await tester.enterText(
+      find.byKey(const Key('cardEditValue')),
+      'AABBCCDD00'.padRight(32, '0'),
+    );
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Apply'));
+    await pumpFrames(tester);
+
+    // The described fields are the working copy's, not the stored row's.
+    expect(find.text('AABBCCDD'), findsWidgets);
+    expect(find.text('DEADBEEF'), findsNothing);
+
+    await tester.ensureVisible(find.text('Copy as JSON'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Copy as JSON'));
+    await pumpFrames(tester);
+
+    final Map<String, Object?> args =
+        clipboard.single.arguments as Map<String, Object?>;
+    expect(args['text']! as String, contains('AABBCCDD'));
+
+    // …and the library still holds the unedited dump: the export copied
+    // what is on screen, it did not save anything.
+    final SavedCardsRepository repo = readProvider(
+      tester,
+      savedCardsRepositoryProvider,
+    );
+    expect((await repo.byId(id))!.bytes.sublist(0, 4), <int>[
+      0xDE,
+      0xAD,
+      0xBE,
+      0xEF,
+    ]);
   });
 
   test('trailerHighlights covers every MIFARE Classic trailer', () {

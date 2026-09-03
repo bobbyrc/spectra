@@ -12,12 +12,31 @@ import '../state/hex.dart';
 /// The message for a chunk that cannot be applied, or null when [text] is a
 /// valid hex run of exactly [chunkSize] bytes. Pure, so the rule is one
 /// place and the widget only renders it.
-String? chunkHexError(String text, int chunkSize, AppLocalizations l10n) {
+///
+/// [unit] is the lower-case name of the edit unit — [chunkUnit] — so the
+/// length complaint says "bytes per page" on an Ultralight, matching the
+/// field's own "Page" label instead of always saying "block".
+String? chunkHexError(
+  String text,
+  int chunkSize,
+  String unit,
+  AppLocalizations l10n,
+) {
   final Uint8List? bytes = parseHex(text);
   if (bytes == null) return l10n.cardsEditBadHex;
-  if (bytes.length != chunkSize) return l10n.cardsEditBadLength(chunkSize);
+  if (bytes.length != chunkSize) {
+    return l10n.cardsEditBadLength(chunkSize, unit);
+  }
   return null;
 }
+
+/// The edit unit's name mid-sentence, for [chunkHexError]. The capitalised
+/// field label is the switch just below, in `_CardHexEditorState`.
+String chunkUnit(TagFamily family, AppLocalizations l10n) => switch (family) {
+  TagFamily.ultralight => l10n.cardsEditChunkUnitPage,
+  TagFamily.lf => l10n.cardsEditChunkUnitId,
+  _ => l10n.cardsEditChunkUnitBlock,
+};
 
 /// Edits one block, page or id at a time (spec 7.7 step 4).
 ///
@@ -64,6 +83,7 @@ class _CardHexEditorState extends ConsumerState<CardHexEditor> {
     final String? valueError = chunkHexError(
       _value.text,
       widget.state.chunkSize,
+      chunkUnit(widget.state.tagType.family, l10n),
       l10n,
     );
     setState(() {

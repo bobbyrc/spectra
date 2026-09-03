@@ -202,6 +202,11 @@ class _Detail extends StatelessWidget {
   /// again, not throw the edits away.
   final VoidCallback onRetrySave;
 
+  /// Copies what is on screen — the working copy, unsaved edits included —
+  /// not the stored row. The alternative (export the row, and disable the
+  /// button while dirty) makes the user save before they can copy; this way
+  /// the export always matches the hex above it, which is the thing they
+  /// are looking at when they press it.
   Future<void> _export(BuildContext context, SavedCard card) async {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
@@ -238,7 +243,13 @@ class _Detail extends StatelessWidget {
                 ),
               ),
               if (folder != null) SpectraListTile(title: folder),
-              for (final DumpField field in describeSavedCard(state.card))
+              // The working copy, like the problems banner above: an
+              // unsaved edit to block 0 changes the UID this describes,
+              // and showing the stored row's UID next to the edited hex
+              // would be two different cards on one screen.
+              for (final DumpField field in describeSavedCard(
+                state.workingCard,
+              ))
                 SpectraListTile(title: field.label, subtitle: field.value),
               SpectraListTile(title: l10n.cardsDetailBytes(state.bytes.length)),
               if (problems.isNotEmpty)
@@ -280,7 +291,7 @@ class _Detail extends StatelessWidget {
         SpectraButton(
           label: l10n.cardsExport,
           variant: SpectraButtonVariant.secondary,
-          onPressed: loading ? null : () => _export(context, state.card),
+          onPressed: loading ? null : () => _export(context, state.workingCard),
         ),
         const SizedBox(height: SpectraSpacing.md),
         SpectraButton(

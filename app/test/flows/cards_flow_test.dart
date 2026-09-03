@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra/data/data.dart';
-import 'package:spectra/features/cards/state/saved_cards_provider.dart';
+import 'package:spectra/features/cards/cards.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../support/app_harness.dart';
@@ -123,7 +123,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byType(SpectraBottomSheet),
-        matching: find.text('Import'),
+        matching: find.widgetWithText(SpectraButton, 'Import cards'),
       ),
     );
     await pumpFrames(tester, count: 20);

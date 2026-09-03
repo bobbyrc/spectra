@@ -70,7 +70,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byType(SpectraBottomSheet),
-        matching: find.text('Import'),
+        matching: find.widgetWithText(SpectraButton, 'Import cards'),
       ),
     );
     await pumpFrames(tester, count: 20);
@@ -102,7 +102,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byType(SpectraBottomSheet),
-        matching: find.text('Import'),
+        matching: find.widgetWithText(SpectraButton, 'Import cards'),
       ),
     );
     await pumpFrames(tester);
@@ -132,7 +132,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byType(SpectraBottomSheet),
-        matching: find.text('Import'),
+        matching: find.widgetWithText(SpectraButton, 'Import cards'),
       ),
     );
     await pumpFrames(tester);
@@ -148,7 +148,7 @@ void main() {
     await openImport(tester);
     final Finder confirm = find.descendant(
       of: find.byType(SpectraBottomSheet),
-      matching: find.widgetWithText(SpectraButton, 'Import'),
+      matching: find.widgetWithText(SpectraButton, 'Import cards'),
     );
     expect(
       (confirm.evaluate().single.widget as SpectraButton).onPressed,
@@ -229,7 +229,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(SpectraBottomSheet),
-          matching: find.text('Import'),
+          matching: find.widgetWithText(SpectraButton, 'Import cards'),
         ),
       );
       await pumpFrames(tester, count: 20);

@@ -529,7 +529,7 @@ abstract class AppLocalizations {
   /// Explains a partial dump.
   ///
   /// In en, this message translates to:
-  /// **'{read} of {total} blocks could be read. Sectors with no known key are blank.'**
+  /// **'{read, plural, one {1 of {total} blocks could be read. Sectors with no known key are blank.} other {{read} of {total} blocks could be read. Sectors with no known key are blank.}}'**
   String cardsReadPartial(int read, int total);
 
   /// Shown for a tag with no readable dump format.
@@ -541,7 +541,7 @@ abstract class AppLocalizations {
   /// How many sectors a working key was found for.
   ///
   /// In en, this message translates to:
-  /// **'Keys found for {count} sectors.'**
+  /// **'{count, plural, one {Keys found for 1 sector.} other {Keys found for {count} sectors.}}'**
   String cardsReadKeysFound(int count);
 
   /// Saves the card that was just read.
@@ -682,10 +682,10 @@ abstract class AppLocalizations {
   /// **'Exported JSON'**
   String get cardsImportLabel;
 
-  /// Confirms the import inside the sheet.
+  /// Confirms the import inside the sheet. Deliberately not the bare "Import" of cardsImport, which is the library screen's entry point: two different controls with the same word read as the same control.
   ///
   /// In en, this message translates to:
-  /// **'Import'**
+  /// **'Import cards'**
   String get cardsImportConfirm;
 
   /// Confirms how many cards were imported.
@@ -832,11 +832,29 @@ abstract class AppLocalizations {
   /// **'That is not hex.'**
   String get cardsEditBadHex;
 
-  /// The typed value is the wrong length.
+  /// The typed value is the wrong length. The unit is the lower-case chunk name (block, page, id) matching the field's own label.
   ///
   /// In en, this message translates to:
-  /// **'This card takes {size} bytes per block.'**
-  String cardsEditBadLength(int size);
+  /// **'This card takes {size} bytes per {unit}.'**
+  String cardsEditBadLength(int size, String unit);
+
+  /// The MIFARE Classic edit unit, mid-sentence and lower case.
+  ///
+  /// In en, this message translates to:
+  /// **'block'**
+  String get cardsEditChunkUnitBlock;
+
+  /// The Ultralight edit unit, mid-sentence and lower case.
+  ///
+  /// In en, this message translates to:
+  /// **'page'**
+  String get cardsEditChunkUnitPage;
+
+  /// The EM410x edit unit, mid-sentence and lower case.
+  ///
+  /// In en, this message translates to:
+  /// **'id'**
+  String get cardsEditChunkUnitId;
 
   /// The typed block or page number is out of range.
   ///

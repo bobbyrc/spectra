@@ -150,14 +150,14 @@
   "@cardsReadDumping": {"description": "Progress label while a full dump is being read."},
   "cardsReadAgain": "Read again",
   "@cardsReadAgain": {"description": "Clears the result and returns to the idle screen."},
-  "cardsReadPartial": "{read} of {total} blocks could be read. Sectors with no known key are blank.",
+  "cardsReadPartial": "{read, plural, one {1 of {total} blocks could be read. Sectors with no known key are blank.} other {{read} of {total} blocks could be read. Sectors with no known key are blank.}}",
   "@cardsReadPartial": {
     "description": "Explains a partial dump.",
     "placeholders": {"read": {"type": "int"}, "total": {"type": "int"}}
   },
   "cardsReadIdentityOnly": "Spectra can show this card's identity but cannot read its memory yet.",
   "@cardsReadIdentityOnly": {"description": "Shown for a tag with no readable dump format."},
-  "cardsReadKeysFound": "Keys found for {count} sectors.",
+  "cardsReadKeysFound": "{count, plural, one {Keys found for 1 sector.} other {Keys found for {count} sectors.}}",
   "@cardsReadKeysFound": {
     "description": "How many sectors a working key was found for.",
     "placeholders": {"count": {"type": "int"}}
@@ -217,8 +217,8 @@
   "@cardsImportHint": {"description": "Explains what may be pasted."},
   "cardsImportLabel": "Exported JSON",
   "@cardsImportLabel": {"description": "Label of the paste field."},
-  "cardsImportConfirm": "Import",
-  "@cardsImportConfirm": {"description": "Confirms the import inside the sheet."},
+  "cardsImportConfirm": "Import cards",
+  "@cardsImportConfirm": {"description": "Confirms the import inside the sheet. Deliberately not the bare \"Import\" of cardsImport, which is the library screen's entry point: two different controls with the same word read as the same control."},
   "cardsImported": "{count, plural, one {Imported {count} card.} other {Imported {count} cards.}}",
   "@cardsImported": {
     "description": "Confirms how many cards were imported.",
@@ -282,11 +282,17 @@
   "@cardsEditApply": {"description": "Applies the typed bytes to the working copy."},
   "cardsEditBadHex": "That is not hex.",
   "@cardsEditBadHex": {"description": "The typed value is not a hex string."},
-  "cardsEditBadLength": "This card takes {size} bytes per block.",
+  "cardsEditBadLength": "This card takes {size} bytes per {unit}.",
   "@cardsEditBadLength": {
-    "description": "The typed value is the wrong length.",
-    "placeholders": {"size": {"type": "int"}}
+    "description": "The typed value is the wrong length. The unit is the lower-case chunk name (block, page, id) matching the field's own label.",
+    "placeholders": {"size": {"type": "int"}, "unit": {"type": "String"}}
   },
+  "cardsEditChunkUnitBlock": "block",
+  "@cardsEditChunkUnitBlock": {"description": "The MIFARE Classic edit unit, mid-sentence and lower case."},
+  "cardsEditChunkUnitPage": "page",
+  "@cardsEditChunkUnitPage": {"description": "The Ultralight edit unit, mid-sentence and lower case."},
+  "cardsEditChunkUnitId": "id",
+  "@cardsEditChunkUnitId": {"description": "The EM410x edit unit, mid-sentence and lower case."},
   "cardsEditBadIndex": "Choose a number between 0 and {last}.",
   "@cardsEditBadIndex": {
     "description": "The typed block or page number is out of range.",
