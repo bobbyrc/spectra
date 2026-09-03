@@ -158,4 +158,118 @@ void main() {
       expect(iss, contains(RegExp(r'#define AppId "\{\{[0-9A-Fa-f-]{36}\}"')));
     });
   });
+
+  group('Linux AppImage', () {
+    late String script;
+    late String desktop;
+    setUpAll(() {
+      script = _read('tool/package/linux_appimage.sh');
+      desktop = _read('tool/package/linux/spectra.desktop');
+    });
+
+    test('is executable and fails fast', () {
+      expect(_isExecutable('tool/package/linux_appimage.sh'), isTrue);
+      expect(script, contains('set -euo pipefail'));
+    });
+
+    test('runs appimagetool without FUSE', () {
+      // GitHub runners have no FUSE; the AppImage has to extract itself.
+      expect(script, contains('appimagetool'));
+      expect(script, contains('--appimage-extract-and-run'));
+    });
+
+    test('emits both the AppImage and a tarball', () {
+      expect(script, contains('linux-x86_64.AppImage'));
+      expect(script, contains('linux-x64.tar.gz'));
+    });
+
+    test('writes an AppRun that launches the landed binary name', () {
+      expect(script, contains('AppRun'));
+      expect(script, contains('spectra'));
+      expect(script, contains('usr/lib'));
+    });
+
+    test('lays out the whole bundle intact at usr/lib/spectra, not split into '
+        'usr/bin', () {
+      // A Flutter Linux bundle resolves data/ and lib/ relative to its
+      // own real executable path, not the working directory: splitting
+      // the binary out to usr/bin (leaving data/ and lib/ behind) builds
+      // but cannot launch.
+      expect(script, contains('usr/lib/spectra'));
+      expect(script, contains('HERE/usr/lib/spectra/spectra'));
+    });
+
+    test('the desktop entry uses the landed application id', () {
+      expect(desktop, contains('Name=Spectra'));
+      expect(desktop, contains('Exec=spectra'));
+      expect(desktop, contains('Categories=Utility;'));
+      expect(desktop, contains('Icon=dev.spectra.spectra'));
+    });
+
+    test('runs end to end against a fake bundle: tarball, AppDir layout, and '
+        'a graceful skip when appimagetool is absent', () async {
+      final Directory tempDir = Directory.systemTemp.createTempSync(
+        'linux_appimage_test_',
+      );
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+
+      // A minimal fake Flutter Linux bundle: binary, data/, lib/ side by
+      // side, exactly what `flutter build linux` produces.
+      final String bundlePath = '${tempDir.path}/bundle';
+      Directory('$bundlePath/data').createSync(recursive: true);
+      Directory('$bundlePath/lib').createSync(recursive: true);
+      File('$bundlePath/data/flutter_assets.txt')
+          .writeAsStringSync('fake asset\n');
+      File('$bundlePath/lib/libflutter_linux_gtk.so.txt')
+          .writeAsStringSync('fake lib\n');
+      final File executable = File('$bundlePath/spectra')
+        ..writeAsStringSync('#!/bin/sh\necho fake spectra\n');
+      Process.runSync('chmod', <String>['+x', executable.path]);
+
+      final String outDir = '${tempDir.path}/out';
+
+      final ProcessResult result = await Process.run('bash', <String>[
+        'tool/package/linux_appimage.sh',
+        bundlePath,
+        '1.0.0-test',
+        outDir,
+      ]);
+
+      expect(
+        result.exitCode,
+        0,
+        reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}',
+      );
+
+      // The tarball always lands, regardless of appimagetool.
+      expect(
+        File('$outDir/spectra-1.0.0-test-linux-x64.tar.gz').existsSync(),
+        isTrue,
+      );
+
+      // Find the AppDir the script built, from its own stdout, and check
+      // the layout the launch-path ruling requires: the whole bundle
+      // intact at usr/lib/spectra, not split into usr/bin.
+      final RegExpMatch? match = RegExp(r'wrote AppDir at (\S+)')
+          .firstMatch(result.stdout as String);
+      expect(match, isNotNull, reason: 'stdout: ${result.stdout}');
+      final String appDir = match!.group(1)!;
+      addTearDown(() => Directory(appDir).parent.deleteSync(recursive: true));
+
+      expect(File('$appDir/usr/lib/spectra/spectra').existsSync(), isTrue);
+      expect(Directory('$appDir/usr/lib/spectra/data').existsSync(), isTrue);
+      expect(Directory('$appDir/usr/lib/spectra/lib').existsSync(), isTrue);
+      expect(_read('$appDir/AppRun'), contains('usr/lib/spectra/spectra'));
+
+      // This machine (macOS, or any runner without appimagetool) must
+      // skip the AppImage step with a clear notice, not fail.
+      if (Process.runSync('which', <String>['appimagetool']).exitCode != 0) {
+        expect(result.stdout, contains('appimagetool not found on PATH'));
+        expect(
+          File('$outDir/spectra-1.0.0-test-linux-x86_64.AppImage').existsSync(),
+          isFalse,
+        );
+      }
+    }, timeout: const Timeout(Duration(seconds: 20)));
+  });
 }
