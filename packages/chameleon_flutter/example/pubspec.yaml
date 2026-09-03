@@ -1,5 +1,5 @@
 name: serial_probe
-description: "Spike A probe: enumerate serial ports via libserialport_plus."
+description: "Exercises the Spectra transports, scanners and a DeviceSession."
 publish_to: none
 resolution: workspace
 
@@ -12,7 +12,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  libserialport_plus: ^1.0.4
+  chameleon: ^0.1.0
+  chameleon_flutter: ^0.1.0
 
 dev_dependencies:
   flutter_test:

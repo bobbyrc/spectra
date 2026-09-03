@@ -8,24 +8,103 @@ from a clean CI run alone.
 
 ## H1 (after Phase 3): USB serial, BLE, handshake, slot round trip
 
-- [ ] pending: serial enumeration with the device plugged in shows VID
-      `0x6868` / PID `0x8686` and manufacturer "Proxgrind". Command:
-      `cd packages/chameleon_flutter/example && export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH" && mise x -- flutter run -d macos`,
-      then observe the port list.
-- [ ] pending: whether opening the port requires the
-      `com.apple.security.device.serial` entitlement. Both entitlements
-      files (`DebugProfile.entitlements`, `Release.entitlements`) already
-      carry it; Spike A found enumeration works without it, so also test
-      with the entitlement removed to confirm it's actually required for
-      `open()` and not just enumeration.
-      `hardware-validate`: the serial entitlement's necessity for `open()`
-      (Task 15 fills in the rest of this list's Phase 3 commands).
-- [ ] pending: control-line configuration (DTR only vs RTS/CTS+DTR/DSR) —
-      commands added in Phase 3.
-- [ ] pending: BLE connect and pairing — commands added in Phase 3.
-- [ ] pending: connect handshake on real firmware — commands added in
-      Phase 3.
-- [ ] pending: slot round trip — commands added in Phase 3.
+Run these with the Chameleon Ultra to hand — most from the Mac, a few need a
+second desktop OS or an Android device, called out per item. Report back
+what you see; the agent records the results here. Nothing below may be
+ticked from inference or from a green CI run.
+
+Set up the shell once, on whichever machine the item runs on:
+
+```bash
+cd /path/to/spectra
+export PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"
+```
+
+**Serial**
+
+- [ ] pending: **enumeration.** Plug the device in over USB, then
+      `cd packages/chameleon_flutter/example && flutter run -d macos`.
+      Expect a row reading roughly
+      `ChameleonUltra: hw_v1, fw_vN · usb · /dev/cu.usbmodemXXXX`.
+      Report the exact row, and confirm the log line shows vid=0x6868
+      pid=0x8686 mfr=Proxgrind.
+- [ ] pending: **control lines.** With the app running, set the dropdown in
+      the app bar to `dtrOnly`, tap the device row, and report whether the
+      page reaches `connection state: SessionReady`. Then go back, set the
+      dropdown to `hardwareFlowControl` and tap the row again. **Report
+      which of the two modes works** (both may). This decides the default
+      in `SerialControlLineMode`.
+- [ ] pending: **handshake.** On whichever mode worked, report the
+      `device:` and `chip id:` lines the page prints.
+- [ ] pending: **slot round trip.** On the session page, tap
+      "Rename slot 1" and report whether the last line reads
+      `slot round trip OK` or `slot round trip MISMATCH`.
+- [ ] pending: **the contract suite on hardware.** With the device attached:
+      `cd packages/chameleon_flutter && flutter test --tags hardware --run-skipped test/contract`
+      (`dart_test.yaml` marks the `hardware` tag `skip:`, so `--run-skipped`
+      is required or the suite silently reports zero tests run). Report the
+      summary line. See `test/contract/hardware_contract_test.dart` for how
+      it picks the device. To test the other control-line mode:
+      `flutter test --tags hardware --run-skipped test/contract --dart-define=SPECTRA_SERIAL_CONTROL_LINES=hardwareFlowControl`.
+- [ ] pending: **the serial entitlement.** Spike A found enumeration works
+      without `com.apple.security.device.serial`, but opening a port is
+      expected to need it. Remove that key from
+      `packages/chameleon_flutter/example/macos/Runner/DebugProfile.entitlements`,
+      re-run `flutter run -d macos`, tap the device and report whether the
+      open fails (and with what message). **Put the key back afterwards.**
+- [ ] pending: **`SerialTransport.fromPath` open on each desktop OS.** Run
+      the enumeration and control-line checks above once each on Windows and
+      Linux, not only macOS (`flutter run -d windows` /
+      `flutter run -d linux` from `packages/chameleon_flutter/example`).
+      Report the port path format and whether `open()` succeeds on each.
+- [ ] pending: **unplug mid-scan.** With two serial devices attached (a
+      second Chameleon, or any other USB-serial device), start the example,
+      confirm both rows appear, then unplug one. Report whether its row
+      disappears from the list and the other keeps working.
+- [ ] pending: **`UsbSerialAdapter.refresh()` finds the device (Android).**
+      On an Android device or emulator with USB host support,
+      `flutter run` the example with the Chameleon attached over USB-OTG;
+      report whether the row appears and, after unplugging and replugging,
+      whether it reappears (`UsbSerialAdapter.refresh()` is what re-scans).
+- [ ] pending: **Android USB permission prompt and device filter.** On the
+      same Android run, report whether the OS shows the "Allow app to
+      access USB device" prompt naming the Chameleon, and whether the
+      `device_filter.xml` (VID `0x6868`/`0x1915`, PID `0x8686`/`0x521F`)
+      correctly matches it and excludes unrelated USB devices.
+
+**BLE**
+
+- [ ] pending: **scan.** Unplug USB, press a button on the device to wake it
+      (it sleeps eight seconds after losing a connection), then
+      `flutter run -d macos` in the example. Report whether a row appears
+      with kind `ble`.
+- [ ] pending: **scan filtering.** Report whether other nearby BLE
+      peripherals (phones, headphones, etc.) show up as rows too, or only
+      Chameleon devices — `BleScanner`/`UniversalBleAdapter` are expected to
+      filter by the Chameleon service UUID.
+- [ ] pending: **connect and pairing.** Tap the BLE row. Report whether
+      macOS shows a pairing prompt, whether accepting it leads to
+      `connection state: SessionReady`, and — if it fails — the `failed:`
+      line including the `(guidance: ...)` value. This is the pairing flow
+      `BleTransport._subscribeWithPairing` drives.
+- [ ] pending: **handshake over BLE.** Report the `device:` and `chip id:`
+      lines, and whether they match the USB run.
+- [ ] pending: **MTU negotiation.** Note whether the connection is usable
+      immediately or whether early reads/writes stall or fail before
+      settling — `hardware-validate` in `ble_transport.dart` flags MTU
+      negotiation as unobservable against the fake.
+- [ ] pending: **`isPaired` on Apple.** After the pairing prompt is
+      accepted once, disconnect and reconnect (leave the app, or restart
+      it) without unpairing in System Settings. Report whether the second
+      connect skips the OS pairing prompt (i.e. `isPaired` correctly
+      reports the existing bond).
+- [ ] pending: **per-platform BLE error codes and permission mapping.**
+      With Bluetooth turned off in System Settings, tap a BLE row (or start
+      the app) and report the `failed:` line and its `(guidance: ...)`
+      value — expected `bluetoothAdapterOff`. If a second platform
+      (Windows/Linux/Android) is available, repeat there and report the
+      guidance value it maps to; compare against
+      `universal_ble_adapter.dart`'s `bleFailureFromCode`.
 
 ## H1 — wire format (verify with a device attached)
 

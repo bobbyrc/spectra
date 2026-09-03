@@ -4,4 +4,5 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    - android/**
 include: ../../../analysis_options.yaml

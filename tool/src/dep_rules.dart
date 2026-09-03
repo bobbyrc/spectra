@@ -44,12 +44,7 @@ const Map<String, Set<String>> allowlists = {
     'intl',
   },
   'spectra_ui_gallery': {'flutter', 'spectra_ui', 'material_ui', 'go_router'},
-  'serial_probe': {
-    'flutter',
-    'chameleon',
-    'chameleon_flutter',
-    'libserialport_plus',
-  },
+  'serial_probe': {'flutter', 'chameleon', 'chameleon_flutter'},
 };
 
 /// Packages any member may import from `test/` or `integration_test/`.
