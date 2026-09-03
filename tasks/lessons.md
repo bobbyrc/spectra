@@ -384,3 +384,33 @@ dated entry per lesson; keep each one actionable.
   never lets that timer fire, and the awaited future never completes. Every
   sheet test in this phase that drives a `SlotLoader`/`CardWriter` call
   through the UI follows start → pump → await, not await-then-pump.
+
+## Phase 8 (firmware update)
+
+- **`await StreamSubscription.cancel()` under a virtual/fake clock is a
+  general root-zone-future hazard, not specific to broadcast streams.**
+  Phase 4 first found this in `DeviceSession`/`CommandDispatcher`; Phase 8
+  hit the identical stall in the SDK's DFU stack (`ResponseQueue`,
+  `SecureDfu`, `DfuOrchestrator`'s reboot wait) — different classes, same
+  cause: a subscription's `cancel()` future is driven by the root zone, not
+  by `fakeAsync`'s virtual clock, so awaiting it inside a `fakeAsync` test
+  hangs forever. Treat any `await …cancel()` as suspect wherever the code
+  might run under a virtual clock, regardless of what kind of stream it is
+  cancelling — `unawaited()` it instead, with a comment saying why.
+- **Replace a stalled implementer after the second background-wait stall,
+  not the fourth.** Task 7 stalled behind a hung `flutter_tester` process
+  four separate times before a takeover happened; each stall re-confirmed
+  the same hang rather than teaching anything new. The round-4 rule from
+  Phase 6/7 ("resume, don't re-dispatch, on silence") still applies to
+  *what* replaces the agent, but the trigger for swapping in a fresh
+  implementer on a background-wait stall is the *second* recurrence, not
+  the fourth — two stalls on the same class of hang is enough signal that
+  nudging the same agent a third and fourth time won't change the outcome.
+- **A catalog arm that collapses a typed error into one shared string hides
+  screen-specific copy.** Routing the update screen's "no target" and "BLE
+  disabled" outcomes through the shared `ErrorCatalog`/`DfuError` path
+  (ruling 8-2) would have forced both into whatever generic wording the
+  catalog's fallback carries. Keep an outcome as its own typed state on the
+  screen's own controller when the screen needs to say something the
+  shared catalog was never written to say, rather than stretching one
+  catalog arm to cover it.

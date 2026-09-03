@@ -251,8 +251,10 @@ Written in Phase 8.
       check whether asking the bootloader with the GetSerialMTU opcode `0x07`
       would let it grow: the Chameleon's USB CDC bootloader reports
       `SLIP_MTU = 2051`, which by nrfutil's `(mtu - 1) // 2 - 1` is 1024 —
-      sixteen times the current chunk. `SecureDfu` has no GetSerialMTU
-      request yet.
+      sixteen times the current chunk. `SlipSerialDfuChannel.open()` now asks
+      with opcode `0x07` and sizes from the answer, capped by the transport's
+      write limit; **report the MTU the real bootloader returns and the
+      chunk it produces**, and confirm a full image transfers at that size.
 - [ ] pending: the BLE DFU write size. `BleDfuChannel` uses 20 bytes on iOS
       and macOS — CoreBluetooth does not reliably report a
       write-without-response limit — and the negotiated MTU minus three
@@ -265,6 +267,52 @@ Written in Phase 8.
       bootloader. The resume path in `SecureDfu` sends an unconditional
       Execute at the boundary it picks up from; `FakeBootloader` models it as
       harmless, which is the assumption to verify on an interrupted transfer.
+- [ ] pending: the recovery path (`?recover=`) skips `DfuOrchestrator
+      ._checkModel` by construction — there is no application-side model to
+      compare against a bootloader that is already entered. The bootloader's
+      own hardware-version check is the only backstop against flashing a Lite
+      image onto an Ultra (or vice versa) through recovery; confirm the real
+      bootloader actually refuses a mismatched package rather than accepting
+      it.
+- [ ] pending: two Chameleons attached at once. After a flash reboots the
+      device, `DfuOrchestrator._find` scans for *a* bootloader/application
+      device rather than a specific id; with a second Chameleon present,
+      post-flash reconnect may pick the wrong one. Confirm behavior with two
+      devices attached, one of them mid-flash.
+- [ ] pending: `_scanOnce` no longer awaits scanner teardown
+      (`BleScanner.stopScanning` awaits `adapter.stopScan`, but the caller no
+      longer waits for that future) — a BLE rescan may start before the
+      previous scan's stop completes. Confirm back-to-back scans (as in a
+      recovery retry) do not produce duplicate or stale results on real BLE
+      hardware.
+- [ ] pending: `DfuOrchestrator._find` times its scan with `DateTime.now()`
+      rather than a virtualized clock. Confirm `dfuScanTimeout` behaves
+      sanely (neither firing early nor hanging) on real hardware, where a
+      slow reboot and rescan are not simulated.
+
+### USB first — BLE and iOS are blocked on the flag
+
+- [ ] pending: **USB first.** Flash a real Ultra over USB from macOS with a
+      release zip downloaded by hand (`ultra-dfu-app.zip`): Tools → Firmware
+      update, paste the path, Load package, Install firmware. Expect the model
+      line to say "Built for the Chameleon Ultra", the six steps to advance in
+      order, and the app to reconnect on its own afterwards. Report the app
+      version shown on the dashboard before and after.
+- [ ] pending: a package built for the *other* model is refused before
+      anything is sent (`DfuOrchestrator._checkModel`). Try `lite-dfu-app.zip`
+      against the Ultra and confirm the failure names the mismatch and the
+      device never reboots.
+- [ ] pending: the wakelock is held and navigation is locked for the whole
+      flash (spec 5.6): the screen does not sleep, and the tab bar does not
+      navigate away mid-transfer.
+- [ ] pending: cancel mid-transfer leaves the device in the bootloader and the
+      same package finishes it on a second run (the resume path).
+- [ ] **blocked on the flag:** BLE DFU. Everything below stays untested until
+      USB DFU above passes; only then flip `dfuOverBleEnabled` (Settings, or
+      the `flag.dfuOverBleEnabled` preference) and run: BLE DFU completes;
+      then a deliberately interrupted BLE DFU is recovered over USB. iOS DFU
+      is gated with BLE — iOS has no serial transport (spec 5.4), so it has no
+      USB path of its own and must not be enabled before both BLE items pass.
 
 ## H3 (before release): the release-candidate pass (spec section 10)
 

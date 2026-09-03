@@ -43,7 +43,7 @@ The user owns one Chameleon Ultra and a Mac. The executor cannot run hardware st
 | 5 Slots | `2026-09-03-phase-5-slots.md` (done) | 7.7, 8 | Slots feature and its public slot picker API | integration test: edit and save a slot on the emulator |
 | 6 Read, library, editor, import | `2026-09-03-phase-6-cards.md` (done) | 3.5, 7.3, 7.7 | Read cards, cards library, dump editor with hex viewer, reference-app JSON import, card picker API | integration test: scan a fake card, save, edit, import fixture |
 | 7 Write and emulate | `2026-09-03-phase-7-write-emulate.md` (done) | 7.7 | Load to slot, write to card, quick emulate | integration test on emulator |
-| 8 Firmware update | `2026-09-03-phase-8-firmware-update.md` (written) | 4.5, 5.6 | Release feed, package pick, orchestrated DFU UI, recovery flow, BLE and iOS DFU behind the `dfuOverBleEnabled` flag (default off) | integration test on the fake bootloader over both channel types; H2 section written to the checklist |
+| 8 Firmware update | `2026-09-03-phase-8-firmware-update.md` (done) | 4.5, 5.6 | Local firmware package pick (no release feed in v1 — ruling 10-2; the releases URL is shown as plain text, and the feed itself moves to Phase 10), orchestrated DFU UI, recovery flow, BLE and iOS DFU behind the `dfuOverBleEnabled` flag (default off) | integration test on the fake bootloader over both channel types; H2 section written to the checklist |
 | 9 Dictionaries and settings | `2026-09-03-phase-9-dictionaries-settings.md` (written) | 7.7 | Key lists, device settings, app settings, export | integration test on emulator |
 | 10 Release | `2026-09-03-phase-10-release.md` (written) | 10 | Signing, notarization, installers, AppImage, changelog; release candidate tagged as `v1.0.0-rc.1` | CI green; artifacts built; H3 section written; final `v1.0.0` tag waits for the user's H3 report |
 
@@ -59,6 +59,6 @@ Order is fixed as listed. Phase 2 and Phase 1 do not depend on each other and ma
 - [x] Phase 5
 - [x] Phase 6
 - [x] Phase 7
-- [ ] Phase 8
+- [x] Phase 8
 - [ ] Phase 9
 - [ ] Phase 10

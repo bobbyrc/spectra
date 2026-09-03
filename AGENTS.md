@@ -124,9 +124,36 @@ the existing macOS `integration` job once it lands. Writing a physical card is
 `hardware-validate`; the write sheet carries a standing on-screen notice
 (`cardsWriteNotice`) until H3 reports otherwise.
 
-Next: Phases 8 (firmware update), 9 (dictionaries and settings) and 10
-(release) are executing concurrently — plans and ledgers exist for all
-three under `docs/superpowers/plans/` and `.superpowers/sdd/`.
+Phase 8 (firmware update) is complete (2026-09-03): firmware update over a
+local nrfutil package, both entry points. The SDK closed the two gaps
+Phase 3 parked — `DfuOrchestrator` no longer lets a pre-stream failure
+escape `run()` as a raw stream error, and `SecureDfu`/`SlipSerialDfuChannel`
+now query `GetSerialMTU` (opcode `0x07`) and size serial writes from the
+answer instead of a fixed 64 bytes; the DFU stack no longer `await`s
+`StreamSubscription.cancel()` (the same root-zone-future hazard Phase 4
+found in `DeviceSession`/`CommandDispatcher`, this time in
+`ResponseQueue`/`SecureDfu`/the reboot wait). `chameleon_flutter` gained the
+negotiated serial write size end to end, and both DFU channels flash the
+fake bootloader in tests. `app/lib/core/dfu/` is the runtime that decides
+which channel and scanners a run uses (`dfuActivityProvider`,
+`dfuChannelOpenerProvider`, `dfuScannersProvider`); `features/tools/state/
+update_controller.dart`'s `UpdateController` drives `DfuOrchestrator` and
+reports phase/progress/cancellation; routing locks to the update screen and
+the wakelock holds for the whole flash (spec 5.6, via `redirectFor`'s
+`updating` parameter, which outranks connection state so the bootloader-only
+recovery path is never routed away from). The update screen
+(`features/tools/ui/update_page.dart`) covers package pick, run and
+recovery, entered from a connected device or from the connect screen's
+`?recover=` link. USB DFU is enabled; BLE and iOS stay behind
+`dfuOverBleEnabled` (still off) until hardware handoff H2 reports USB DFU
+and recovery passing (spec 5.6). Gate green:
+`app/test/flows/firmware_update_flow_test.dart` (every CI job) and its
+`app/integration_test/firmware_update_flow_test.dart` twin (existing macOS
+`integration` job). Next: Phase 9.
+
+Next: Phases 9 (dictionaries and settings) and 10 (release) are executing
+concurrently — plans and ledgers exist for both under
+`docs/superpowers/plans/` and `.superpowers/sdd/`.
 
 Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
 "Decisions made overnight" below.
@@ -166,6 +193,53 @@ Execute plans with superpowers:subagent-driven-development. Hardware steps
 need the user's device and never block progress: build against the fake,
 keep `docs/hardware-checklist.md` current, and gate BLE and iOS DFU behind
 the `dfuOverBleEnabled` flag until the user reports the checks passed.
+
+## Decisions made overnight (2026-09-03, Phase 8)
+
+- Ruling 8-1: `archive` and `crypto` are added to `chameleon_flutter`'s
+  test-only dependency allowlist in `tool/src/dep_rules.dart` (+
+  `dep_rules_test.dart`) — a DFU test fixture needs them, and dep-lint
+  otherwise treats any non-production import as a violation. Test-only,
+  never production.
+- Ruling 8-2: the update controller's "no target" and "BLE disabled" cases
+  are typed `UpdateState`, not `DfuError` routed through the shared error
+  catalog — collapsing a typed error into one catalog string would have
+  hidden screen-specific copy the update screen needs (see the lessons.md
+  entry on this).
+- Ruling 8-3: the update screen's step index is recovery-aware. It maps the
+  orchestrator's `DfuPhase` to a step rather than always starting at step
+  one, so entering through `?recover=` (no preceding "connecting"/"checking
+  model" phases) starts the stepper at the phase the orchestrator actually
+  reports instead of replaying phases that never happened.
+- Ruling 8-4: `app/test/support/dfu_test_support.dart` is a shared test
+  harness (fake bootloader wiring, provider overrides) built once and
+  reused by every DFU-touching test file rather than duplicated per test.
+- Ruling 8-5: dictated-but-unused imports found in review are stripped as
+  part of the same fix round, not left for a later pass.
+- Ruling 8-6: the wakelock test is rewritten to assert the wakelock during
+  *recovery*, not only the ordinary connected-device flash — the two entry
+  points are different code paths and both had to be covered.
+- Ruling 8-7: the update screen's third routing test drives
+  `/tools/update` directly with no session, covering the entry point that
+  has no prior connect step (recovery) rather than only the connected one.
+- Ruling 8-8: the ARB file's edit order is serialized across concurrent
+  phases — Phase 7 Task 9, then Phase 8 Task 9, then Phase 9 Task 6 onward —
+  so simultaneous ARB edits from different phases don't race.
+- Ruling 8-9 / 10-2: the release feed is deferred to Phase 10; Phase 8
+  ships local package selection only, with the official releases URL shown
+  as plain text. See `docs/research/DECISIONS.md`, Phase 8, for the three
+  reasons; this also corrects the roadmap's Phase 8 deliverable text, which
+  had listed a release feed.
+- Ruling 8-10: Task 9 does not touch `core/errors/`; the dedicated
+  `updateNoTarget`/`updateBleDisabled` catalog wiring was left for Task 10
+  (and the fix wave) once both Task 7 and Task 9 had landed, rather than
+  having Task 9 guess at catalog shape ahead of its consumers.
+- Ruling 8-11: a failed flash on the *connected-device* entry point also
+  disconnects the session (`Sessions.disconnect` on the failure path), so
+  `SessionUpdating` doesn't pin the router to the update screen after a
+  failure the way it correctly does mid-flash. The recovery entry point is
+  unaffected — there is no session to disconnect — so its target still
+  stays on the update screen (Tools -> Update -> Recover) after a failure.
 
 ## Decisions made overnight (2026-09-03, Phase 7)
 
@@ -293,10 +367,20 @@ the `dfuOverBleEnabled` flag until the user reports the checks passed.
   uses it so widget tests do not need a multi-second pump.
 - The SDK's `DeviceSession`/`CommandDispatcher` no longer `await`
   `StreamSubscription.cancel()` — that future never completes under a
-  `fakeAsync`/virtual clock, and doing so hung teardown paths. Note for the
-  next phase that touches these: `chameleon_flutter` still has `await
-  …cancel()` sites (`merged_scan`, `state_stream`, the DFU channels) that
-  will need the same fix before widget tests reach them.
+  `fakeAsync`/virtual clock, and doing so hung teardown paths; this is a
+  root-zone-future hazard, not specific to broadcast streams. Phase 8 fixed
+  the same hazard in the SDK's DFU stack (`ResponseQueue`, `SecureDfu`, the
+  reboot wait in `DfuOrchestrator`), so as of Phase 8 the whole `packages/
+  chameleon` SDK is clear of it (verify with `grep -rn "await.*\.cancel()"
+  packages/chameleon/lib` — the one hit left, in `secure_dfu.dart`, awaits
+  `ResponseQueue.cancel()`, which itself wraps its subscription's cancel in
+  `unawaited`, so it is safe). `chameleon_flutter` still has `await
+  …cancel()` sites — `merged_scan.dart`, `ble/ble_scanner.dart`,
+  `ble/universal_ble_adapter.dart`, `serial/libserialport_adapter.dart`,
+  `serial/usb_serial_adapter.dart`, and (unfixed by Phase 8, which only
+  fixed the SDK's DFU stack) `dfu/ble_dfu_channel.dart`'s `close()` and
+  `dfu/slip_serial_dfu_channel.dart`'s `close()` — that will need the same
+  fix before widget tests reach them under a virtual clock.
 - `FakeDevice.open()` is single-use (a Phase 3 decision); Phase 4 always
   constructs a new `DeviceSession` per connect attempt rather than reusing
   one across attempts.

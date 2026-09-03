@@ -700,5 +700,53 @@ dump formats and DFU. Rulings taken while executing
   `hardware-validate` in the SDK doc comment and carried to checklist H3
   rather than treated as ground truth (ruling 21).
 
+## Phase 8 (firmware update)
+
+- **Firmware packages are local-zip only in v1; the release feed moves to
+  Phase 10.** Spec 7.7 step 6 lists "release feed check, download or local
+  zip" as one step. Phase 8 ships only the local path: the user pastes or
+  types the path of an nrfutil `.zip` (`ultra-dfu-app.zip`,
+  `lite-dfu-app.zip`, `*-dfu-full.zip`), and the update screen names the
+  official releases URL as plain text so they know where to get one — no
+  in-app fetch. Three reasons:
+  1. The app has no HTTP dependency and no network/telemetry policy yet;
+     spec 2's dependency table does not list one, and adding one is a
+     release-phase decision (signing, update channels).
+  2. Spec 5.6's recovery guarantee is about completing an update from a
+     desktop over USB with a package already in hand — a feed cannot be a
+     prerequisite for that.
+  3. Hardware handoff H2 is run against a real release zip the user
+     downloads by hand anyway, so the local path is exercised regardless.
+
+  The release feed and in-app download are Phase 10 (release) work,
+  alongside signing and update channels (ruling 10-2; this also corrects
+  the Phase 8 row of the roadmap, which had listed a release feed as a
+  Phase 8 deliverable).
+- **`GetSerialMTU` negotiation closes the Phase 3 gap.** Phase 3 parked
+  serial DFU at a conservative fixed `maxDataWrite` because `SecureDfu` had
+  no MTU query. Phase 8 adds `DfuOp.getSerialMtu` (opcode `0x07`) and
+  `DfuSerialMtu` (`packages/chameleon/lib/src/dfu/serial_mtu.dart`):
+  `SlipSerialDfuChannel.open()` sends the bare opcode, reads a
+  little-endian uint16 MTU back, and sizes its chunk as `(mtu - 1) // 2 - 1`
+  — halved because SLIP escaping can double a payload, so a worst-case
+  frame still fits the bootloader's buffer. Layout and arithmetic are taken
+  from nrfutil's `dfu_transport_serial.py` (`DfuTransportSerial.open` /
+  `__get_mtu`). A bootloader that does not implement the opcode (the BLE
+  one) answers "opcode not supported", which `DfuSerialMtu.parse` treats as
+  a normal, non-error outcome, not a failure. The real bootloader's
+  reported MTU and resulting chunk size are unverified — checklist H2.
+- **A flash in flight outranks connection state for routing.**
+  `dfuActivityProvider` (`app/lib/core/dfu/dfu_runtime.dart`) is a bare
+  `bool` set for the duration of a run; `redirectFor` in
+  `app/lib/core/routing/redirect.dart` takes an `updating` parameter that,
+  when true, pins navigation to `AppRoutes.update` before the connection-
+  state switch ever runs. This is deliberate: the recovery path (spec 5.6)
+  has no session at all — nothing is connected, the device sits in its
+  bootloader — so the ordinary "no session -> connect screen" redirect
+  would otherwise throw the user off the one screen that can finish the
+  flash. `RouterRefresh` listens to `dfuActivityProvider` the same way it
+  listens to connection state, so a flash starting or finishing triggers a
+  re-evaluation immediately.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).
