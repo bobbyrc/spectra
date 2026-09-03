@@ -79,3 +79,13 @@ jobs:
       - run: flutter pub get
       - run: ${{ matrix.cmd }}
         working-directory: ${{ matrix.workdir || 'app' }}
+      # TEMPORARY (Spike A): prove the code-assets build hook actually
+      # produced a libserialport native asset, not just a green build.
+      - if: matrix.workdir != ''
+        shell: bash
+        working-directory: ${{ matrix.workdir }}
+        run: |
+          echo "native assets produced:"
+          found=$(find build -iname '*serialport*' -print)
+          echo "$found"
+          test -n "$found"
