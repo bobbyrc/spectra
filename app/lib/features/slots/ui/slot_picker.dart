@@ -22,33 +22,34 @@ import '../state/slot_views_provider.dart';
 /// - It resolves to null on dismissal, and callers must handle that: it is
 ///   the normal way out of the sheet, not an error.
 /// - [isSelectable] filters what may be chosen — an unselectable slot is
-///   still shown, greyed and untappable, so the user can see why a slot is
+///   still shown, and still reads exactly as the device has it (enabled,
+///   active), but it cannot be tapped, so the user can see why a slot is
 ///   not on offer. Pass, say, `(v) => v.slot.hfType.family ==
 ///   TagFamily.mifareClassic` to restrict a MIFARE Classic write target.
+/// - There is no "currently selected" slot: the sheet shows the device's
+///   own state and nothing else. Phase 7 may add a selected affordance to
+///   `SpectraSlotTile` if a caller turns out to need one.
 /// - With nothing connected the sheet shows the empty state and can only be
 ///   dismissed; it never opens a session of its own.
 /// - It changes nothing on the device. Choosing a slot is a choice, not a
 ///   write — the caller does the write.
 Future<int?> showSlotPicker(
   BuildContext context, {
-  int? initialIndex,
   bool Function(SlotView slot)? isSelectable,
 }) {
   final AppLocalizations l10n = AppLocalizations.of(context);
   return SpectraBottomSheet.show<int>(
     context: context,
     title: l10n.slotPickerTitle,
-    builder: (BuildContext context) =>
-        SlotPicker(initialIndex: initialIndex, isSelectable: isSelectable),
+    builder: (BuildContext context) => SlotPicker(isSelectable: isSelectable),
   );
 }
 
 /// The picker's body, for a caller that wants it inline rather than modal.
 /// Pops the enclosing route with the chosen wire index.
 class SlotPicker extends ConsumerWidget {
-  const SlotPicker({this.initialIndex, this.isSelectable, super.key});
+  const SlotPicker({this.isSelectable, super.key});
 
-  final int? initialIndex;
   final bool Function(SlotView slot)? isSelectable;
 
   @override
@@ -69,12 +70,15 @@ class SlotPicker extends ConsumerWidget {
         itemBuilder: (BuildContext context, int i) {
           final SlotView view = views[i];
           final bool selectable = isSelectable?.call(view) ?? true;
+          // The tile reports the device's state; being unselectable is
+          // this caller's restriction, not the slot's, so it costs the
+          // tile its tap and nothing else.
           return SpectraSlotTile(
             number: view.number,
-            enabled: view.isEnabled && selectable,
+            enabled: view.isEnabled,
             nickname: view.nickname,
             tagTypes: slotTypeLabels(view, l10n),
-            active: view.index == (initialIndex ?? -1) || view.isActive,
+            active: view.isActive,
             onTap: selectable
                 ? () => Navigator.of(context).pop(view.index)
                 : null,

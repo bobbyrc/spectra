@@ -125,4 +125,48 @@ void main() {
       await pending;
     },
   );
+
+  testWidgetsApp('an unselectable slot keeps the device\'s active marker', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(testApp(transport: (_) => FakeDevice()));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+
+    final BuildContext context = tester.element(find.byType(SlotsPage));
+    // Slot 0 is the device's active slot; this caller cannot use it.
+    final Future<int?> pending = showSlotPicker(
+      context,
+      isSelectable: (SlotView v) => v.index != 0,
+    );
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    final Finder sheetTiles = find.descendant(
+      of: find.byType(SpectraBottomSheet),
+      matching: find.byType(SpectraSlotTile),
+    );
+    final SpectraSlotTile first = tester
+        .widgetList<SpectraSlotTile>(sheetTiles)
+        .first;
+    expect(first.onTap, isNull, reason: 'not on offer to this caller');
+    expect(first.active, isTrue, reason: 'still the active slot');
+    expect(first.enabled, isTrue);
+    expect(
+      find.descendant(of: sheetTiles.first, matching: find.text('Disabled')),
+      findsNothing,
+      reason: 'unselectable is this caller\'s restriction, not the slot\'s',
+    );
+
+    await tester.tap(find.byIcon(Icons.close));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await pending;
+  });
 }
