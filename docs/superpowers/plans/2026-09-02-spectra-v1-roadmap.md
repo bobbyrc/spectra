@@ -37,7 +37,7 @@ The user owns one Chameleon Ultra and a Mac. The executor cannot run hardware st
 |---|---|---|---|---|
 | 0 Foundation | `2026-09-02-phase-0-foundation.md` (written) | 2, 11 | Toolchain pinned, workspace with four package skeletons, melos scripts, dependency lint, codegen check, CI with debug build matrix, two spikes recorded | CI green on a pull request; `docs/research/spikes.md` has both spike verdicts; spec 5.2 and 6 amended if a spike chose a fallback |
 | 1 SDK | `2026-09-02-phase-1-chameleon-sdk.md` (written) | 3, 4, 8.1, 8.2, 9 (error types), 10 | `packages/chameleon`: codec, commands, errors, models, transport interface, FakeDevice across the firmware matrix, dispatcher, session state machine, cache, lease, facades, dump formats, DfuPackage, SecureDfu, DfuOrchestrator | `dart test` green with coverage report; every spec 4.3 behavior has a named test |
-| 2 Design system | write from spec 6, 7.6, 8.5 | 6, 7.6 | `packages/spectra_ui`: tokens, SpectraTheme, material_ui bridge, every 6.2 component with light and dark goldens, gallery example, ARB wiring | goldens pass on CI; gallery runs on macOS in emulator-free mode |
+| 2 Design system | `2026-09-03-phase-2-design-system.md` (done) | 6, 7.6 | `packages/spectra_ui`: tokens, SpectraTheme, material_ui bridge, every 6.2 component with light and dark goldens, gallery example, ARB wiring | goldens pass on CI; gallery runs on macOS in emulator-free mode |
 | 3 Transports | write from spec 5, 4.1, 4.2 | 5 | `packages/chameleon_flutter`: BLE transport, serial transport, scanners, BleDfuChannel, SlipSerialDfuChannel, permission and pairing states, platform setup files, contract suite | contract suite green against FakeDevice; H1 section written to docs/hardware-checklist.md |
 | 4 App shell and connect | write from spec 7.1-7.5, 8.3, 8.4, 9 | 7, 8, 9 | `app`: core (session family, active device, routing on connectionState, lifecycle, error catalog, frame log), data layer (Drift, known devices), emulator mode, connect screen with identity merge, dashboard, bootloader recovery entry | integration test: connect to emulator, see dashboard, disconnect, reconnect |
 | 5 Slots | write from spec 7.7 step 2, 8.3 | 7.7, 8 | Slots feature and its public slot picker API | integration test: edit and save a slot on the emulator |
@@ -53,7 +53,7 @@ Order is fixed as listed. Phase 2 and Phase 1 do not depend on each other and ma
 
 - [x] Phase 0
 - [ ] Phase 1
-- [ ] Phase 2
+- [x] Phase 2
 - [ ] Phase 3
 - [ ] Phase 4
 - [ ] Phase 5

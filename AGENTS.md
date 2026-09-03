@@ -17,6 +17,13 @@ package spikes are done and merged to `bobbyrc/chinook`.
 - Spike B: build `spectra_ui` on `material_ui` 1.1.1; no `ThemeData` bridge
   file needed; spec section 6 amended to match.
 
+Phase 2 (`packages/spectra_ui`) is complete (2026-09-03): tokens and
+`SpectraTheme` on `material_ui` 1.1.1, every spec 6.2 component with CI
+goldens that obscure text and verify layout/colour/shape, the string
+literal lint live, ARB localization, and a component gallery that builds
+on macOS. Phase 1 (`packages/chameleon`) is in progress, running
+concurrently on the same branch.
+
 Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
 "Decisions made overnight" below.
 
@@ -32,8 +39,8 @@ Plans, in `docs/superpowers/plans/`:
   (complete).
 - `2026-09-02-phase-1-chameleon-sdk.md`: the pure-Dart SDK, task by task.
   Next step.
-- `2026-09-03-phase-2-design-system.md`: the design system on `spectra_ui`.
-  Next step; can run in parallel with Phase 1.
+- `2026-09-03-phase-2-design-system.md`: the design system on `spectra_ui`
+  (complete).
 - Phases 3 to 10: write each plan with the writing-plans skill from the spec
   sections the roadmap lists, when that phase starts.
 
@@ -47,6 +54,10 @@ the `dfuOverBleEnabled` flag until the user reports the checks passed.
 - Draft PR #1 opened from `bobbyrc/chinook` to `main` so `pull_request` CI
   runs on every push; close or convert when reviewing.
 - Spec section 6 amended by Spike B: no `ThemeData` bridge file.
+- Goldens are alchemist CI-mode only (text obscured); platform goldens are
+  opt-in via SPECTRA_PLATFORM_GOLDENS and git-ignored.
+- Fonts are vendored (Inter 4.1 static weights, JetBrains Mono 2.304) under
+  packages/spectra_ui/assets/google_fonts with their OFL licenses.
 
 ## Decisions already made (do not re-ask)
 
@@ -62,6 +73,10 @@ the `dfuOverBleEnabled` flag until the user reports the checks passed.
   cards, firmware update (DFU), dictionaries and settings.
 - Toolchain versions are pinned with mise (not FVM). Target Flutter 3.47.x
   stable / Dart 3.13; upgrade via mise before scaffolding.
+- UI imports: inside `spectra_ui`, its gallery and `app/lib/features`, import
+  `package:material_ui/material_ui.dart`, never `package:flutter/material.dart`.
+  The two libraries declare the same names and an unprefixed dual import is a
+  compile error.
 
 Full detail and research-derived package recommendations that still need
 approval: `docs/research/DECISIONS.md`.

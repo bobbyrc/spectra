@@ -65,5 +65,33 @@ Status: design approved in brainstorm; spec at docs/superpowers/specs/2026-09-02
   push to the branch, without merging early or blocking on review. Close or
   convert to ready when the branch is actually ready to merge.
 
+## Phase 2 decisions (2026-09-03)
+
+- **material_ui import convention.** `spectra_ui`, its gallery and
+  `app/lib/features` import `package:material_ui/material_ui.dart` and never
+  `package:flutter/material.dart`; the two declare the same names and an
+  unprefixed dual import is an `ambiguous_import` error. No in-SDK `ThemeData`
+  bridge is written (Spike B: go_router 18.0.1 already depends on material_ui,
+  alchemist 0.14.0 needs no wrapper). `spectraThemeData()` maps Spectra tokens
+  onto material_ui's own `ThemeData` instead.
+- **Goldens policy.** Alchemist CI goldens only (`test/goldens/ci/`), generated
+  with `melos run goldens:update` (or `flutter test --update-goldens` in the
+  package). Platform goldens are disabled unless `SPECTRA_PLATFORM_GOLDENS=true`
+  and their directories are git-ignored, so macOS-rendered images can never be
+  committed. Goldens run in the existing Ubuntu `check` job via
+  `melos run test:flutter`; no extra CI job.
+- **Font fallback.** One variable sans (Inter) and one mono (JetBrains Mono),
+  both bundled under `packages/spectra_ui/assets/google_fonts/` with
+  `GoogleFonts.config.allowRuntimeFetching = false`. Production is offline
+  capable; tests do not await the async font load, so golden text renders in
+  flutter_test's Ahem and is identical on every platform.
+- **Localization.** The kit owns an ARB catalog for its own strings
+  (`SpectraUiLocalizations`), generated with `flutter gen-l10n` into
+  `lib/l10n/` and committed; `tool/check_codegen.sh` fails when it goes stale.
+  A textual lint (`tool/src/string_rules.dart`, rule `no-literal-text`) fails
+  on string literals passed to `Text(` under
+  `packages/spectra_ui/lib/src/components/` and `app/lib/features/**/ui/`,
+  with `// l10n-exempt` for genuinely non-user-facing text.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).

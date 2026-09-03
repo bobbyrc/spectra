@@ -40,3 +40,51 @@ dated entry per lesson; keep each one actionable.
 - **Poll CI with `gh run watch`, not long blind waits.** For draft-PR CI
   verification, `gh run watch <run-id>` (or `gh run list` before it) gives
   timely status without a TaskOutput-style long sleep.
+
+## 2026-09-03 (Phase 2: spectra_ui)
+
+- **`material_ui` vs `package:flutter/material.dart` import clash.** Both
+  declare `ThemeData`, `Theme`, `MaterialApp`, `MaterialPage`, etc.
+  unprefixed. Import `package:material_ui/material_ui.dart` everywhere in
+  `spectra_ui`, its gallery and `app/lib/features`; never the in-SDK
+  Material import. Drop to `package:flutter/widgets.dart` when only
+  widgets-layer types are needed.
+- **Alchemist CI goldens obscure text.** CI-mode goldens render text as
+  block glyphs so they render identically on macOS and Ubuntu; they verify
+  layout, colour and shape, not typography. Cover typography with token
+  unit tests instead, and generate/update goldens only with
+  `melos run goldens:update` (alchemist's CI mode), never a platform run.
+- **`AlchemistConfig.current()` must be captured in `main()`, not inside a
+  test body.** Calling it per-test re-reads ambient state race-prone across
+  parallel test isolates; set it once at suite startup.
+- **`flutter_animate` indeterminate/looping animations break
+  `pumpAndSettle`.** A widget with a repeating animation never settles.
+  Use a bounded `pump(duration)` sequence, or drive the widget with
+  `initiallyExpanded: true` so the test never has to pump through the
+  animation.
+- **`Semantics` merging needs `container: true`/`explicitChildNodes` for
+  separate nodes.** Without one of these, a wrapping `Semantics` merges
+  into its child's node instead of producing its own, and semantics
+  assertions silently pass or fail on the wrong node.
+- **Use `HitTestBehavior.opaque` for tappable rows.** A `GestureDetector`
+  wrapping a row with transparent gaps (e.g. padding, spacers) misses taps
+  in those gaps under the default `HitTestBehavior.deferToChild`; opaque
+  behavior makes the whole row's bounds tappable, which is what a tap test
+  and a real user both expect.
+- **`dart format` only your own package when working concurrently.** A
+  repo-wide `dart format .` reformats a concurrent implementer's
+  in-progress, uncommitted files in another package and manufactures merge
+  noise. Format only the directory you are actually changing.
+- **`git add --intent-to-add` per pattern, not per file.** When staging
+  generated files whose paths aren't known ahead of time (`*.g.dart`,
+  `*_localizations*.dart`), add `--intent-to-add` per glob pattern so a
+  plain `git diff` (which ignores untracked files) still catches newly
+  generated, never-before-committed output as stale.
+- **`mise x --` can race on this Mac.** It sometimes resolves the fvm Dart
+  (3.8.1) instead of mise's pinned Flutter Dart (3.13.2) when invoked
+  repeatedly in the same session, especially under concurrent shell
+  activity. Prefer exporting
+  `PATH="$(mise where flutter)/bin:$HOME/.pub-cache/bin:$PATH"` and setting
+  `MISE_X=""` for `tool/check_codegen.sh` so it uses the exported `PATH`
+  directly instead of re-resolving through `mise x --`; this is what CI
+  already does.
