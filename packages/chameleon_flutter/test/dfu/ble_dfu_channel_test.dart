@@ -159,4 +159,178 @@ void main() {
     );
     await adapter.dispose();
   });
+
+  group('open() maps every BleFailure and disconnects quietly first', () {
+    const cases = <BleFailure, Type>{
+      BleFailure.permissionDenied: PermissionDenied,
+      BleFailure.adapterOff: AdapterOff,
+      BleFailure.insufficientAuthentication: PairingRequired,
+      BleFailure.deviceNotFound: DeviceNotFound,
+      BleFailure.timeout: DeviceNotFound,
+      BleFailure.disconnected: Disconnected,
+      BleFailure.writeFailed: Disconnected,
+      BleFailure.unknown: Disconnected,
+    };
+
+    for (final entry in cases.entries) {
+      test('${entry.key.name} -> ${entry.value}', () async {
+        final adapter = FakeBleAdapter()..failDiscoverWith = entry.key;
+        final channel = build(adapter);
+        await expectLater(
+          channel.open(),
+          throwsA(
+            isA<TransportError>().having(
+              (e) => e.runtimeType,
+              'runtimeType',
+              entry.value,
+            ),
+          ),
+        );
+        // _mapFailure ran and open() disconnected quietly before the
+        // error surfaced — mirrors BleTransport's `_reportFailure` then
+        // `_disconnectQuietly` ordering.
+        expect(adapter.disconnected, isTrue);
+        await channel.close();
+        await adapter.dispose();
+      });
+    }
+  });
+
+  test(
+    'a writeControl failure maps the error and closes the channel quietly',
+    () async {
+      final adapter = FakeBleAdapter()..failWriteWith = BleFailure.writeFailed;
+      final channel = build(adapter);
+      await channel.open();
+      final errors = <Object>[];
+      var done = false;
+      channel.responses.listen(
+        (_) {},
+        onError: errors.add,
+        onDone: () => done = true,
+      );
+      await expectLater(
+        channel.writeControl(Uint8List.fromList(const [1])),
+        throwsA(isA<Disconnected>()),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(errors, [isA<Disconnected>()]);
+      expect(done, isTrue);
+      // The channel is closed, not merely the one failed write.
+      await expectLater(
+        channel.writeData(Uint8List.fromList(const [1])),
+        throwsA(isA<Disconnected>()),
+      );
+      await adapter.dispose();
+    },
+  );
+
+  test(
+    'a writeData failure maps the error and closes the channel quietly',
+    () async {
+      final adapter =
+          FakeBleAdapter(mtu: 23) // -> 20 bytes
+            ..failWriteWith = BleFailure.insufficientAuthentication;
+      final channel = build(adapter);
+      await channel.open();
+      final errors = <Object>[];
+      var done = false;
+      channel.responses.listen(
+        (_) {},
+        onError: errors.add,
+        onDone: () => done = true,
+      );
+      await expectLater(
+        channel.writeData(Uint8List.fromList(const [1])),
+        throwsA(isA<PairingRequired>()),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(errors, [isA<PairingRequired>()]);
+      expect(done, isTrue);
+      await expectLater(
+        channel.writeControl(Uint8List.fromList(const [1])),
+        throwsA(isA<Disconnected>()),
+      );
+      await adapter.dispose();
+    },
+  );
+
+  test(
+    'a link that drops while open() is still connecting fails with '
+    'Disconnected, disconnects quietly and leaves no subscriptions behind',
+    () async {
+      final adapter = _DropsDuringConnect();
+      final channel = build(adapter);
+      final errors = <Object>[];
+      var done = false;
+      channel.responses.listen(
+        (_) {},
+        onError: errors.add,
+        onDone: () => done = true,
+      );
+      await expectLater(channel.open(), throwsA(isA<Disconnected>()));
+      await Future<void>.delayed(Duration.zero);
+      expect(errors, [isA<Disconnected>()]);
+      expect(done, isTrue);
+      expect(adapter.disconnected, isTrue);
+      // Nothing may still be feeding responses after open gave up.
+      adapter.emitNotification(NordicDfuUuids.controlPoint, const [9, 9]);
+      await Future<void>.delayed(Duration.zero);
+      await channel.close();
+      await adapter.dispose();
+    },
+  );
+
+  test(
+    'a link that drops mid-handshake fails open with Disconnected',
+    () async {
+      final adapter = _DropsOnSubscribe();
+      final channel = build(adapter);
+      final errors = <Object>[];
+      var done = false;
+      channel.responses.listen(
+        (_) {},
+        onError: errors.add,
+        onDone: () => done = true,
+      );
+      await expectLater(channel.open(), throwsA(isA<Disconnected>()));
+      await Future<void>.delayed(Duration.zero);
+      expect(errors, [isA<Disconnected>()]);
+      expect(done, isTrue);
+      await channel.close();
+      await adapter.dispose();
+    },
+  );
+}
+
+/// Drops the link the instant [connect] is called, before it resolves —
+/// only catchable because [BleDfuChannel.open] subscribes to
+/// [FakeBleAdapter.connectionChanges] before calling [connect], exactly as
+/// [BleTransport] does.
+base class _DropsDuringConnect extends FakeBleAdapter {
+  @override
+  Future<void> connect(String deviceId, {Duration? timeout}) async {
+    emitDisconnect();
+    await Future<void>.delayed(Duration.zero);
+    return super.connect(deviceId, timeout: timeout);
+  }
+}
+
+/// Drops the link while the handshake is still running, which no scripted
+/// field on the fake can express.
+base class _DropsOnSubscribe extends FakeBleAdapter {
+  @override
+  Future<void> subscribe(
+    String deviceId, {
+    required String service,
+    required String characteristic,
+  }) async {
+    emitDisconnect();
+    await Future<void>.delayed(Duration.zero);
+    return super.subscribe(
+      deviceId,
+      service: service,
+      characteristic: characteristic,
+    );
+  }
 }

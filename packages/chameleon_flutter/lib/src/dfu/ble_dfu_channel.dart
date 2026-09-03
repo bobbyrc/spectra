@@ -23,6 +23,10 @@ import '../host_platform.dart';
 /// Single use, like [BleTransport]: a closed channel does not reopen; make
 /// a new one. Writes are serialised, one at a time, in call order.
 ///
+/// [responses] is a broadcast stream: subscribe before the first write, as
+/// [SecureDfu]'s `ResponseQueue` does, or notifications sent before the
+/// subscription is in place are lost.
+///
 /// hardware-validate: the real DFU characteristics, the 20-byte Apple
 /// limit and the bootloader's response to [BleAdapter.requestMtu]. Gated
 /// behind the `dfuOverBleEnabled` flag until hardware handoff H2 passes.
@@ -47,6 +51,12 @@ final class BleDfuChannel implements DfuChannel {
   final int requestedMtu;
   final int appleMaxWrite;
 
+  /// Broadcast: subscribe before the first write, exactly as
+  /// [SecureDfu]'s `ResponseQueue` does. A late subscriber misses whatever
+  /// notifications already arrived.
+  @override
+  Stream<Uint8List> get responses => _responses.stream;
+
   final StreamController<Uint8List> _responses =
       StreamController<Uint8List>.broadcast();
 
@@ -60,9 +70,6 @@ final class BleDfuChannel implements DfuChannel {
   @override
   int get maxDataWrite => _maxDataWrite;
 
-  @override
-  Stream<Uint8List> get responses => _responses.stream;
-
   /// Connects, discovers, subscribes to the control point and settles the
   /// write size. Must be awaited before any write. A single attempt — the
   /// orchestrator already scanned and retries are its business.
@@ -71,6 +78,12 @@ final class BleDfuChannel implements DfuChannel {
     if (_closed) {
       throw const Disconnected('this DFU channel was closed; make a new one');
     }
+    // Watch the link before asking for it, so a drop during the handshake
+    // is never missed. hardware-validate: universal_ble must deliver
+    // connection changes for a device that is not connected yet.
+    _connectionSub = _adapter.connectionChanges(deviceId).listen((connected) {
+      if (!connected) _dropped();
+    }, onError: (Object _) => _dropped());
     try {
       await _adapter.connect(deviceId);
       await _adapter.discoverServices(deviceId);
@@ -82,9 +95,16 @@ final class BleDfuChannel implements DfuChannel {
       _maxDataWrite = await _resolveWriteSize();
     } on BleAdapterException catch (e) {
       final error = _mapFailure(e);
+      unawaited(_connectionSub?.cancel());
+      _connectionSub = null;
       await _disconnectQuietly();
       throw error;
     }
+
+    // The link can drop while the handshake is still running; _dropped()
+    // has already closed us in that case and open must not paper over it,
+    // nor leave a notify subscription feeding a closed channel.
+    if (_closed) await _abortOpen();
 
     _notifySub = _adapter
         .notifications(
@@ -105,16 +125,33 @@ final class BleDfuChannel implements DfuChannel {
             }
           },
         );
-    _connectionSub = _adapter.connectionChanges(deviceId).listen((connected) {
-      if (!connected) _dropped();
-    }, onError: (Object _) => _dropped());
     _open = true;
+  }
+
+  /// The link dropped while [open] was still connecting, discovering or
+  /// subscribing: mirrors [BleTransport]'s `_abortOpen`. [_dropped] has
+  /// already cancelled the subscriptions and failed [responses]; this only
+  /// lets go of the half-open link and turns the drop into the error [open]
+  /// throws.
+  Future<Never> _abortOpen() async {
+    await _disconnectQuietly();
+    throw const Disconnected('the BLE link dropped while opening');
   }
 
   /// The link dropped after [open] succeeded: surfaces as a [Disconnected]
   /// error on [responses], then the stream closes. Mirrors [BleTransport]'s
   /// `_dropped`, minus the state machine this channel has none of.
   void _dropped() {
+    if (_closed) return;
+    _fail(const Disconnected('the BLE link dropped'));
+  }
+
+  /// Reports [error] on [responses], then closes the channel quietly:
+  /// mirrors [BleTransport]'s write-failure path (`_reportFailure`/
+  /// `_finish`, without a further disconnect — the failure already means
+  /// the link is gone). Idempotent; a caller past the first failure gets
+  /// [Disconnected] from the closed-channel guards.
+  void _fail(TransportError error) {
     if (_closed) return;
     _closed = true;
     _open = false;
@@ -123,7 +160,7 @@ final class BleDfuChannel implements DfuChannel {
     unawaited(_connectionSub?.cancel());
     _connectionSub = null;
     if (!_responses.isClosed) {
-      _responses.addError(const Disconnected('the BLE link dropped'));
+      _responses.addError(error);
       unawaited(_responses.close());
     }
   }
@@ -190,7 +227,9 @@ final class BleDfuChannel implements DfuChannel {
         withResponse: withResponse,
       );
     } on BleAdapterException catch (e) {
-      throw _mapFailure(e);
+      final error = _mapFailure(e);
+      _fail(error);
+      throw error;
     }
   }
 
