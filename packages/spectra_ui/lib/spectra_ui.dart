@@ -8,6 +8,8 @@ export 'src/components/button_variant.dart';
 export 'src/components/card.dart';
 export 'src/components/connection_status.dart';
 export 'src/components/dialog.dart';
+export 'src/components/hex_highlight.dart';
+export 'src/components/hex_viewer.dart';
 export 'src/components/list_tile.dart';
 export 'src/components/progress_indicator.dart';
 export 'src/components/section_header.dart';
