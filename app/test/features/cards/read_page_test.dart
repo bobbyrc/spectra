@@ -46,6 +46,7 @@ void main() {
     await tester.tap(find.text('Scan high frequency'));
     await pumpFrames(tester, count: 40);
 
+    expect(find.text('MIFARE Classic 1K'), findsOneWidget);
     expect(find.text('DEADBEEF'), findsOneWidget);
     expect(find.text('Save to library'), findsOneWidget);
     expect(find.text('Read again'), findsOneWidget);

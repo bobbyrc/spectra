@@ -550,6 +550,54 @@ abstract class AppLocalizations {
   /// **'Save to library'**
   String get cardsSaveToLibrary;
 
+  /// Title of the save-to-library sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Save this card'**
+  String get cardsSaveTitle;
+
+  /// Label of the card name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get cardsSaveName;
+
+  /// Label of the optional folder field.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder'**
+  String get cardsSaveFolder;
+
+  /// Example folder name.
+  ///
+  /// In en, this message translates to:
+  /// **'Work'**
+  String get cardsSaveFolderHint;
+
+  /// Label above the colour swatches.
+  ///
+  /// In en, this message translates to:
+  /// **'Colour'**
+  String get cardsSaveColour;
+
+  /// Confirms the save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get cardsSaveConfirm;
+
+  /// Validation message under an empty name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Give the card a name.'**
+  String get cardsSaveNameRequired;
+
+  /// Confirms a card reached the library.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to the library.'**
+  String get cardsSaved;
+
   /// Placeholder body of the Settings tab.
   ///
   /// In en, this message translates to:

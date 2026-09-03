@@ -4,10 +4,12 @@ import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../../core/errors/problem_view.dart';
+import '../../../core/format/tag_labels.dart';
 import '../../../core/routing/sub_page_scaffold.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/read_controller.dart';
 import '../state/read_state.dart';
+import 'save_card_sheet.dart';
 
 /// Spec 7.7 step 3. Layout only: every decision is in [CardReader].
 ///
@@ -98,6 +100,8 @@ class _Result extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
+              Text(tagTypeLabel(result.tagType, l10n)),
+              const SizedBox(height: SpectraSpacing.sm),
               for (final DumpField field in result.fields)
                 SpectraListTile(title: field.label, subtitle: field.value),
               if (result.keysFound != null) ...<Widget>[
@@ -121,10 +125,15 @@ class _Result extends StatelessWidget {
           ),
         ),
         const SizedBox(height: SpectraSpacing.lg),
-        // Task 5 wires this to the save sheet.
         SpectraButton(
           label: l10n.cardsSaveToLibrary,
-          onPressed: result.canSave ? () {} : null,
+          onPressed: result.canSave
+              ? () => showSaveCardSheet(
+                  context,
+                  type: result.tagType,
+                  bytes: result.bytes,
+                )
+              : null,
         ),
         const SizedBox(height: SpectraSpacing.md),
         SpectraButton(

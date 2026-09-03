@@ -272,6 +272,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardsSaveToLibrary => 'Save to library';
 
   @override
+  String get cardsSaveTitle => 'Save this card';
+
+  @override
+  String get cardsSaveName => 'Name';
+
+  @override
+  String get cardsSaveFolder => 'Folder';
+
+  @override
+  String get cardsSaveFolderHint => 'Work';
+
+  @override
+  String get cardsSaveColour => 'Colour';
+
+  @override
+  String get cardsSaveConfirm => 'Save';
+
+  @override
+  String get cardsSaveNameRequired => 'Give the card a name.';
+
+  @override
+  String get cardsSaved => 'Saved to the library.';
+
+  @override
   String get comingSoonSettings => 'Settings arrive in Phase 9.';
 
   @override
