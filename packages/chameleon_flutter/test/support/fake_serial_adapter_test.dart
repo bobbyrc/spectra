@@ -77,7 +77,7 @@ void main() {
     expect(handle.writes.single, [2]);
   });
 
-  test('dropLink errors the stream and disconnect also ends it', () async {
+  test('dropLink errors the stream once and disconnect then ends it', () async {
     final adapter = FakeSerialAdapter();
     final handle = await adapter.open('/dev/ttyACM0') as FakeSerialHandle;
     final errors = <Object>[];
@@ -93,9 +93,10 @@ void main() {
     expect(errors.single, isA<SerialAdapterException>());
     expect(done, isFalse);
 
+    // At most one error, ever: the second drop is swallowed.
     handle.disconnect();
     await Future<void>.delayed(Duration.zero);
-    expect(errors.length, 2);
+    expect(errors, hasLength(1));
     expect(done, isTrue);
   });
 

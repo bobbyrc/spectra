@@ -42,6 +42,24 @@ final class SerialPortDescriptor {
   final String? manufacturer;
   final String? product;
 
+  /// By value, so a scan can de-duplicate the same port seen twice — and
+  /// so a rescan that finds nothing new compares equal — without holding on
+  /// to the instances it already emitted. Mirrors `BleScanEntry`.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SerialPortDescriptor &&
+          other.path == path &&
+          other.description == description &&
+          other.vid == vid &&
+          other.pid == pid &&
+          other.manufacturer == manufacturer &&
+          other.product == product;
+
+  @override
+  int get hashCode =>
+      Object.hash(path, description, vid, pid, manufacturer, product);
+
   @override
   String toString() =>
       'SerialPortDescriptor($path, description: $description, '
@@ -56,9 +74,10 @@ abstract interface class SerialPortHandle {
   /// Bytes as they arrive, in chunks of whatever size the OS delivered.
   ///
   /// Broadcast: it may be listened to more than once, and it does not
-  /// replay. A read error or the far end going away arrives as a
-  /// `SerialAdapterException(SerialFailure.disconnected)` and the stream
-  /// then closes.
+  /// replay. A read failure, or the far end going away, arrives as a
+  /// single `SerialAdapterException` — at most one error is ever emitted —
+  /// after which the stream closes. A listener therefore sees either one
+  /// error then done, or (after [close]) done alone.
   Stream<Uint8List> get incoming;
 
   /// Writes every byte of [bytes]. Throws

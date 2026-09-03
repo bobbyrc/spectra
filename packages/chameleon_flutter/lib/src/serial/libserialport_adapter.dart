@@ -29,34 +29,42 @@ final class LibSerialPortAdapter implements SerialPortAdapter {
 
   @override
   List<SerialPortDescriptor> listPorts() {
-    final out = <SerialPortDescriptor>[];
+    final List<String> names;
     try {
-      for (final name in SerialPort.getAvailablePorts()) {
-        // Inside the guard: a port that vanished between enumeration and
-        // lookup throws here, and must surface as a typed failure.
-        final port = SerialPort(name);
-        try {
-          final info = port.getInfo();
-          out.add(
-            SerialPortDescriptor(
-              path: info.name,
-              description: info.description,
-              vid: info.usbVid,
-              pid: info.usbPid,
-              manufacturer: info.usbManufacturer,
-              product: info.usbProduct,
-            ),
-          );
-        } on SerialPortException {
-          // A port we cannot describe is still a port the user may pick by
-          // hand; list it with what we have.
-          out.add(SerialPortDescriptor(path: name, description: name));
-        } finally {
-          port.dispose();
-        }
-      }
+      names = SerialPort.getAvailablePorts();
     } on SerialPortException catch (e) {
+      // Enumeration itself failing is the caller's problem: there is no
+      // list to return.
       throw _map(e);
+    }
+
+    final out = <SerialPortDescriptor>[];
+    for (final name in names) {
+      // The lookup is inside the guard: a port unplugged between
+      // enumeration and lookup throws here, and one vanished port must not
+      // hide the rest.
+      SerialPort? port;
+      try {
+        port = SerialPort(name);
+        final info = port.getInfo();
+        out.add(
+          SerialPortDescriptor(
+            path: info.name,
+            description: info.description,
+            vid: info.usbVid,
+            pid: info.usbPid,
+            manufacturer: info.usbManufacturer,
+            product: info.usbProduct,
+          ),
+        );
+      } on SerialPortException {
+        if (port == null) continue; // Gone; it is simply not a port any more.
+        // A port we cannot describe is still a port the user may pick by
+        // hand; list it with what we have.
+        out.add(SerialPortDescriptor(path: name, description: name));
+      } finally {
+        port?.dispose();
+      }
     }
     return out;
   }
@@ -116,6 +124,8 @@ final class _LibSerialPortHandle implements SerialPortHandle {
     _sub = _reader.stream.listen(
       _incoming.add,
       onError: (Object e, StackTrace s) {
+        if (_errored) return;
+        _errored = true;
         _incoming.addError(e is SerialPortException ? _map(e) : e, s);
       },
       // The reader's stream ends when its isolate stops, which after a read
@@ -133,17 +143,25 @@ final class _LibSerialPortHandle implements SerialPortHandle {
   StreamSubscription<Uint8List>? _sub;
   bool _closed = false;
 
+  /// The interface promises at most one error on [incoming]. The reader
+  /// reports a read failure and *then* ends its stream, so without this the
+  /// mapped error would be followed by a second, generic one.
+  bool _errored = false;
+
   @override
   Stream<Uint8List> get incoming => _incoming.stream;
 
   void _linkGone() {
     if (_closed || _incoming.isClosed) return;
-    _incoming.addError(
-      const SerialAdapterException(
-        SerialFailure.disconnected,
-        'the port stopped delivering data',
-      ),
-    );
+    if (!_errored) {
+      _errored = true;
+      _incoming.addError(
+        const SerialAdapterException(
+          SerialFailure.disconnected,
+          'the port stopped delivering data',
+        ),
+      );
+    }
     unawaited(_incoming.close());
   }
 

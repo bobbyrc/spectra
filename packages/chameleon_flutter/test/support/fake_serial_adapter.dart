@@ -74,11 +74,18 @@ final class FakeSerialHandle implements SerialPortHandle {
   /// Bytes the device "sent".
   void emit(List<int> bytes) => _incoming.add(Uint8List.fromList(bytes));
 
+  bool _errored = false;
+
   /// The cable was pulled: the reader errors out, as the real handle's
-  /// incoming stream does.
-  void dropLink() => _incoming.addError(
-    const SerialAdapterException(SerialFailure.disconnected, 'cable pulled'),
-  );
+  /// incoming stream does. At most one error is ever emitted, which is the
+  /// contract `SerialPortHandle.incoming` states.
+  void dropLink() {
+    if (_errored || _incoming.isClosed) return;
+    _errored = true;
+    _incoming.addError(
+      const SerialAdapterException(SerialFailure.disconnected, 'cable pulled'),
+    );
+  }
 
   /// [dropLink] followed by end-of-stream — what the real handle does when
   /// the reader stops delivering.

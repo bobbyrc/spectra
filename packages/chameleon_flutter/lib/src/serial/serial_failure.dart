@@ -47,6 +47,10 @@ final class SerialAdapterException implements Exception {
 /// for a system code we do not recognise, because libserialport sometimes
 /// reports a generic code with a specific string.
 SerialFailure mapSerialError(int? code, String message, HostPlatform platform) {
+  // `null` is for a caller with no system code at all — the Android
+  // usb_serial adapter, or a future backend that reports only a string —
+  // and a negative code is one of libserialport's own SP_ERR_* returns.
+  // Neither is an errno or a Win32 error, so both go straight to the text.
   final byCode = (code == null || code < 0)
       ? null
       : switch (platform) {
