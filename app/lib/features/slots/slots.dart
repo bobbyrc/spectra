@@ -7,8 +7,13 @@
 /// picker, the slot it resolves to, and the list the picker draws from —
 /// how a tag type is spelled is core's `format/tag_labels.dart`, not this
 /// feature's to hand out (R28).
+///
+/// The firmware's nickname limit travels with the picker: a feature that
+/// loads a card into a slot has to name that slot, and it must apply the
+/// same 32-byte rule the slot editor applies (Phase 7).
 library;
 
+export 'state/slot_nickname.dart' show slotNicknameMaxBytes;
 export 'state/slot_view.dart' show SlotView;
 export 'state/slot_views_provider.dart' show slotViewsProvider;
 // The router composes every feature from its barrel (`core/routing/
