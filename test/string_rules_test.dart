@@ -125,6 +125,36 @@ void main() {
       expect(rulesFor("final s = Semantics(label: '');"), isEmpty);
     });
 
+    test('flags a triple-quoted multi-line literal in Text', () {
+      final v = checkTextLiterals(
+        packageName: 'spectra_ui',
+        relativePath: 'lib/src/components/demo.dart',
+        source: "Text('''multi\nline''')",
+      );
+      expect(v.single.rule, 'no-literal-text');
+      expect(v.single.import, startsWith('line 1:'));
+    });
+
+    test('flags a raw string literal in Text', () {
+      expect(rulesFor("Widget b() => Text(r'raw');"), ['no-literal-text']);
+    });
+
+    test('flags a raw triple-quoted literal in Text', () {
+      expect(rulesFor("Widget b() => Text(r'''raw triple''');"), [
+        'no-literal-text',
+      ]);
+    });
+
+    test('flags a triple-quoted literal in a named argument', () {
+      expect(rulesFor('final s = Semantics(label: """x""");'), [
+        'no-literal-text',
+      ]);
+    });
+
+    test('does not flag an empty triple-quoted literal', () {
+      expect(rulesFor("Widget b() => Text('''''');"), isEmpty);
+    });
+
     test('reports the offending literal and line', () {
       final v = checkTextLiterals(
         packageName: 'spectra_ui',

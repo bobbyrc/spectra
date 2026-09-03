@@ -8,24 +8,42 @@
 /// line) or a block comment from real code, and it does not understand
 /// string interpolation beyond "this argument is not a bare string
 /// literal". It is deliberately conservative about *where* it looks
-/// (`isLocalizedUiPath`) rather than clever about parsing.
+/// (`isLocalizedUiPath`) rather than clever about parsing. It also does
+/// not understand adjacent string literals (`'a' 'b'` concatenation) —
+/// only the first segment is matched and reported.
 library;
 
 import 'dep_rules.dart' show Violation;
+
+/// Matches one Dart string literal: an optional `r` prefix, then either a
+/// triple-quoted literal (`'''...'''`/`"""..."""`, content may span lines,
+/// matched non-greedily up to the first matching close) or a single-quoted
+/// literal (`'...'`/`"..."`, content confined to one line). The triple-quote
+/// alternative is tried first so e.g. `'''x'''` is not misread as an empty
+/// `''` literal followed by stray text.
+///
+/// Capture groups: 1 = triple-quote marker, 2 = triple-quote content,
+/// 3 = single-quote marker, 4 = single-quote content. Exactly one pair is
+/// non-null per match.
+const String _literalPattern =
+    r'r?(?:'
+    r"""('''|"""
+    '"""'
+    r''')((?:(?!\1)[\s\S])*?)\1'''
+    r'''|(['"])((?:\\.|(?!\3)[^\\\n])*)\3'''
+    r')';
 
 /// `Text(` (optionally `const`), then optional whitespace/newlines, then a
 /// bare string literal. Deliberately does not match `Text.rich(` — spec
 /// 7.6 is about plain text content, and `Text.rich` composes `TextSpan`s
 /// whose own literals are covered separately if/when that becomes an issue.
-final RegExp _textCall = RegExp(
-  r'''\bText\(\s*(?:const\s+)?(['"])((?:\\.|(?!\1)[^\\\n])*)\1''',
-);
+final RegExp _textCall = RegExp(r'\bText\(\s*(?:const\s+)?' + _literalPattern);
 
 /// Named arguments whose value is user-facing copy when given a bare
 /// string literal.
 final RegExp _namedArg = RegExp(
-  r'''\b(?:label|title|hintText|helperText|semanticsLabel|tooltip):\s*'''
-  r'''(['"])((?:\\.|(?!\1)[^\\\n])*)\1''',
+  r'\b(?:label|title|hintText|helperText|semanticsLabel|tooltip):\s*' +
+      _literalPattern,
 );
 
 final RegExp _featureUi = RegExp(r'^lib/features/[^/]+/ui/');
@@ -51,9 +69,10 @@ const String appPackageForLocalization = 'spectra';
 
 /// Flags bare string literals handed to `Text(` or to a handful of
 /// known user-facing named arguments, in files `isLocalizedUiPath` covers.
-/// A line carrying `// l10n-exempt` is skipped, for genuinely
-/// non-user-facing text such as a hex sample or a debug affordance. Empty
-/// literals (`''`, `""`) are never flagged.
+/// Raw (`r'...'`) and triple-quoted (`'''...'''`) forms are covered too. A
+/// line carrying `// l10n-exempt` is skipped, for genuinely non-user-facing
+/// text such as a hex sample or a debug affordance. Empty literals (`''`,
+/// `""`, `''''''`, `""""""`) are never flagged.
 List<Violation> checkTextLiterals({
   required String packageName,
   required String relativePath,
@@ -101,8 +120,10 @@ class _Hit {
 
 Iterable<_Hit> _matches(String source, RegExp pattern) sync* {
   for (final RegExpMatch m in pattern.allMatches(source)) {
-    final String quote = m.group(1)!;
-    final String literal = m.group(2)!;
+    // Exactly one of the triple-quote (groups 1/2) or single-quote
+    // (groups 3/4) alternatives matched; see `_literalPattern`.
+    final String quote = m.group(1) ?? m.group(3)!;
+    final String literal = m.group(2) ?? m.group(4)!;
     // `Match` exposes only whole-match offsets, not per-group offsets, so
     // derive the opening quote's position from the end of the match: it is
     // always `quote + literal + quote` immediately before `m.end`.
