@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:chameleon/chameleon.dart';
 
+import '../models/key_dictionary.dart';
 import '../models/known_device.dart';
 import '../models/saved_card.dart';
 import '../repositories.dart';
@@ -137,6 +138,41 @@ final class InMemorySavedCardsRepository implements SavedCardsRepository {
       _snapshotThenChanges(() => _sorted(), _changes.stream);
 
   List<SavedCard> _sorted() =>
+      _rows.values.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+  void _emit() {
+    if (!_changes.isClosed) _changes.add(_sorted());
+  }
+}
+
+/// A [DictionariesRepository] with no database behind it, for unit tests
+/// that are about something else (spec 8.6). Same ordering contract as the
+/// Drift one: newest-updated first.
+final class InMemoryDictionariesRepository implements DictionariesRepository {
+  final Map<String, KeyDictionary> _rows = <String, KeyDictionary>{};
+  final StreamController<List<KeyDictionary>> _changes =
+      StreamController<List<KeyDictionary>>.broadcast();
+
+  @override
+  Future<List<KeyDictionary>> all() async => _sorted();
+
+  @override
+  Future<void> save(KeyDictionary dictionary) async {
+    _rows[dictionary.id] = dictionary;
+    _emit();
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    _rows.remove(id);
+    _emit();
+  }
+
+  @override
+  Stream<List<KeyDictionary>> watchAll() =>
+      _snapshotThenChanges(() => _sorted(), _changes.stream);
+
+  List<KeyDictionary> _sorted() =>
       _rows.values.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
   void _emit() {

@@ -152,3 +152,51 @@ final class SavedCardsRepositoryProvider
 
 String _$savedCardsRepositoryHash() =>
     r'1e8673a37efed57fb0fe95a404549c422665e71b';
+
+@ProviderFor(dictionariesRepository)
+final dictionariesRepositoryProvider = DictionariesRepositoryProvider._();
+
+final class DictionariesRepositoryProvider
+    extends
+        $FunctionalProvider<
+          DictionariesRepository,
+          DictionariesRepository,
+          DictionariesRepository
+        >
+    with $Provider<DictionariesRepository> {
+  DictionariesRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'dictionariesRepositoryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$dictionariesRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<DictionariesRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  DictionariesRepository create(Ref ref) {
+    return dictionariesRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DictionariesRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DictionariesRepository>(value),
+    );
+  }
+}
+
+String _$dictionariesRepositoryHash() =>
+    r'd5b48bde48478183ecd4150d779d89f56348bfe0';

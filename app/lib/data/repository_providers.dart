@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'database/database_providers.dart';
+import 'database/drift_dictionaries_repository.dart';
 import 'database/drift_known_devices_repository.dart';
 import 'database/drift_preferences_repository.dart';
 import 'database/drift_saved_cards_repository.dart';
@@ -24,3 +25,7 @@ PreferencesRepository preferencesRepository(Ref ref) =>
 @Riverpod(keepAlive: true)
 SavedCardsRepository savedCardsRepository(Ref ref) =>
     DriftSavedCardsRepository(ref.watch(databaseProvider));
+
+@Riverpod(keepAlive: true)
+DictionariesRepository dictionariesRepository(Ref ref) =>
+    DriftDictionariesRepository(ref.watch(databaseProvider));
