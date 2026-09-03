@@ -8,6 +8,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:spectra/core/errors/problem_view.dart';
 import 'package:spectra/features/connect/connect.dart';
 import 'package:spectra/features/tools/tools.dart';
 import 'package:spectra/l10n/app_localizations.dart';
@@ -17,7 +18,7 @@ import '../../support/app_harness.dart';
 
 /// Hosts one widget under just the app's localizations and the Spectra
 /// theme, for a direct component test that needs no router or session
-/// (ruling 10's `ConnectProblemView` case, and finding 5's preselect case).
+/// (ruling 10's `ProblemView` case, and finding 5's preselect case).
 Widget _localizedApp(Widget child) {
   const SpectraColorScheme colors = SpectraColors.light;
   return MaterialApp(
@@ -285,15 +286,15 @@ void main() {
     },
   );
 
-  testWidgetsApp('ConnectProblemView shows the given instructions directly', (
+  testWidgetsApp('ProblemView shows the given instructions directly', (
     tester,
   ) async {
     await tester.pumpWidget(
       _localizedApp(
-        ConnectProblemView(
+        ProblemView(
           error: const PermissionDenied(),
           instructions: 'Enable Bluetooth for Spectra in system settings.',
-          onRetry: () {},
+          onAction: () {},
         ),
       ),
     );

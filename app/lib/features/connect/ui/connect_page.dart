@@ -8,13 +8,13 @@ import 'package:spectra_ui/spectra_ui.dart';
 
 import '../../../core/discovery/discovery_provider.dart';
 import '../../../core/errors/error_catalog.dart';
+import '../../../core/errors/problem_view.dart';
 import '../../../core/routing/routes.dart';
 import '../../../core/session/sessions.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/connect_controller.dart';
 import '../state/connect_row.dart';
 import '../state/connect_rows_provider.dart';
-import 'connect_problem_view.dart';
 import 'connect_row_tile.dart';
 import 'manual_port_field.dart';
 
@@ -82,12 +82,12 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
             if (connecting)
               SpectraProgressIndicator(label: l10n.connectConnecting),
             if (problem != null)
-              ConnectProblemView(
+              ProblemView(
                 error: problem,
                 instructions: connect.hasError && guidance != null
                     ? ErrorCatalog(l10n).guidance(guidance)
                     : null,
-                onRetry: () {
+                onAction: () {
                   // Ruling 11: clear the failed attempt first, then give
                   // every scanner — including the one that failed — a
                   // fresh scan (`discoveryProvider`'s own doc comment).

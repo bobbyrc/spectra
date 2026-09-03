@@ -5,12 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra_ui/spectra_ui.dart';
 
+import '../../../core/errors/problem_view.dart';
 import '../../../core/routing/sub_page_scaffold.dart';
 import '../../../l10n/app_localizations.dart';
 import '../state/slot_editor_controller.dart';
 import '../state/slot_view.dart';
 import '../state/slot_views_provider.dart';
-import 'slot_problem_view.dart';
 import 'slot_sense_section.dart';
 
 /// Spec 7.7 step 2's editor: everything one slot can be changed to. Layout
@@ -53,9 +53,10 @@ class SlotDetailPage extends ConsumerWidget {
             const SizedBox(height: SpectraSpacing.md),
           ],
           if (editing.error case final Object problem) ...<Widget>[
-            SlotProblemView(
+            ProblemView(
               error: problem,
-              onDismiss: () =>
+              variant: SpectraButtonVariant.secondary,
+              onAction: () =>
                   ref.read(slotEditorProvider(index).notifier).reset(),
             ),
             const SizedBox(height: SpectraSpacing.md),

@@ -152,13 +152,9 @@ Future<void> pumpTestAppWithBootloader(WidgetTester tester) =>
 /// the destination is a rail item.
 Future<void> _openTool(WidgetTester tester, String title) async {
   await tester.tap(find.text('Tools').last);
-  for (var i = 0; i < 10; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
+  await pumpFrames(tester);
   await tester.tap(find.text(title));
-  for (var i = 0; i < 10; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
+  await pumpFrames(tester);
 }
 
 Future<void> openFrameLog(WidgetTester tester) =>
@@ -251,22 +247,46 @@ ProviderSubscription<T> keepAlive<T>(
   return sub;
 }
 
-Future<void> _pumpFrames(WidgetTester tester, [int frames = 10]) async {
-  for (var i = 0; i < frames; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
+/// Pumps [count] frames of [step] each.
+///
+/// The one way to wait in these tests. `pumpAndSettle` is not usable here:
+/// the shell has running animations, and `FakeDevice` answers through a
+/// real `Timer` that only an explicit-duration pump advances (ruling 22).
+/// Widen [count], or lengthen [step], rather than copying another loop.
+Future<void> pumpFrames(
+  WidgetTester tester, {
+  int count = 10,
+  Duration step = const Duration(milliseconds: 100),
+}) async {
+  for (var i = 0; i < count; i++) {
+    await tester.pump(step);
   }
+}
+
+/// Gives the test a desktop-sized surface, reset when the test ends.
+///
+/// The shell renders its destinations as a rail (not a bottom bar) at this
+/// width, and the slot grid lays all eight tiles out at this height — most
+/// of the app's own tests need both.
+void useDesktopSurface(
+  WidgetTester tester, {
+  Size size = const Size(1200, 1600),
+}) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
 }
 
 /// Opens the Slots tab. The shell is wide enough in tests that the
 /// destination is a rail item.
 Future<void> openSlots(WidgetTester tester) async {
   await tester.tap(find.text('Slots').last);
-  await _pumpFrames(tester);
+  await pumpFrames(tester);
 }
 
 /// Taps the tile for the given one-based slot number and waits for the
 /// detail route.
 Future<void> openSlot(WidgetTester tester, int number) async {
   await tester.tap(find.byType(SpectraSlotTile).at(number - 1));
-  await _pumpFrames(tester);
+  await pumpFrames(tester);
 }
