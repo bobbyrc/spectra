@@ -19,6 +19,13 @@ import 'fake_firmware.dart';
 /// detected from the decoded request frame's command id, not from
 /// [FakeFirmware.bootloaderRequested] (which stays sticky for callers that
 /// want to assert the firmware saw the request).
+///
+/// That same request puts the device in bootloader mode: [inBootloader] is
+/// set, [bootloader] answers Secure DFU through [openDfuChannel], and
+/// `FakeScanner.forDevice` lists the device as a bootloader until the flash
+/// completes or [leaveBootloader] is called. A whole update — reboot,
+/// transfer, reboot back into the application — therefore runs against this
+/// one fake, with no hardware.
 final class FakeDevice implements Transport {
   FakeDevice({
     FakeFirmware? firmware,

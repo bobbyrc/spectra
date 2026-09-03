@@ -100,12 +100,13 @@ final class DfuOrchestrator {
   final DfuChannelOpener openChannel;
 
   /// Budget for each of the two scans, and for the reboot that precedes the
-  /// first of them.
+  /// first of them. The three are consecutive, so the worst case for a run
+  /// that never finds anything is three times this — not once.
   final Duration scanTimeout;
 
   /// How long to wait between scan passes, for scanners that report once per
   /// subscription rather than continuously.
-  static const Duration _rescanDelay = Duration(milliseconds: 10);
+  static const Duration _rescanDelay = Duration(milliseconds: 100);
 
   Stream<DfuEvent> run({
     required DfuPackage package,
@@ -114,34 +115,46 @@ final class DfuOrchestrator {
     CancelToken? cancel,
   }) async* {
     try {
-      var target = bootloader;
-      if (target == null) {
+      // Every run verifies the package, the recovery path included: a
+      // tampered image must be refused before a single byte is written.
+      _checkImages(package);
+      final DiscoveredDevice target;
+      if (bootloader != null) {
+        target = bootloader;
+      } else {
         if (session == null) {
           throw DfuError('need a session or a device in the bootloader');
         }
         yield const DfuPhaseChanged(DfuPhase.checking);
-        _check(session, package);
+        _checkModel(session, package);
         yield const DfuPhaseChanged(DfuPhase.enteringBootloader);
         await session.firmware.enterBootloader();
         await _awaitReboot(session);
         yield const DfuPhaseChanged(DfuPhase.findingBootloader);
-        target = await _find((d) => d.isBootloader, cancel);
-        if (target == null) {
+        final found = await _find((d) => d.isBootloader, cancel);
+        if (found == null) {
           throw DfuError('no bootloader found within $scanTimeout');
         }
+        target = found;
       }
       yield const DfuPhaseChanged(DfuPhase.transferring);
       // `yield*` hands a stream's errors straight to the consumer rather than
       // throwing them in here, so the transfer reports its failure by hand.
       Object? failure;
       StackTrace? stack;
-      yield* _transfer(await openChannel(target), package, cancel, (e, s) {
+      yield* _transfer(() => openChannel(target), package, cancel, (e, s) {
         failure = e;
         stack = s;
       });
       if (failure != null) Error.throwWithStackTrace(failure!, stack!);
       yield const DfuPhaseChanged(DfuPhase.findingDevice);
-      final device = await _find((d) => !d.isBootloader, cancel);
+      // The flash is done, so a cancel here only calls off the search: the
+      // update succeeded and the app still has to reconnect either way.
+      final device = await _find(
+        (d) => !d.isBootloader,
+        cancel,
+        failOnCancel: false,
+      );
       yield const DfuPhaseChanged(DfuPhase.done);
       yield DfuCompleted(device);
     } on ChameleonException catch (e) {
@@ -153,9 +166,29 @@ final class DfuOrchestrator {
     }
   }
 
-  /// Refuses a package that cannot be for this device, before anything is
-  /// sent: a mismatched flash bricks the device until it is recovered.
-  void _check(DeviceSession session, DfuPackage package) {
+  /// Refuses a package whose images do not match their own init packets.
+  /// Runs on every path, recovery included: a tampered or truncated image is
+  /// the one thing that must never reach the bootloader.
+  static void _checkImages(DfuPackage package) {
+    for (final image in package.images) {
+      if (!image.hashMatches) {
+        throw DfuError(
+          '${image.kind.name} image hash does not match its init packet',
+        );
+      }
+    }
+  }
+
+  /// Refuses a package built for the other model, before anything is sent: a
+  /// mismatched flash bricks the device until it is recovered.
+  ///
+  /// A `SessionLimited` session (firmware too old to answer GET_APP_VERSION)
+  /// has no `DeviceInfo`, so there is nothing to compare and the check is
+  /// skipped by design — firmware that old must still be updatable. The
+  /// bootloader's own hardware-version check is the backstop there: it
+  /// refuses a mismatched init packet at execute time, which surfaces as a
+  /// [DfuError] mid-transfer instead of before it.
+  static void _checkModel(DeviceSession session, DfuPackage package) {
     final model = session.deviceInfo.value?.model;
     final wanted = package.targetModel;
     if (model != null && wanted != model) {
@@ -165,74 +198,97 @@ final class DfuOrchestrator {
         'device is a ${model.name}',
       );
     }
-    for (final image in package.images) {
-      if (!image.hashMatches) {
-        throw DfuError(
-          '${image.kind.name} image hash does not match its '
-          'init packet',
-        );
-      }
-    }
   }
 
   /// Waits for the link to drop, which is what ENTER_BOOTLOADER causes. Not
   /// an error if it does not: the scan that follows is the real gate, and
-  /// some transports never report the close.
+  /// some transports never report the close. Gives up after [scanTimeout],
+  /// and on a state stream that ends without ever reporting a close.
   Future<void> _awaitReboot(DeviceSession session) async {
     if (session.transport.currentState is TransportClosed) return;
+    final closed = Completer<void>();
+    void done([Object? _]) {
+      if (!closed.isCompleted) closed.complete();
+    }
+
+    final sub = session.transport.state.listen(
+      (s) {
+        if (s is TransportClosed) done();
+      },
+      onDone: done,
+      onError: done,
+      cancelOnError: true,
+    );
+    final timer = Timer(scanTimeout, done);
     try {
-      await session.transport.state
-          .firstWhere((s) => s is TransportClosed)
-          .timeout(scanTimeout);
-    } on TimeoutException {
-      return;
+      await closed.future;
+    } finally {
+      timer.cancel();
+      await sub.cancel();
     }
   }
 
-  /// Runs [SecureDfu] over [channel], forwarding its progress and reporting a
-  /// failure through [onFailure]. The channel is closed however this ends.
+  /// Opens the channel with [open], runs [SecureDfu] over it forwarding its
+  /// progress, and reports a failure through [onFailure].
+  ///
+  /// The open is inside the same try as the transfer, so a channel that
+  /// finishes opening after this stream has been unsubscribed is still closed
+  /// rather than leaked.
   ///
   /// The failure is caught the moment it happens rather than left on a future
   /// to await later: a future carrying an error nothing has subscribed to,
   /// even for one turn, is reported as an unhandled async error.
   Stream<DfuEvent> _transfer(
-    DfuChannel channel,
+    Future<DfuChannel> Function() open,
     DfuPackage package,
     CancelToken? cancel,
     void Function(Object error, StackTrace stack) onFailure,
   ) async* {
-    final events = StreamController<DfuEvent>();
-    final dfu = SecureDfu(channel);
-    final done = Future(() async {
-      for (final image in package.images) {
-        await dfu.run(
-          image,
-          cancel: cancel,
-          onProgress: (p) => events.add(DfuProgressed(p)),
-        );
-      }
-    }).then<void>((_) {}, onError: onFailure).whenComplete(events.close);
+    DfuChannel? channel;
     try {
+      channel = await open();
+      final events = StreamController<DfuEvent>();
+      final dfu = SecureDfu(channel);
+      final done = Future(() async {
+        for (final image in package.images) {
+          await dfu.run(
+            image,
+            cancel: cancel,
+            onProgress: (p) => events.add(DfuProgressed(p)),
+          );
+        }
+      }).then<void>((_) {}, onError: onFailure).whenComplete(events.close);
       yield* events.stream;
       await done;
     } finally {
-      await channel.close();
+      await channel?.close();
     }
   }
 
   /// The first device any scanner reports that [test] accepts, or null once
   /// [scanTimeout] has run out.
+  ///
+  /// With [failOnCancel] false a cancelled search returns null instead of
+  /// throwing: after a finished flash the update has succeeded whether or not
+  /// the device is found again.
   Future<DiscoveredDevice?> _find(
     bool Function(DiscoveredDevice) test,
-    CancelToken? cancel,
-  ) async {
+    CancelToken? cancel, {
+    bool failOnCancel = true,
+  }) async {
     final deadline = DateTime.now().add(scanTimeout);
     while (true) {
-      if (cancel?.isCancelled ?? false) throw const CommandCancelled();
+      if (cancel?.isCancelled ?? false) {
+        if (failOnCancel) throw const CommandCancelled();
+        return null;
+      }
       final left = deadline.difference(DateTime.now());
       if (left <= Duration.zero) return null;
       final hit = await _scanOnce(test, left, cancel);
       if (hit != null) return hit;
+      // A cancelled pass ends early; the top of the loop decides what that
+      // means, without waiting out the rescan delay first.
+      if (cancel?.isCancelled ?? false) continue;
       // Scanners that emit once per subscription need another pass; ones that
       // stay open will already have used the whole budget above.
       await Future<void>.delayed(_rescanDelay);

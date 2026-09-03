@@ -46,6 +46,17 @@ void main() {
     scanTimeout: const Duration(seconds: 1),
   );
 
+  /// Puts [device] in the bootloader the way a previous, interrupted update
+  /// would have: an ENTER_BOOTLOADER frame and nothing else.
+  Future<void> enterBootloader(FakeDevice device) async {
+    await device.open();
+    await device.write(
+      Uint8List.fromList([0x11, 0xEF, 0x03, 0xF2, 0, 0, 0, 0, 0x0B, 0x00]),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(device.inBootloader, isTrue);
+  }
+
   setUp(channels.clear);
 
   test('updates a connected device end to end and finds it again', () async {
@@ -109,12 +120,7 @@ void main() {
     'recovers a device already in the bootloader without a session',
     () async {
       final device = FakeDevice();
-      await device.open();
-      await device.write(
-        Uint8List.fromList([0x11, 0xEF, 0x03, 0xF2, 0, 0, 0, 0, 0x0B, 0x00]),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-      expect(device.inBootloader, isTrue);
+      await enterBootloader(device);
       final events = await orchestratorFor(device)
           .run(
             package: package(bin),
@@ -165,6 +171,50 @@ void main() {
       ),
     );
     await s.close();
+  });
+
+  test('refuses a tampered image on the recovery path too', () async {
+    final device = FakeDevice();
+    await enterBootloader(device);
+    final tampered = DfuPackage.fromZip(
+      buildZip(
+        bin: bin,
+        dat: buildInitPacket(bin: Uint8List.fromList([1, 2, 3])),
+      ),
+    );
+    final events = await orchestratorFor(device)
+        .run(package: tampered, bootloader: FakeScanner.emulatedBootloader)
+        .toList();
+    expect(
+      events.single,
+      isA<DfuFailed>().having((e) => e.error, 'error', isA<DfuError>()),
+    );
+    expect(channels, isEmpty);
+    // Nothing was created or written on the bootloader.
+    expect(device.bootloader.flashed, isEmpty);
+    expect(device.bootloader.bytesReceived, 0);
+    expect(device.bootloader.init, isNull);
+  });
+
+  test('a channel that opens after an unsubscribe is still closed', () async {
+    final device = FakeDevice();
+    await enterBootloader(device);
+    FakeDfuChannel? opened;
+    final orchestrator = DfuOrchestrator(
+      scanners: [FakeScanner.forDevice(device)],
+      openChannel: (_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        return opened = device.openDfuChannel();
+      },
+      scanTimeout: const Duration(seconds: 1),
+    );
+    final sub = orchestrator
+        .run(package: package(bin), bootloader: FakeScanner.emulatedBootloader)
+        .listen((_) {});
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await sub.cancel();
+    expect(opened, isNotNull);
+    expect(opened!.isClosed, isTrue);
   });
 
   test(

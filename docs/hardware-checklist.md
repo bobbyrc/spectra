@@ -32,6 +32,26 @@ Written in Phase 8.
 - [ ] pending: USB DFU completes successfully on real hardware.
 - [ ] pending: BLE DFU completes successfully on real hardware.
 - [ ] pending: recovery from a DFU interrupted mid-transfer (USB and BLE).
+- [ ] pending: the bootloader appears to the scanners as a *new*
+      `DiscoveredDevice` after the reboot, not as the application device's own
+      entry changing. `DfuOrchestrator` scans for it rather than reusing the
+      old transport id, and `DfuCompleted.device` is the entry found after the
+      second reboot; confirm both ids on USB and on BLE.
+- [ ] pending: the bootloader's advertised name really is `CU` on the Ultra and
+      `CL` on the Lite (the orchestrator also accepts anything already flagged
+      `isBootloader`, so record which of the two signals actually fires).
+- [ ] pending: the transport reports the ENTER_BOOTLOADER close. The
+      orchestrator waits for it (bounded by `scanTimeout`) before scanning and
+      carries on if it never comes; confirm whether serial and BLE report it,
+      so the wait is a real gate rather than dead time.
+- [ ] pending: nrfutil stores the SHA-256 of each image byte-reversed in the
+      init packet. `DfuImage.hashMatches` accepts that order only, and every
+      run now refuses a package that fails it — check against a real Chameleon
+      release zip before shipping DFU.
+- [ ] pending: executing an already-executed object is a no-op on the real
+      bootloader. The resume path in `SecureDfu` sends an unconditional
+      Execute at the boundary it picks up from; `FakeBootloader` models it as
+      harmless, which is the assumption to verify on an interrupted transfer.
 
 ## H3 (before release): full checklist (spec section 10)
 

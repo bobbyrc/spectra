@@ -7,7 +7,7 @@ import 'fake_device.dart';
 /// of doing hardware discovery. Defaults to a single emulated Ultra.
 final class FakeScanner implements DeviceScanner {
   FakeScanner({List<DiscoveredDevice>? devices})
-    : devices = devices ?? const [emulatedUltra],
+    : _static = devices ?? const [emulatedUltra],
       _device = null;
 
   /// A scanner that follows one [FakeDevice]: it lists that device's
@@ -17,7 +17,7 @@ final class FakeScanner implements DeviceScanner {
   /// Each `scan()` reports once, from the mode at subscription time; a caller
   /// waiting for the device to change mode subscribes again.
   FakeScanner.forDevice(FakeDevice device)
-    : devices = const [],
+    : _static = const [],
       _device = device;
 
   static const DiscoveredDevice emulatedUltra = DiscoveredDevice(
@@ -43,23 +43,26 @@ final class FakeScanner implements DeviceScanner {
   static const DiscoveredDevice emulatedLiteBootloader = DiscoveredDevice(
     name: 'CL',
     kind: TransportKind.fake,
-    transportId: 'fake-bootloader',
+    transportId: 'fake-bootloader-lite',
     isBootloader: true,
   );
 
-  final List<DiscoveredDevice> devices;
+  final List<DiscoveredDevice> _static;
   final FakeDevice? _device;
+
+  /// What the next [scan] would report: the static list, or the entry the
+  /// followed device's current mode calls for.
+  List<DiscoveredDevice> get devices => List.unmodifiable(_visible());
 
   @override
   TransportKind get kind => TransportKind.fake;
 
   @override
-  Stream<List<DiscoveredDevice>> scan() =>
-      Stream.value(List.unmodifiable(_visible()));
+  Stream<List<DiscoveredDevice>> scan() => Stream.value(devices);
 
   List<DiscoveredDevice> _visible() {
     final device = _device;
-    if (device == null) return devices;
+    if (device == null) return _static;
     final lite = device.firmware.config.model == DeviceModel.lite;
     if (device.inBootloader) {
       return [lite ? emulatedLiteBootloader : emulatedBootloader];
