@@ -748,5 +748,58 @@ dump formats and DFU. Rulings taken while executing
   listens to connection state, so a flash starting or finishing triggers a
   re-evaluation immediately.
 
+## Phase 9 (dictionaries and settings)
+
+- **No `file_selector`.** Spec 7.3's import/export is paste-in and copy-out
+  for dictionaries, same as it already is for cards (Phase 6). Adding a
+  native file dialog would mean a new dependency, per-platform setup on
+  five targets and a spec section 2 amendment. Revisit in Phase 10 if the
+  release checklist wants real file round-trips.
+- **The built-in key list is synthesized, not seeded.**
+  `dictionariesProvider` puts it in front of the stored rows on every read
+  rather than writing it into the database once, so "read-only" is
+  structural (there is no row to mutate or delete) and its display name
+  goes through ARB like everything else.
+- **`hex.dart` moved to `core/format/`.** The Phase 6 ruling 17 pattern
+  (promote a helper both `cards` and a new feature need, rather than let
+  the new feature depend on `cards`'s internals) applied a second time: the
+  dictionary codec and cards both parse and format hex, so the one copy now
+  lives in `core/format/hex.dart` and `features/cards` imports it instead
+  of owning it.
+- **`dfuOverBleEnabled` gets a developer switch in Settings.** Spec 5.6 has
+  the user flip the flag on after reporting H2 passed; before Phase 9,
+  `FeatureFlagsController.setDfuOverBleEnabled` had no caller anywhere in
+  the app. The switch lives under a "Developer" section on the app-settings
+  screen, off by default, unchanged by Phase 9.
+- **Spec 8.5 relaxed for two files.** `dictionary_codec.dart` (parsing three
+  on-disk shapes plus the built-in list in one place beats splitting a
+  format reader across files) and `dictionary_detail_page.dart` (rename,
+  key add/remove, import and export together on one screen) — the Phase 6
+  ruling 17 precedent for when one file legitimately outgrows the general
+  size guidance.
+- **The dictionary format assumptions are unverified against a real
+  reference-app export.** As with Phase 6's card importer, the field names
+  the `.dic`/JSON reader accepts are taken from documented shapes, not a
+  file exported by the real GUI. The reader is deliberately permissive
+  rather than strict, and the gap is tracked as a hardware-checklist H3
+  item below rather than assumed correct.
+- **The write path now reads the selected dictionary.** Phase 7's final
+  review (carried-over finding M5) had left
+  `write_card_controller.dart:245` calling `defaultMifareKeys()` directly
+  while the read path already went through
+  `candidateMifareKeysProvider` — half of spec 8.1's "one seam for
+  candidate keys" applied. Phase 9 closed it: both reads and writes now
+  read the same provider, which resolves to the selected dictionary's keys
+  or the built-in list if none is selected.
+- **A whole-phase review found four defects, fixed in one wave.** Success
+  snackbars were shown even when a settings save failed; a dictionary
+  import's parse error poisoned the list screen's provider state instead of
+  staying local to the import sheet; the BLE pairing key field wrote to the
+  device on every keystroke instead of committing on submit (the same
+  per-keystroke-write hazard as Phase 5's slot nickname field, this time
+  hitting a real device write rather than a local validator); and a field
+  was not re-seeded after a settings reset. All four are fixed on the same
+  commits that landed the phase.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).

@@ -151,9 +151,36 @@ and recovery passing (spec 5.6). Gate green:
 `app/integration_test/firmware_update_flow_test.dart` twin (existing macOS
 `integration` job). Next: Phase 9.
 
-Next: Phases 9 (dictionaries and settings) and 10 (release) are executing
-concurrently — plans and ledgers exist for both under
-`docs/superpowers/plans/` and `.superpowers/sdd/`.
+Phase 9 (`app/lib/features/dictionaries/` and `app/lib/features/settings/`)
+is complete (2026-09-03). Dictionaries: a repository (Drift and in-memory)
+behind `dictionariesProvider`, which puts a synthesized built-in key list
+ahead of the stored rows so read-only stays structural; a codec reading and
+writing `.dic` and both JSON key-list shapes; a list screen and a detail
+screen (rename, add/remove keys, import, export); and the public
+`showDictionaryPicker`, exported from `features/dictionaries/
+dictionaries.dart`. The selected list is a preference that feeds
+`candidateMifareKeysProvider`, which both `ReaderFacade.mf1ReadDump` and the
+write path now read — the write path no longer calls
+`defaultMifareKeys()` directly (carried over from Phase 7's final review).
+Settings: device settings (animation, button functions, sleep timeout,
+BLE pairing key/enable, "forget paired hosts") through `SettingsFacade` with
+an explicit save and a re-read after, not an optimistic write; app settings
+for theme, emulator mode, the `dfuOverBleEnabled` developer switch (spec 5.6
+has the user flip it after H2), and licences. `hex.dart` moved to
+`core/format/` (the Phase 6 ruling 17 pattern applied again) as the one hex
+helper both features and cards now share. A whole-phase review found four
+defects — success snackbars shown after a failed save, an import parse
+error that poisoned the dictionary list's provider state, the pairing-key
+field committing on every keystroke instead of on submit, and a field not
+re-seeded after a settings reset — all fixed in the same fix wave. Gate
+green: `app/test/flows/dictionary_and_settings_flow_test.dart` (part of 536
+app tests) and `app/integration_test/settings_flow_test.dart` (existing
+macOS `integration` job). Real hardware is required to confirm a device
+setting survives a save and a power cycle; see `docs/hardware-checklist.md`
+H3.
+
+Next: Phase 10 (release) is the only phase left — its close-out and the
+`v1.0.0-rc.1` tag.
 
 Draft PR #1 (`bobbyrc/chinook` -> `main`) carries CI on every push; see
 "Decisions made overnight" below.

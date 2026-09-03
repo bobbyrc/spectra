@@ -479,6 +479,31 @@ emulator mode **off** in Settings first, so no item can be satisfied by the
       from `app/lib/l10n/app_en.arb` and the standing notice it drives on
       the write sheet.
 
+### Dictionaries and device settings (carried over from Phase 9)
+
+- [ ] pending: import a dictionary exported from the real reference app and
+      confirm every key lands (the JSON field names are inferred, not
+      documented).
+- [ ] pending: read a MIFARE Classic card with a custom key list selected
+      and confirm the sectors that list opens are the ones reported (the
+      dictionary reaches `mf1ReadDump` unchanged).
+- [ ] pending: with a real device, change the animation mode, save, and
+      confirm the change survived a power cycle (SAVE_SETTINGS is the only
+      thing that makes a setting durable).
+- [ ] pending: set a button function and confirm the physical button does
+      it.
+- [ ] pending: set the sleep timeout across its 5..60 s range (including
+      both ends) and confirm the device sleeps on the schedule set.
+- [ ] pending: set a BLE pairing key and enable pairing, save, and confirm
+      the change survived a power cycle: the device demands the passkey and
+      is invisible to a host that has not bonded (spec 5.1).
+- [ ] pending: factory reset the device from Settings and confirm it comes
+      back with default settings and slots.
+- [ ] pending: delete bonds from Settings and confirm a previously-paired
+      host must pair again.
+- [ ] pending: with the emulator-mode toggle off, confirm the connect
+      screen lists only real devices — no `Emulated Chameleon Ultra` row.
+
 ### Sign-off list for `v1.0.0`
 
 This is the sign-off list: `v1.0.0` is tagged only when all of these are

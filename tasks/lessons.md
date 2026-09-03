@@ -414,3 +414,37 @@ dated entry per lesson; keep each one actionable.
   screen's own controller when the screen needs to say something the
   shared catalog was never written to say, rather than stretching one
   catalog arm to cover it.
+
+## Phase 9 (dictionaries and settings)
+
+- **An import/export sheet must never let a user's paste-in typo surface as
+  a provider error.** The whole-phase review found a dictionary import
+  parse failure poisoning the list screen's own `AsyncNotifier` state —
+  after a bad paste, the list itself went into an error state, not just the
+  import sheet. A malformed paste is expected input, not a defect; catch
+  and report it locally in the sheet's own state, never let it propagate
+  into a provider that other parts of the screen read.
+- **A per-keystroke write to a real device, guarded by "drop while busy"
+  rather than "queue while busy," loses input.** The BLE pairing key field
+  wrote to the device on every keystroke; each new keystroke's write raced
+  the previous one, and a drop-not-queue busy guard meant intermediate
+  digits could vanish before the last one landed. The fix is the same one
+  Phase 5 already reached for the slot nickname field: commit on submit
+  (blur or an explicit save), not on every keystroke — this time the stakes
+  were a real device write, not just a local validator, so the same mistake
+  cost more to find.
+- **ARB single-writer serialisation across three concurrent phases (7, 8, 9)
+  worked but cost real wall-clock.** Every task that touched `app_en.arb`
+  had to wait its turn in a single chain (T7 -> T8 -> T9 -> T11 -> T12 this
+  phase), even when the tasks were otherwise file-disjoint and could run in
+  parallel. Order ARB-touching tasks first in a phase's dispatch plan so the
+  serialised chain runs concurrently with everything else, rather than
+  discovering the bottleneck partway through and re-sequencing around it.
+- **A plan's own embedded test snippets are not a spec citation.** Most of
+  this phase's ruling-20 violations (an implementer skipping the
+  harness's `keepAlive`/`readProvider` pattern) traced back to copying a
+  test verbatim from the plan document rather than from the harness's
+  actual current API — the plan's snippets were written before the harness
+  existed in its final form and drifted. Treat plan-embedded code as
+  illustrative, not authoritative; read the harness source before writing a
+  test against it.
