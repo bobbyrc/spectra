@@ -174,4 +174,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get guidancePortNotFound =>
       'That port is gone. Reconnect the cable and scan again.';
+
+  @override
+  String get navDevice => 'Device';
+
+  @override
+  String get navSlots => 'Slots';
+
+  @override
+  String get navCards => 'Cards';
+
+  @override
+  String get navTools => 'Tools';
+
+  @override
+  String get navSettings => 'Settings';
 }

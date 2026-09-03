@@ -96,5 +96,15 @@
   "guidancePortBusyOther": "Another app is using this port. Close it and try again.",
   "@guidancePortBusyOther": {"description": "A port is busy on a platform with no more specific hint."},
   "guidancePortNotFound": "That port is gone. Reconnect the cable and scan again.",
-  "@guidancePortNotFound": {"description": "The named serial port no longer exists."}
+  "@guidancePortNotFound": {"description": "The named serial port no longer exists."},
+  "navDevice": "Device",
+  "@navDevice": {"description": "Top-level destination: the device dashboard."},
+  "navSlots": "Slots",
+  "@navSlots": {"description": "Top-level destination: emulation slots."},
+  "navCards": "Cards",
+  "@navCards": {"description": "Top-level destination: the saved card library."},
+  "navTools": "Tools",
+  "@navTools": {"description": "Top-level destination: update, dictionaries, frame log."},
+  "navSettings": "Settings",
+  "@navSettings": {"description": "Top-level destination: app and device settings."}
 }

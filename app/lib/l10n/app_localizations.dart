@@ -375,6 +375,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'That port is gone. Reconnect the cable and scan again.'**
   String get guidancePortNotFound;
+
+  /// Top-level destination: the device dashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get navDevice;
+
+  /// Top-level destination: emulation slots.
+  ///
+  /// In en, this message translates to:
+  /// **'Slots'**
+  String get navSlots;
+
+  /// Top-level destination: the saved card library.
+  ///
+  /// In en, this message translates to:
+  /// **'Cards'**
+  String get navCards;
+
+  /// Top-level destination: update, dictionaries, frame log.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools'**
+  String get navTools;
+
+  /// Top-level destination: app and device settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get navSettings;
 }
 
 class _AppLocalizationsDelegate
