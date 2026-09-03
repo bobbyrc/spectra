@@ -109,5 +109,29 @@ void main() {
       expect(completed, isTrue);
       expect(result, isNull);
     });
+
+    test(
+      'calling it N times on one Ref registers only one dispose hook',
+      () async {
+        final scanController = StreamController<List<DiscoveredDevice>>();
+        addTearDown(scanController.close);
+        final h = harness(ScriptedScanner(TransportKind.usb, scanController));
+
+        // Mirrors the real usage this guards against: `reconnectLastDevice`
+        // is called repeatedly (once per silent reconnect on resume) with
+        // the same keepAlive `Ref`, from `lifecycleControllerProvider`.
+        for (var i = 0; i < 5; i++) {
+          unawaited(
+            awaitDiscoveredDevice(
+              h.ref,
+              (d) => d.transportId == usbUltra.transportId,
+              timeout: const Duration(seconds: 5),
+            ),
+          );
+        }
+
+        expect(disposeHookRegistrationsFor(h.ref), 1);
+      },
+    );
   });
 }

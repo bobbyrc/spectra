@@ -167,6 +167,12 @@ class Sessions extends _$Sessions {
   }
 
   Future<DeviceIdentity> _connectNew(DiscoveredDevice device) async {
+    // Clear any guidance a previous attempt left behind before this one
+    // starts: it must only ever reflect the most recent attempt, and a
+    // later failure with nothing to say (a plain `FakeDevice`, a handshake
+    // failure after a successful open) should not leave stale instructions
+    // on screen.
+    _setState(state.copyWith(lastFailureGuidance: null));
     final transport = ref.read(transportFactoryProvider)(device);
     final session = DeviceSession(
       transport,

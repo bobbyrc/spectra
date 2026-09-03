@@ -374,6 +374,34 @@ void main() {
     await notifier.disconnectAll();
   });
 
+  test('a later plain failure clears stale guidance from an earlier guided '
+      'failure', () async {
+    var calls = 0;
+    final container = harnessWithFactory((_) {
+      calls++;
+      return calls == 1
+          ? GuidedFake(
+              FakeDevice(openError: const PermissionDenied()),
+              TransportGuidance.linuxSerialGroup,
+            )
+          : FakeDevice(openError: const PermissionDenied());
+    });
+    final notifier = container.read(sessionsProvider.notifier);
+
+    await expectLater(
+      notifier.connect(emulated),
+      throwsA(isA<PermissionDenied>()),
+    );
+    expect(container.read(sessionsProvider).lastFailureGuidance, isNotNull);
+
+    await expectLater(
+      notifier.connect(emulated),
+      throwsA(isA<PermissionDenied>()),
+    );
+
+    expect(container.read(sessionsProvider).lastFailureGuidance, isNull);
+  });
+
   test('markLastDisconnected arms the connect screen preselect with no session '
       'ever registered', () {
     final h = harness({});

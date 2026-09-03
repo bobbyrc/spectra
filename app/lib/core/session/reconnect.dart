@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:chameleon/chameleon.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ProviderSubscription;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -44,6 +45,44 @@ final class NoKnownDeviceVisible implements Exception {
   String toString() => 'NoKnownDeviceVisible: no known device is visible';
 }
 
+// [awaitDiscoveredDevice] is called every time `reconnectLastDevice` runs —
+// once per silent reconnect on resume, from the *same* keepAlive `Ref`
+// (`lifecycleControllerProvider`'s), for as long as the container lives.
+// Registering a fresh `ref.onDispose` per call would stack one dead closure
+// per resume for the container's whole life. Instead, each `Ref` gets at
+// most one `onDispose` hook (tracked in [_pendingGiveUps], keyed by identity
+// via `Expando` so it disappears with the `Ref`), and that one hook fans out
+// to whichever waits are still pending; each wait removes itself from the
+// set as soon as it resolves, so the set never grows past the number of
+// waits genuinely in flight.
+final Expando<Set<void Function()>> _pendingGiveUps = Expando();
+
+// Test-only: how many times [awaitDiscoveredDevice] has actually called
+// `ref.onDispose` for a given `Ref`. Should be exactly 1 no matter how many
+// times [awaitDiscoveredDevice] is called on that `Ref`.
+final Expando<int> _disposeHookRegistrations = Expando();
+
+@visibleForTesting
+int disposeHookRegistrationsFor(Ref ref) => _disposeHookRegistrations[ref] ?? 0;
+
+/// Registers [giveUp] to run when [ref] is disposed, sharing a single
+/// `ref.onDispose` hook across every call made with the same [ref].
+void _onRefDisposeGiveUp(Ref ref, void Function() giveUp) {
+  final pending = _pendingGiveUps[ref];
+  if (pending != null) {
+    pending.add(giveUp);
+    return;
+  }
+  final fresh = <void Function()>{giveUp};
+  _pendingGiveUps[ref] = fresh;
+  _disposeHookRegistrations[ref] = (_disposeHookRegistrations[ref] ?? 0) + 1;
+  ref.onDispose(() {
+    for (final c in fresh.toList()) {
+      c();
+    }
+  });
+}
+
 /// Waits for [discoveryProvider] to report a device that [matches], holding
 /// a live [Ref.listen] subscription so the autoDispose provider stays alive
 /// for the wait — a plain `ref.read(discoveryProvider.future)` resolves on
@@ -63,19 +102,23 @@ Future<DiscoveredDevice?> awaitDiscoveredDevice(
   final completer = Completer<DiscoveredDevice?>();
   Timer? timer;
   late final ProviderSubscription<AsyncValue<DiscoveryState>> sub;
+  late final void Function() giveUp;
 
   void finish(DiscoveredDevice? device) {
     if (completer.isCompleted) return;
     timer?.cancel();
     sub.close();
+    _pendingGiveUps[ref]?.remove(giveUp);
     completer.complete(device);
   }
+
+  giveUp = () => finish(null);
 
   sub = ref.listen<AsyncValue<DiscoveryState>>(discoveryProvider, (_, next) {
     final device = next.value?.devices.where(matches).firstOrNull;
     if (device != null) finish(device);
   });
-  ref.onDispose(() => finish(null));
+  _onRefDisposeGiveUp(ref, giveUp);
 
   final already = ref
       .read(discoveryProvider)
@@ -88,7 +131,7 @@ Future<DiscoveredDevice?> awaitDiscoveredDevice(
   } else {
     timer = Timer(
       timeout ?? ref.read(reconnectDiscoveryTimeoutProvider),
-      () => finish(null),
+      giveUp,
     );
   }
 
