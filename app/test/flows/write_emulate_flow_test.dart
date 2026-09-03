@@ -36,12 +36,10 @@ void main() {
     await tester.tap(find.text('Save to library'));
     await pumpFrames(tester);
     await tester.enterText(
-      find
-          .descendant(
-            of: find.byType(SpectraBottomSheet),
-            matching: find.byType(SpectraTextField),
-          )
-          .first,
+      find.descendant(
+        of: find.byType(SpectraBottomSheet),
+        matching: find.widgetWithText(SpectraTextField, 'Name'),
+      ),
       'Office badge',
     );
     await tester.pump();
