@@ -13,7 +13,15 @@ Status: design approved in brainstorm; spec at docs/superpowers/specs/2026-09-02
 
 ## Architecture (approved 2026-09-02, detail in the spec)
 - Approach A: four-package pub workspace. packages/chameleon (pure Dart SDK: codec, commands, models, DeviceSession with facades, FakeDevice, SecureDfu), packages/chameleon_flutter (BLE, serial, DFU runners), packages/spectra_ui (design system on material_ui 1.0), app/ (Riverpod, go_router, Drift, feature modules with a FeatureModule registry).
-- Extension points: CardCodec registry per tag family, transport registry, feature registry. Dependency lint in CI enforces package and feature boundaries.
+- Extension points: DumpFormat per tag family (pure, in SDK), a plain scanner list, and plain route/destination lists in the shell. Dependency lint in CI enforces package and feature boundaries.
+- Revised 2026-09-02 after an adversarial review (18 findings, most accepted):
+  - DFU: one pure-Dart SecureDfu implementation on all platforms over BLE and serial SLIP channels; nordic_dfu dropped. USB DFU on desktop is validated on hardware first, then BLE, then iOS, so the user's only device can always be recovered over USB (spec 5.6).
+  - Design system base: material_ui 1.0 with one bridge file for in-SDK ThemeData consumers; early spike to confirm coexistence with go_router and alchemist.
+  - Session has an explicit state machine (connecting, ready, limited, updating, disconnected); handshake requires only capabilities, version and model; routing keys off connectionState.
+  - Reader mode is a ref-counted lease; commands carry generation tokens; cancellation drains.
+  - Cache is write-through plus idle poll. Localization (ARB, English) from the first screen. Lifecycle section added. Import of the reference app's JSON export is v1.
+  - One fake only, at transport level; the real DeviceSession runs in all tests. Hardware checklist is a release gate.
+  - Cut from v1: dynamic_color, custom desktop window chrome, emulated Lite UI toggle, single version across all packages (SDK versions independently).
 
 ## Research-derived recommendations (approved as part of the spec)
 - Pub workspace + melos: packages/protocol (pure Dart), transport_ble, transport_serial, data (Drift), app.
