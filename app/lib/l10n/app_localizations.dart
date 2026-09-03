@@ -844,6 +844,12 @@ abstract class AppLocalizations {
   /// **'Spectra cannot edit this card\'s format yet.'**
   String get cardsEditNotEditable;
 
+  /// Title of the card picker sheet other features open.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a card'**
+  String get cardsPickerTitle;
+
   /// Placeholder body of the Settings tab.
   ///
   /// In en, this message translates to:

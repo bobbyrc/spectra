@@ -3,14 +3,13 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
-import '../../../core/format/tag_labels.dart';
 import '../../../core/routing/routes.dart';
 import '../../../data/data.dart';
 import '../../../l10n/app_localizations.dart';
-import '../state/card_codec.dart';
 import '../state/cards_filter.dart';
 import '../state/saved_cards_provider.dart';
 import 'card_import_sheet.dart';
+import 'card_subtitle.dart';
 
 /// The card library (spec 7.7 step 4): search, folder filter, sort, and the
 /// read entry point. Layout only — the filtering rule is [filterCards].
@@ -88,7 +87,7 @@ class CardsPage extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: SpectraSpacing.sm),
               child: SpectraListTile(
                 title: card.name,
-                subtitle: _subtitle(card, l10n),
+                subtitle: cardSubtitle(card, l10n),
                 leading: Icon(
                   Icons.circle,
                   color: card.color == null
@@ -112,16 +111,6 @@ class CardsPage extends ConsumerWidget {
     final int? count = await showCardImportSheet(context);
     if (count == null) return;
     messenger.showSnackBar(SnackBar(content: Text(l10n.cardsImported(count))));
-  }
-
-  /// [Ruling 20]: a folderless card renders just the tag type, never
-  /// "…MIFARE Classic 1K · " with a dangling separator.
-  String _subtitle(SavedCard card, AppLocalizations l10n) {
-    final String type = tagTypeLabel(tagTypeFromName(card.tagType), l10n);
-    final String? folder = card.folder;
-    return folder == null
-        ? l10n.cardsSubtitleNoFolder(type)
-        : l10n.cardsSubtitle(type, folder);
   }
 }
 

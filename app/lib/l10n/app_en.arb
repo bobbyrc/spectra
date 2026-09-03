@@ -283,6 +283,8 @@
   "@cardsEditUnsavedBody": {"description": "Body of the unsaved-changes guard."},
   "cardsEditNotEditable": "Spectra cannot edit this card's format yet.",
   "@cardsEditNotEditable": {"description": "Shown for a dump with no editable layout."},
+  "cardsPickerTitle": "Choose a card",
+  "@cardsPickerTitle": {"description": "Title of the card picker sheet other features open."},
   "comingSoonSettings": "Settings arrive in Phase 9.",
   "@comingSoonSettings": {"description": "Placeholder body of the Settings tab."},
   "comingSoonUpdate": "Firmware update arrives in Phase 8.",

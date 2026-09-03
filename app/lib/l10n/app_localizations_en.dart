@@ -452,6 +452,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Spectra cannot edit this card\'s format yet.';
 
   @override
+  String get cardsPickerTitle => 'Choose a card';
+
+  @override
   String get comingSoonSettings => 'Settings arrive in Phase 9.';
 
   @override
