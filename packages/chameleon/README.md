@@ -90,8 +90,8 @@ tracked in `docs/hardware-checklist.md`:
 - MF1 detection log (4006) record layout, 18 bytes per entry.
 - `MifareClassicDump.uid`: block 0 is assumed to hold a 4-byte UID.
 - The settings payload length (1034); decoded by its leading version byte.
-- `hf14a_raw` (2012) option bit meanings and bit ordering.
-- Check-keys-of-sectors (2020) key A/B bit ordering.
+- `hf14a_raw` (2010) option bit meanings.
+- Check-keys-of-sectors (2012) sector and key A/B mask bit ordering.
 - LF emulator id lengths for HID Prox, Viking, PAC, Jablotron and Idteck.
 - ISO14443-4 commands (6000-6005) in full, including their success status.
 - The DFU init packet's SHA-256 byte order (nrfutil writes it reversed).
