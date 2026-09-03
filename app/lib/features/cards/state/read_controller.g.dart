@@ -107,7 +107,7 @@ final class CardReaderProvider
   }
 }
 
-String _$cardReaderHash() => r'0d3246b9105673b72913b0cf8e01eb80aa0af311';
+String _$cardReaderHash() => r'a69cfcfa9ef74b9394594f52fe2d279086dfe9ff';
 
 /// Spec 7.7 step 3: read a card through `session.reader`.
 ///
