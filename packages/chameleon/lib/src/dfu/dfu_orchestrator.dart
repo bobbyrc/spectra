@@ -88,6 +88,12 @@ typedef DfuChannelOpener = Future<DfuChannel> Function(DiscoveredDevice b);
 /// and cancellation alike, because the app's reconnect logic — not the
 /// orchestrator — decides what the session becomes once the device is back.
 /// The channel is closed on every path out, including cancellation.
+///
+/// Cancel a run with the [CancelToken] passed to [run], never by cancelling
+/// the subscription to its event stream: an unsubscribe closes the channel
+/// out from under an in-flight transfer, which leaves the device in the
+/// bootloader with a half-written image. The token stops the transfer at the
+/// next packet boundary and unwinds cleanly.
 final class DfuOrchestrator {
   DfuOrchestrator({
     required this.scanners,

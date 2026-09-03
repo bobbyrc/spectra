@@ -17,6 +17,14 @@ final class MifareClassicDump implements CardDump {
   int get blockCount => blocks.length ~/ 16;
 
   Uint8List block(int i) => Uint8List.sublistView(blocks, i * 16, i * 16 + 16);
+
+  /// The UID from block 0.
+  ///
+  /// Assumes a 4-byte (single-size) UID, which is what the Chameleon's
+  /// MIFARE Classic emulation and every 1K/4K card in practice use. A 7-byte
+  /// UID card would lay block 0 out differently; the firmware documentation
+  /// does not say how, so this is `hardware-validate` (checklist H1) rather
+  /// than a documented invariant.
   Uint8List get uid => Uint8List.sublistView(blocks, 0, 4);
   Uint8List keyA(int sector) =>
       Uint8List.sublistView(block(MifareGeometry.trailerOf(sector)), 0, 6);

@@ -31,9 +31,11 @@ final class DeviceFacade {
   /// Switches the device between emulator and reader mode. This is the manual
   /// switch behind the mode toggle in the UI.
   ///
-  /// Refused while a reader lease is held: the lease owns the mode and would
-  /// restore the wrong one on release. Reader work takes a lease with
-  /// [DeviceSession.withReaderMode] instead.
+  /// Refused with a [StateError] while a reader lease is held: the lease owns
+  /// the mode and restores it on release, so a manual switch underneath one
+  /// would be silently undone. Every [DeviceSession.reader] call takes such a
+  /// lease for its duration; this method is for the UI's own mode toggle,
+  /// when nothing is holding the device.
   Future<void> setMode(DeviceMode m) async {
     if (_s.readerLeaseCount > 0) {
       throw StateError('mode is held by a reader lease; use withReaderMode');

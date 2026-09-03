@@ -121,4 +121,11 @@ void main() {
     expect(c.id, 2100);
     expect(c.parseResponse(hfOk(2100, [1, 2])), [1, 2]);
   });
+
+  test('the read-only detect probes are idempotent', () {
+    // They only ask the tag a question, so a timed-out probe may be resent.
+    expect(const Mf1DetectSupport().idempotent, isTrue);
+    expect(const Mf1DetectPrng().idempotent, isTrue);
+    expect(Mf1AuthOneKeyBlock(KeyType.a, 0, Uint8List(6)).idempotent, isFalse);
+  });
 }

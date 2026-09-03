@@ -84,7 +84,10 @@ final class SecureDfu {
       if (foreign) {
         // The bootloader holds part of some other image and would append to
         // it. Re-running the command object is what resets its firmware
-        // progress; then the image goes up from the start.
+        // progress; then the image goes up from the start — and progress
+        // restarts with it, so the bar does not sit still while the whole
+        // image is re-sent.
+        reported = -1;
         await _transfer(
           responses,
           type: DfuOp.typeCommand,
@@ -201,6 +204,11 @@ final class SecureDfu {
   /// object is never continued mid-object: the transfer restarts at the last
   /// object boundary, because a Create there is what makes the bootloader
   /// discard the partial object instead of appending to it.
+  ///
+  /// When the prefix does not match, one probe Create is issued at that
+  /// boundary before giving up: it costs one round trip and is the only way
+  /// to tell "the device holds our prefix plus a partial object of ours"
+  /// from "the device holds some other image".
   Future<_Resume?> _resume(
     ResponseQueue<Uint8List> responses, {
     required int type,

@@ -107,10 +107,17 @@ void main() {
     final other = Uint8List.fromList(List.generate(4096, (i) => 0xA5));
     final bl = FakeBootloader(maxObjectSize: 4096)
       ..preload(commandObject: img.dat, data: other);
-    await SecureDfu(FakeDfuChannel(bl)).run(img);
+    final progress = <int>[];
+    await SecureDfu(FakeDfuChannel(bl))
+        .run(img, onProgress: (p) => progress.add(p.bytesSent));
     expect(bl.flashed, bin, reason: 'the foreign prefix is gone');
     expect(bl.completed, isTrue);
     expect(bl.executedDataObjects, 3);
+    // The whole image is re-sent, so progress restarts from zero instead of
+    // freezing at whatever the foreign prefix had reported.
+    expect(progress.first, 0);
+    expect(progress.where((n) => n == 0), hasLength(greaterThan(1)));
+    expect(progress.last, bin.length);
   });
 
   test('bootloader rejecting the hardware version is a DfuError', () async {

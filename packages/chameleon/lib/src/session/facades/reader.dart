@@ -83,13 +83,19 @@ final class ReaderFacade {
 
   /// Asks the firmware which of [keys] work for [sectors]. The result always
   /// covers all 40 sectors; sectors that were not asked about stay null.
+  ///
+  /// A dictionary longer than one request holds ([Mf1CheckKeysOfSectors.maxKeys]
+  /// keys) is split across requests, and each request asks only about the
+  /// sectors still missing a key, so a large dictionary is neither refused
+  /// nor re-tried against sectors that are already open.
   Future<Mf1KeyCheckResult> mf1CheckKeys({
     required Set<int> sectors,
     Set<KeyType> keyTypes = const {KeyType.a, KeyType.b},
     required List<Uint8List> keys,
+    CancelToken? cancel,
   }) => _s.withReaderMode(
-    () => _s.send(
-      Mf1CheckKeysOfSectors(sectors: sectors, keyTypes: keyTypes, keys: keys),
+    () async => Mf1KeyCheckResult(
+      await _checkKeysChunked(sectors, keyTypes, keys, cancel),
     ),
   );
 
@@ -185,36 +191,73 @@ final class ReaderFacade {
     List<Uint8List> candidateKeys,
     CancelToken? cancel,
   ) async {
-    final out = [for (var s = 0; s < sectors; s++) SectorKeys(sector: s)];
-    if (candidateKeys.isEmpty) return out;
-    final mask = {for (var s = 0; s < sectors; s++) s};
+    final all = await _checkKeysChunked(
+      {for (var s = 0; s < sectors; s++) s},
+      _bothKeyTypes,
+      candidateKeys,
+      cancel,
+    );
+    return all.take(sectors).toList();
+  }
+
+  /// One CHECK_KEYS_OF_SECTORS run over a dictionary of any size.
+  ///
+  /// Each request carries at most [Mf1CheckKeysOfSectors.maxKeys] keys and
+  /// asks only about the sectors that still lack one of [keyTypes]: a sector
+  /// opened by the first chunk costs nothing in the second, and the run stops
+  /// early once every asked-about sector is solved. The result always covers
+  /// all 40 sectors, whatever was asked about.
+  Future<List<SectorKeys>> _checkKeysChunked(
+    Set<int> sectors,
+    Set<KeyType> keyTypes,
+    List<Uint8List> keys,
+    CancelToken? cancel,
+  ) async {
+    final out = [for (var s = 0; s < 40; s++) SectorKeys(sector: s)];
+    if (keys.isEmpty || sectors.isEmpty || keyTypes.isEmpty) return out;
+    var pending = {...sectors};
     const chunkSize = Mf1CheckKeysOfSectors.maxKeys;
-    for (var offset = 0; offset < candidateKeys.length; offset += chunkSize) {
+    for (
+      var offset = 0;
+      offset < keys.length && pending.isNotEmpty;
+      offset += chunkSize
+    ) {
       _throwIfCancelled(cancel);
       final found = await _s.send(
         Mf1CheckKeysOfSectors(
-          sectors: mask,
-          keyTypes: _bothKeyTypes,
-          keys: candidateKeys.skip(offset).take(chunkSize).toList(),
+          sectors: pending,
+          keyTypes: keyTypes,
+          keys: keys.skip(offset).take(chunkSize).toList(),
         ),
         cancel: cancel,
       );
-      var complete = true;
-      for (var s = 0; s < sectors; s++) {
-        final have = out[s];
-        if (have.keyA == null || have.keyB == null) {
-          final got = found.sectors[s];
-          out[s] = SectorKeys(
-            sector: s,
-            keyA: have.keyA ?? got.keyA,
-            keyB: have.keyB ?? got.keyB,
-          );
-        }
-        complete &= out[s].keyA != null && out[s].keyB != null;
-      }
-      if (complete) break;
+      pending = {
+        for (final sector in pending)
+          if (!_merge(out, found, sector, keyTypes)) sector,
+      };
     }
     return out;
+  }
+
+  /// Folds the answer for one sector into [out], and says whether every key
+  /// type asked about is now known.
+  bool _merge(
+    List<SectorKeys> out,
+    Mf1KeyCheckResult found,
+    int sector,
+    Set<KeyType> keyTypes,
+  ) {
+    final have = out[sector];
+    final got = found.sectors[sector];
+    final merged = SectorKeys(
+      sector: sector,
+      keyA: have.keyA ?? got.keyA,
+      keyB: have.keyB ?? got.keyB,
+    );
+    out[sector] = merged;
+    return keyTypes.every(
+      (t) => (t == KeyType.a ? merged.keyA : merged.keyB) != null,
+    );
   }
 
   Future<List<SectorKeys>> _probeKeys(

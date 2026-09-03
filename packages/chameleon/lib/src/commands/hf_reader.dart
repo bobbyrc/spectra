@@ -37,16 +37,22 @@ final class Hf14aScan extends Command<List<Hf14aTag>> {
 }
 
 /// Success status means the tag supports MIFARE Classic authentication.
+/// Read-only probe: safe to retry after a timeout.
 final class Mf1DetectSupport extends VoidCommand {
   const Mf1DetectSupport();
   @override
   int get id => 2001;
+  @override
+  bool get idempotent => true;
 }
 
+/// Read-only probe: safe to retry after a timeout.
 final class Mf1DetectPrng extends Command<PrngType> {
   const Mf1DetectPrng();
   @override
   int get id => 2002;
+  @override
+  bool get idempotent => true;
   @override
   PrngType decode(Uint8List data) => PrngType.fromCode(ByteReader(data).u8());
 }

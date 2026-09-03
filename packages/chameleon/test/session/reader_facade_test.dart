@@ -311,4 +311,56 @@ void main() {
     expect(ReaderFacade.firstBlockOf(32), 128);
     expect(ReaderFacade.blocksInSector(39), 16);
   });
+
+  test('mf1CheckKeys chunks a dictionary larger than one request', () async {
+    // 83 keys is the most one request holds; a 100-key dictionary that only
+    // works on its 91st key must still open the card.
+    device.firmware.present(FakeMf1Card.classic1k(uid: b([1, 2, 3, 4])));
+    final dictionary = [
+      for (var i = 0; i < 100; i++) b([0, 0, 0, 0, 0, i & 0xFF]),
+    ];
+    dictionary[90] = FakeMf1Card.defaultKey;
+    final result = await s.reader.mf1CheckKeys(
+      sectors: {0, 1},
+      keys: dictionary,
+    );
+    expect(result.sectors, hasLength(40));
+    expect(result.sectors[0].keyA, FakeMf1Card.defaultKey);
+    expect(result.sectors[1].keyB, FakeMf1Card.defaultKey);
+    // Sectors never asked about stay unknown.
+    expect(result.sectors[5].keyA, isNull);
+    expect(device.received.where((f) => f.command == 2012), hasLength(2));
+  });
+
+  test('each check-keys chunk drops the sectors already solved', () async {
+    // Sector 0 opens on the first chunk, sector 2 only on the second: the
+    // second request's mask must no longer ask about sector 0.
+    final card = FakeMf1Card.classic1k(uid: b([1, 2, 3, 4]));
+    final lateKey = b([9, 9, 9, 9, 9, 9]);
+    card.keys[FakeMf1Card.keyId(2, KeyType.a)] = lateKey;
+    card.keys[FakeMf1Card.keyId(2, KeyType.b)] = lateKey;
+    device.firmware.present(card);
+    final dictionary = [
+      FakeMf1Card.defaultKey,
+      for (var i = 0; i < 90; i++) b([0, 0, 0, 0, 1, i & 0xFF]),
+    ];
+    dictionary[90] = lateKey;
+    final result = await s.reader.mf1CheckKeys(
+      sectors: {0, 2},
+      keys: dictionary,
+    );
+    expect(result.sectors[0].keyA, FakeMf1Card.defaultKey);
+    expect(result.sectors[2].keyA, lateKey);
+    final requests = device.received.where((f) => f.command == 2012).toList();
+    expect(requests, hasLength(2));
+    bool asksAbout(Uint8List mask, int sector) {
+      final i = sector * 2;
+      return (mask[i ~/ 8] & (0x80 >> (i % 8))) != 0;
+    }
+
+    expect(asksAbout(requests.first.data, 0), isTrue);
+    expect(asksAbout(requests.first.data, 2), isTrue);
+    expect(asksAbout(requests.last.data, 0), isFalse);
+    expect(asksAbout(requests.last.data, 2), isTrue);
+  });
 }
