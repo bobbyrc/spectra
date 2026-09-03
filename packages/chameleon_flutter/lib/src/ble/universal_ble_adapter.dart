@@ -98,7 +98,14 @@ final class UniversalBleAdapter implements BleAdapter {
     };
     controller.onCancel = () async {
       await sub?.cancel();
-      await stopScan();
+      // Teardown is best-effort: a radio that errors while being told to
+      // stop must not make cancelling a subscription throw at the call
+      // site, and the stream still has to close either way.
+      try {
+        await stopScan();
+      } on BleAdapterException {
+        // Nothing useful to do; the scan is over as far as callers care.
+      }
       await controller.close();
     };
     return controller.stream;
