@@ -57,6 +57,53 @@ void main() {
         );
       }
     });
+
+    test(
+      'runs end to end against a fake app with no signing configured',
+      () async {
+        final Directory tempDir = Directory.systemTemp.createTempSync(
+          'macos_dmg_test_',
+        );
+        addTearDown(() => tempDir.deleteSync(recursive: true));
+
+        final String appPath = '${tempDir.path}/Spectra.app';
+        final Directory macosDir = Directory('$appPath/Contents/MacOS')
+          ..createSync(recursive: true);
+        File('$appPath/Contents/Info.plist').writeAsStringSync('''
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>spectra</string>
+<key>CFBundleIdentifier</key><string>dev.spectra.spectra</string>
+</dict></plist>
+''');
+        final File executable = File('${macosDir.path}/spectra')
+          ..writeAsStringSync('#!/bin/sh\n');
+        Process.runSync('chmod', <String>['+x', executable.path]);
+
+        final String outDmg = '${tempDir.path}/out/spectra.dmg';
+
+        final ProcessResult result = await Process.run(
+          'bash',
+          <String>['tool/package/macos_dmg.sh', appPath, outDmg],
+          environment: <String, String>{'RUNNER_TEMP': tempDir.path},
+        );
+
+        expect(
+          result.exitCode,
+          0,
+          reason: 'stdout: ${result.stdout}\nstderr: ${result.stderr}',
+        );
+        expect(File(outDmg).existsSync(), isTrue);
+        expect(
+          result.stdout,
+          contains(
+            'macos_dmg: no signing identity and no notary credentials '
+            '— ad-hoc signed, not notarized',
+          ),
+        );
+      },
+      timeout: const Timeout(Duration(seconds: 20)),
+    );
   });
 
   group('Windows installer', () {
