@@ -12,16 +12,15 @@ part of 'card_editor_controller.dart';
 /// card does not grey out another (the `SlotEditor` shape).
 ///
 /// A call made while another write is in flight is dropped, not queued; the
-/// screen disables its controls while `state.isLoading`. Every assignment to
-/// [state] after an `await` is guarded with `ref.mounted` (Phase 6 ruling 2):
-/// the detail screen is a pushed sub-route and can be popped (or the app can
-/// navigate elsewhere) while a write is still on the wire.
+/// screen disables its controls while [CardEditState.busy]. Every
+/// assignment to [state] after an `await` is guarded with `ref.mounted`
+/// (Phase 6 ruling 2): the detail screen is a pushed sub-route and can be
+/// popped (or the app can navigate elsewhere) while a write is still on the
+/// wire.
 ///
-/// Task 7 lands the read-only half: fields, the hex viewer, delete.
-/// [replaceChunk] is Task 8's extension point — it only ever touches the
-/// in-memory working copy, so the read-only screen this task builds already
-/// works unmodified once Task 8 starts calling it from an editable hex
-/// viewer.
+/// Task 7 landed the read-only half: fields, the hex viewer, delete. Task 8
+/// wires [replaceChunk] to the editable hex viewer and calls [save]/
+/// [discard] from it.
 
 @ProviderFor(CardEditor)
 final cardEditorProvider = CardEditorFamily._();
@@ -30,32 +29,30 @@ final cardEditorProvider = CardEditorFamily._();
 /// card does not grey out another (the `SlotEditor` shape).
 ///
 /// A call made while another write is in flight is dropped, not queued; the
-/// screen disables its controls while `state.isLoading`. Every assignment to
-/// [state] after an `await` is guarded with `ref.mounted` (Phase 6 ruling 2):
-/// the detail screen is a pushed sub-route and can be popped (or the app can
-/// navigate elsewhere) while a write is still on the wire.
+/// screen disables its controls while [CardEditState.busy]. Every
+/// assignment to [state] after an `await` is guarded with `ref.mounted`
+/// (Phase 6 ruling 2): the detail screen is a pushed sub-route and can be
+/// popped (or the app can navigate elsewhere) while a write is still on the
+/// wire.
 ///
-/// Task 7 lands the read-only half: fields, the hex viewer, delete.
-/// [replaceChunk] is Task 8's extension point — it only ever touches the
-/// in-memory working copy, so the read-only screen this task builds already
-/// works unmodified once Task 8 starts calling it from an editable hex
-/// viewer.
+/// Task 7 landed the read-only half: fields, the hex viewer, delete. Task 8
+/// wires [replaceChunk] to the editable hex viewer and calls [save]/
+/// [discard] from it.
 final class CardEditorProvider
     extends $AsyncNotifierProvider<CardEditor, CardEditState?> {
   /// The detail screen's state, one notifier per card id, so a failure on one
   /// card does not grey out another (the `SlotEditor` shape).
   ///
   /// A call made while another write is in flight is dropped, not queued; the
-  /// screen disables its controls while `state.isLoading`. Every assignment to
-  /// [state] after an `await` is guarded with `ref.mounted` (Phase 6 ruling 2):
-  /// the detail screen is a pushed sub-route and can be popped (or the app can
-  /// navigate elsewhere) while a write is still on the wire.
+  /// screen disables its controls while [CardEditState.busy]. Every
+  /// assignment to [state] after an `await` is guarded with `ref.mounted`
+  /// (Phase 6 ruling 2): the detail screen is a pushed sub-route and can be
+  /// popped (or the app can navigate elsewhere) while a write is still on the
+  /// wire.
   ///
-  /// Task 7 lands the read-only half: fields, the hex viewer, delete.
-  /// [replaceChunk] is Task 8's extension point — it only ever touches the
-  /// in-memory working copy, so the read-only screen this task builds already
-  /// works unmodified once Task 8 starts calling it from an editable hex
-  /// viewer.
+  /// Task 7 landed the read-only half: fields, the hex viewer, delete. Task 8
+  /// wires [replaceChunk] to the editable hex viewer and calls [save]/
+  /// [discard] from it.
   CardEditorProvider._({
     required CardEditorFamily super.from,
     required String super.argument,
@@ -92,22 +89,21 @@ final class CardEditorProvider
   }
 }
 
-String _$cardEditorHash() => r'8caa40b30449b12ab1aa993833eaf1a15a0c29ef';
+String _$cardEditorHash() => r'2a62b62a83379be570ca28ae72f945dfcd28cfc2';
 
 /// The detail screen's state, one notifier per card id, so a failure on one
 /// card does not grey out another (the `SlotEditor` shape).
 ///
 /// A call made while another write is in flight is dropped, not queued; the
-/// screen disables its controls while `state.isLoading`. Every assignment to
-/// [state] after an `await` is guarded with `ref.mounted` (Phase 6 ruling 2):
-/// the detail screen is a pushed sub-route and can be popped (or the app can
-/// navigate elsewhere) while a write is still on the wire.
+/// screen disables its controls while [CardEditState.busy]. Every
+/// assignment to [state] after an `await` is guarded with `ref.mounted`
+/// (Phase 6 ruling 2): the detail screen is a pushed sub-route and can be
+/// popped (or the app can navigate elsewhere) while a write is still on the
+/// wire.
 ///
-/// Task 7 lands the read-only half: fields, the hex viewer, delete.
-/// [replaceChunk] is Task 8's extension point — it only ever touches the
-/// in-memory working copy, so the read-only screen this task builds already
-/// works unmodified once Task 8 starts calling it from an editable hex
-/// viewer.
+/// Task 7 landed the read-only half: fields, the hex viewer, delete. Task 8
+/// wires [replaceChunk] to the editable hex viewer and calls [save]/
+/// [discard] from it.
 
 final class CardEditorFamily extends $Family
     with
@@ -131,16 +127,15 @@ final class CardEditorFamily extends $Family
   /// card does not grey out another (the `SlotEditor` shape).
   ///
   /// A call made while another write is in flight is dropped, not queued; the
-  /// screen disables its controls while `state.isLoading`. Every assignment to
-  /// [state] after an `await` is guarded with `ref.mounted` (Phase 6 ruling 2):
-  /// the detail screen is a pushed sub-route and can be popped (or the app can
-  /// navigate elsewhere) while a write is still on the wire.
+  /// screen disables its controls while [CardEditState.busy]. Every
+  /// assignment to [state] after an `await` is guarded with `ref.mounted`
+  /// (Phase 6 ruling 2): the detail screen is a pushed sub-route and can be
+  /// popped (or the app can navigate elsewhere) while a write is still on the
+  /// wire.
   ///
-  /// Task 7 lands the read-only half: fields, the hex viewer, delete.
-  /// [replaceChunk] is Task 8's extension point — it only ever touches the
-  /// in-memory working copy, so the read-only screen this task builds already
-  /// works unmodified once Task 8 starts calling it from an editable hex
-  /// viewer.
+  /// Task 7 landed the read-only half: fields, the hex viewer, delete. Task 8
+  /// wires [replaceChunk] to the editable hex viewer and calls [save]/
+  /// [discard] from it.
 
   CardEditorProvider call(String id) =>
       CardEditorProvider._(argument: id, from: this);
@@ -153,16 +148,15 @@ final class CardEditorFamily extends $Family
 /// card does not grey out another (the `SlotEditor` shape).
 ///
 /// A call made while another write is in flight is dropped, not queued; the
-/// screen disables its controls while `state.isLoading`. Every assignment to
-/// [state] after an `await` is guarded with `ref.mounted` (Phase 6 ruling 2):
-/// the detail screen is a pushed sub-route and can be popped (or the app can
-/// navigate elsewhere) while a write is still on the wire.
+/// screen disables its controls while [CardEditState.busy]. Every
+/// assignment to [state] after an `await` is guarded with `ref.mounted`
+/// (Phase 6 ruling 2): the detail screen is a pushed sub-route and can be
+/// popped (or the app can navigate elsewhere) while a write is still on the
+/// wire.
 ///
-/// Task 7 lands the read-only half: fields, the hex viewer, delete.
-/// [replaceChunk] is Task 8's extension point — it only ever touches the
-/// in-memory working copy, so the read-only screen this task builds already
-/// works unmodified once Task 8 starts calling it from an editable hex
-/// viewer.
+/// Task 7 landed the read-only half: fields, the hex viewer, delete. Task 8
+/// wires [replaceChunk] to the editable hex viewer and calls [save]/
+/// [discard] from it.
 
 abstract class _$CardEditor extends $AsyncNotifier<CardEditState?> {
   late final _$args = ref.$arg as String;

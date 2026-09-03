@@ -347,8 +347,62 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String cardsDetailBytes(int count) {
-    return '$count bytes';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bytes',
+      one: '$count byte',
+    );
+    return '$_temp0';
   }
+
+  @override
+  String get cardsEditTitle => 'Edit';
+
+  @override
+  String get cardsEditChunkLabelBlock => 'Block';
+
+  @override
+  String get cardsEditChunkLabelPage => 'Page';
+
+  @override
+  String get cardsEditChunkLabelId => 'Id';
+
+  @override
+  String get cardsEditValue => 'Bytes (hex)';
+
+  @override
+  String get cardsEditApply => 'Apply';
+
+  @override
+  String get cardsEditBadHex => 'That is not hex.';
+
+  @override
+  String cardsEditBadLength(int size) {
+    return 'This card takes $size bytes per block.';
+  }
+
+  @override
+  String cardsEditBadIndex(int last) {
+    return 'Choose a number between 0 and $last.';
+  }
+
+  @override
+  String get cardsEditSave => 'Save changes';
+
+  @override
+  String get cardsEditDiscard => 'Discard changes';
+
+  @override
+  String get cardsEditUnsavedTitle => 'Leave without saving?';
+
+  @override
+  String get cardsEditUnsavedBody =>
+      'The edits to this dump have not been saved.';
+
+  @override
+  String get cardsEditNotEditable =>
+      'Spectra cannot edit this card\'s format yet.';
 
   @override
   String get comingSoonSettings => 'Settings arrive in Phase 9.';

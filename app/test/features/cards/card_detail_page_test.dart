@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide ConnectionState;
 import 'package:spectra/core/routing/routes.dart';
+import 'package:spectra/data/data.dart';
 import 'package:spectra/features/cards/cards.dart';
+import 'package:spectra/features/cards/state/card_editor_controller.dart';
 import 'package:spectra/features/cards/state/saved_cards_provider.dart';
 import 'package:spectra_ui/spectra_ui.dart';
 
@@ -52,6 +54,16 @@ void main() {
     expect(find.byType(SpectraHexViewer), findsOneWidget);
   });
 
+  testWidgetsApp(
+    'the back button returns to the library with no unsaved edits',
+    (tester) async {
+      await seedAndOpen(tester);
+      await tester.tap(find.byType(BackButton));
+      await pumpFrames(tester);
+      expect(find.byType(CardsPage), findsOneWidget);
+    },
+  );
+
   testWidgetsApp('deleting a card confirms first, then removes it', (
     tester,
   ) async {
@@ -92,6 +104,169 @@ void main() {
     GoRouter.of(context).go(AppRoutes.card('nope'));
     await pumpFrames(tester, count: 20);
     expect(find.text('That card is not in the library.'), findsOneWidget);
+  });
+
+  testWidgetsApp('editing a block changes the dump and saves it', (
+    tester,
+  ) async {
+    final String id = await seedAndOpen(tester);
+
+    await tester.enterText(find.byKey(const Key('cardEditIndex')), '1');
+    await tester.enterText(
+      find.byKey(const Key('cardEditValue')),
+      '000102030405060708090A0B0C0D0E0F',
+    );
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Apply'));
+    await pumpFrames(tester);
+
+    // In memory only until Save.
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    final CardEditState edited = readProvider(
+      tester,
+      cardEditorProvider(id),
+    ).value!;
+    expect(edited.dirty, isTrue);
+    expect(edited.chunk(1), <int>[
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+    ]);
+
+    await tester.ensureVisible(find.text('Save changes'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Save changes'));
+    await pumpFrames(tester, count: 20);
+
+    final SavedCardsRepository repo = readProvider(
+      tester,
+      savedCardsRepositoryProvider,
+    );
+    final SavedCard stored = (await repo.byId(id))!;
+    expect(stored.bytes.sublist(16, 32), <int>[
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+    ]);
+    expect(readProvider(tester, cardEditorProvider(id)).value!.dirty, isFalse);
+  });
+
+  testWidgetsApp('saving keeps the working copy on screen while it writes', (
+    tester,
+  ) async {
+    final String id = await seedAndOpen(tester);
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    final CardEditor editor = readProvider(
+      tester,
+      cardEditorProvider(id).notifier,
+    );
+
+    // `busy` is set synchronously, before the repository write is awaited
+    // — check it before the pending future's own continuation can run and
+    // clear it again.
+    final Future<void> pending = editor.save();
+    final CardEditState busy = readProvider(
+      tester,
+      cardEditorProvider(id),
+    ).value!;
+    expect(busy.busy, isTrue);
+    expect(busy.card.name, 'Office badge');
+    await pumpFrames(tester, count: 20);
+    await pending;
+    expect(readProvider(tester, cardEditorProvider(id)).value!.busy, isFalse);
+  });
+
+  testWidgetsApp('a bad hex value is refused before anything changes', (
+    tester,
+  ) async {
+    final String id = await seedAndOpen(tester);
+
+    await tester.enterText(find.byKey(const Key('cardEditIndex')), '1');
+    await tester.enterText(find.byKey(const Key('cardEditValue')), 'zz');
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Apply'));
+    await pumpFrames(tester);
+
+    expect(find.text('That is not hex.'), findsOneWidget);
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    expect(readProvider(tester, cardEditorProvider(id)).value!.dirty, isFalse);
+  });
+
+  testWidgetsApp('a wrong-length value names the length it needs', (
+    tester,
+  ) async {
+    await seedAndOpen(tester);
+    await tester.enterText(find.byKey(const Key('cardEditIndex')), '1');
+    await tester.enterText(find.byKey(const Key('cardEditValue')), 'AABB');
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Apply'));
+    await pumpFrames(tester);
+    expect(find.text('This card takes 16 bytes per block.'), findsOneWidget);
+  });
+
+  testWidgetsApp('discarding an edit puts the stored bytes back', (
+    tester,
+  ) async {
+    final String id = await seedAndOpen(tester);
+    await tester.enterText(find.byKey(const Key('cardEditIndex')), '1');
+    await tester.enterText(
+      find.byKey(const Key('cardEditValue')),
+      '000102030405060708090A0B0C0D0E0F',
+    );
+    await pumpFrames(tester);
+    await tester.ensureVisible(find.text('Apply'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Apply'));
+    await pumpFrames(tester);
+
+    await tester.ensureVisible(find.text('Discard changes'));
+    await pumpFrames(tester);
+    await tester.tap(find.text('Discard changes'));
+    await pumpFrames(tester, count: 20);
+
+    keepAlive(tester, cardEditorProvider(id));
+    await pumpFrames(tester);
+    final CardEditState reverted = readProvider(
+      tester,
+      cardEditorProvider(id),
+    ).value!;
+    expect(reverted.dirty, isFalse);
+    expect(reverted.chunk(1), everyElement(0));
   });
 
   test('trailerHighlights covers every MIFARE Classic trailer', () {

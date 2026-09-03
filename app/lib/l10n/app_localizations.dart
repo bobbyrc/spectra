@@ -685,8 +685,92 @@ abstract class AppLocalizations {
   /// Size of the stored dump.
   ///
   /// In en, this message translates to:
-  /// **'{count} bytes'**
+  /// **'{count, plural, one {{count} byte} other {{count} bytes}}'**
   String cardsDetailBytes(int count);
+
+  /// Heading of the dump editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get cardsEditTitle;
+
+  /// Label of the block-number field.
+  ///
+  /// In en, this message translates to:
+  /// **'Block'**
+  String get cardsEditChunkLabelBlock;
+
+  /// Label of the page-number field.
+  ///
+  /// In en, this message translates to:
+  /// **'Page'**
+  String get cardsEditChunkLabelPage;
+
+  /// Label of the LF id field.
+  ///
+  /// In en, this message translates to:
+  /// **'Id'**
+  String get cardsEditChunkLabelId;
+
+  /// Label of the hex value field.
+  ///
+  /// In en, this message translates to:
+  /// **'Bytes (hex)'**
+  String get cardsEditValue;
+
+  /// Applies the typed bytes to the working copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get cardsEditApply;
+
+  /// The typed value is not a hex string.
+  ///
+  /// In en, this message translates to:
+  /// **'That is not hex.'**
+  String get cardsEditBadHex;
+
+  /// The typed value is the wrong length.
+  ///
+  /// In en, this message translates to:
+  /// **'This card takes {size} bytes per block.'**
+  String cardsEditBadLength(int size);
+
+  /// The typed block or page number is out of range.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a number between 0 and {last}.'**
+  String cardsEditBadIndex(int last);
+
+  /// Writes the edited dump back to the library.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get cardsEditSave;
+
+  /// Throws the edits away and reloads the stored dump.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard changes'**
+  String get cardsEditDiscard;
+
+  /// Title of the unsaved-changes guard.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave without saving?'**
+  String get cardsEditUnsavedTitle;
+
+  /// Body of the unsaved-changes guard.
+  ///
+  /// In en, this message translates to:
+  /// **'The edits to this dump have not been saved.'**
+  String get cardsEditUnsavedBody;
+
+  /// Shown for a dump with no editable layout.
+  ///
+  /// In en, this message translates to:
+  /// **'Spectra cannot edit this card\'s format yet.'**
+  String get cardsEditNotEditable;
 
   /// Placeholder body of the Settings tab.
   ///
