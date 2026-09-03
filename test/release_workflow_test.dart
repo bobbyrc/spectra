@@ -4,6 +4,20 @@ import 'package:test/test.dart';
 
 String _read(String path) => File(path).readAsStringSync();
 
+/// The body of a top-level `  <job>:` block in a workflow file: everything
+/// after its heading line up to (not including) the next line that starts
+/// a sibling top-level job.
+String _jobBlock(String yaml, String job) {
+  final List<String> lines = yaml.split('\n');
+  final int start = lines.indexWhere((String l) => l == '  $job:');
+  expect(start, greaterThanOrEqualTo(0), reason: 'job $job not found');
+  final int end = lines.indexWhere(
+    (String l) => RegExp(r'^  \w+:$').hasMatch(l),
+    start + 1,
+  );
+  return lines.sublist(start + 1, end == -1 ? lines.length : end).join('\n');
+}
+
 void main() {
   group('ci.yml keeps its shape', () {
     late String ci;
@@ -72,6 +86,45 @@ void main() {
       expect(yaml, contains('tool/package/windows_installer.ps1'));
       expect(yaml, contains('tool/package/linux_appimage.sh'));
       expect(yaml, contains('tool/package/ios_ipa.sh'));
+    });
+
+    test(
+      'every packaging script referenced exists on disk and is executable',
+      () {
+        final Set<String> scripts = RegExp(r'tool/package/\S+\.(?:sh|ps1)')
+            .allMatches(yaml)
+            .map((RegExpMatch m) => m.group(0)!)
+            .toSet();
+        expect(scripts, isNotEmpty);
+        for (final String script in scripts) {
+          final File file = File(script);
+          expect(file.existsSync(), isTrue, reason: '$script is missing');
+          if (script.endsWith('.sh')) {
+            final int mode = file.statSync().mode;
+            expect(
+              mode & 0x49,
+              isNot(0),
+              reason: '$script is missing its executable bit',
+            );
+          }
+        }
+      },
+    );
+
+    test('every platform job uploads an artifact', () {
+      for (final String job in const <String>[
+        'macos',
+        'windows',
+        'linux',
+        'android',
+        'ios',
+      ]) {
+        expect(
+          _jobBlock(yaml, job),
+          contains('actions/upload-artifact@v4'),
+          reason: '$job does not upload an artifact',
+        );
+      }
     });
 
     test('every action is pinned to a major version tag', () {
