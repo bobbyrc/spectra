@@ -33,6 +33,10 @@ class SpectraHexViewer extends StatelessWidget {
   final List<SpectraHexHighlight> highlights;
   final bool showAscii;
 
+  /// Width of the offset gutter. Wide enough for the eight-digit hex offset
+  /// the rows print, so the header and every row line up.
+  static const double offsetColumnWidth = 96;
+
   SpectraHexHighlight? _highlightFor(int index) {
     for (final SpectraHexHighlight h in highlights) {
       if (h.contains(index)) return h;
@@ -80,7 +84,7 @@ class SpectraHexViewer extends StatelessWidget {
             Row(
               children: <Widget>[
                 SizedBox(
-                  width: 96,
+                  width: offsetColumnWidth,
                   child: Text(l10n.hexViewerOffsetHeader, style: header),
                 ),
                 if (showAscii) ...<Widget>[
@@ -145,7 +149,7 @@ class SpectraHexViewer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             SizedBox(
-              width: 96,
+              width: offsetColumnWidth,
               child: Text(
                 start.toRadixString(16).toUpperCase().padLeft(8, '0'),
                 style: mono.copyWith(color: offsetColor),

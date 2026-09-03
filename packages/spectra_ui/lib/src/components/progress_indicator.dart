@@ -15,7 +15,10 @@ class SpectraProgressIndicator extends StatelessWidget {
     this.detail,
     this.onCancel,
     super.key,
-  });
+  }) : assert(
+         value == null || (value >= 0 && value <= 1),
+         'value must be a fraction between 0 and 1',
+       );
 
   final String label;
 
@@ -29,9 +32,12 @@ class SpectraProgressIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final SpectraTheme theme = SpectraTheme.of(context);
     final SpectraUiLocalizations l10n = SpectraUiLocalizations.of(context);
+    // Asserted in the constructor; clamped so a release build with a stray
+    // value still renders a bar rather than throwing in the render tree.
+    final double? fraction = value?.clamp(0.0, 1.0);
     return Semantics(
       label: detail == null ? label : '$label, $detail',
-      value: value == null ? null : '${(value! * 100).round()}%',
+      value: fraction == null ? null : '${(fraction * 100).round()}%',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,7 +52,7 @@ class SpectraProgressIndicator extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(SpectraSpacing.xs),
             child: LinearProgressIndicator(
-              value: value,
+              value: fraction,
               minHeight: 6,
               backgroundColor: theme.colors.surfaceRaised,
               color: theme.colors.accent,

@@ -19,13 +19,19 @@ class SpectraStatusChip extends StatelessWidget {
     required int this.percent,
     this.charging = false,
     super.key,
-  }) : status = null;
+  }) : status = null,
+       assert(
+         percent >= 0 && percent <= 100,
+         'percent must be a battery percentage between 0 and 100',
+       );
 
   final SpectraConnectionStatus? status;
   final int? percent;
   final bool charging;
 
-  /// Below this the battery chip turns danger-coloured.
+  /// At or below this percentage the battery chip turns danger-coloured;
+  /// above it, success-coloured. The scale is deliberately binary — a middle
+  /// "warning" band would compete with the connection chip's warning tint.
   static const int lowBatteryPercent = 15;
 
   @override

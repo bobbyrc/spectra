@@ -12,7 +12,7 @@ class SpectraStepIndicator extends StatelessWidget {
     required this.currentIndex,
     this.failed = false,
     super.key,
-  });
+  }) : assert(currentIndex >= 0, 'currentIndex must not be negative');
 
   final List<String> steps;
   final int currentIndex;
@@ -22,20 +22,29 @@ class SpectraStepIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    assert(steps.isNotEmpty, 'a step indicator needs at least one step');
+    assert(
+      currentIndex < steps.length,
+      'currentIndex must index into steps (const construction keeps the '
+      'upper bound out of the constructor assert)',
+    );
+    // Clamped so a release build with a stray index still renders the last
+    // step instead of throwing a RangeError out of the render tree.
+    final int index = currentIndex.clamp(0, steps.length - 1);
     final SpectraTheme theme = SpectraTheme.of(context);
     final SpectraUiLocalizations l10n = SpectraUiLocalizations.of(context);
     final Color currentColor = failed
         ? theme.colors.danger
         : theme.colors.accent;
     return Semantics(
-      label: l10n.stepProgress(currentIndex + 1, steps.length),
+      label: l10n.stepProgress(index + 1, steps.length),
       excludeSemantics: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            l10n.stepProgress(currentIndex + 1, steps.length),
+            l10n.stepProgress(index + 1, steps.length),
             style: SpectraTypography.label.copyWith(
               color: theme.colors.textSecondary,
             ),
@@ -51,8 +60,8 @@ class SpectraStepIndicator extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: switch (i) {
-                      _ when i < currentIndex => theme.colors.success,
-                      _ when i == currentIndex => currentColor,
+                      _ when i < index => theme.colors.success,
+                      _ when i == index => currentColor,
                       _ => theme.colors.border,
                     },
                   ),
@@ -62,7 +71,7 @@ class SpectraStepIndicator extends StatelessWidget {
           ),
           const SizedBox(height: SpectraSpacing.sm),
           Text(
-            steps[currentIndex],
+            steps[index],
             style: SpectraTypography.body.copyWith(
               color: failed ? theme.colors.danger : theme.colors.textPrimary,
             ),

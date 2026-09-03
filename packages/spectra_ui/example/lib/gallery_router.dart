@@ -4,11 +4,15 @@ import 'package:spectra_ui/spectra_ui.dart';
 
 import 'gallery_entry.dart';
 
-/// One route per component, all inside the adaptive shell. `/` redirects to
-/// the first entry so the shell always has a selected destination.
+/// One route per component, all inside the adaptive shell. The app starts on
+/// the first entry, and `/` redirects there too, so the shell always has a
+/// selected destination however it is entered (a deep link, or the web
+/// address bar).
 GoRouter buildGalleryRouter() {
   return GoRouter(
     initialLocation: galleryEntries.first.path,
+    redirect: (BuildContext context, GoRouterState state) =>
+        state.uri.path == '/' ? galleryEntries.first.path : null,
     routes: <RouteBase>[
       ShellRoute(
         builder: (BuildContext context, GoRouterState state, Widget child) {

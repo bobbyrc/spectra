@@ -54,13 +54,17 @@ class SpectraDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: SpectraSpacing.lg),
-            content,
+            // Long content scrolls inside the dialog rather than overflowing
+            // it: `Flexible` lets the column give the content whatever height
+            // is left once the title and the action row have taken theirs.
+            Flexible(child: SingleChildScrollView(child: content)),
             const SizedBox(height: SpectraSpacing.xl),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: <Widget>[
-                for (final Widget action in actions) ...<Widget>[
-                  const SizedBox(width: SpectraSpacing.sm),
+                for (final (int i, Widget action)
+                    in actions.indexed) ...<Widget>[
+                  if (i > 0) const SizedBox(width: SpectraSpacing.sm),
                   action,
                 ],
               ],

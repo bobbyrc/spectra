@@ -1,5 +1,5 @@
 name: spectra_ui_gallery
-description: "A new Flutter project."
+description: Component gallery for the Spectra design system. Not published.
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: none # Remove this line if you wish to publish to pub.dev
