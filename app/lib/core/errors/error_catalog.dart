@@ -2,7 +2,9 @@ import 'package:chameleon/chameleon.dart';
 import 'package:chameleon_flutter/chameleon_flutter.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../format/tag_labels.dart';
 import '../session/reconnect.dart';
+import 'app_failures.dart';
 import 'error_presentation.dart';
 
 /// Spec 9: the one place an error becomes words. Keyed by the sealed error
@@ -20,6 +22,24 @@ final class ErrorCatalog {
       return ErrorPresentation(
         message: _l10n.errorNoKnownDeviceVisible,
         recovery: ErrorRecovery.retry,
+        detail: error.toString(),
+      );
+    }
+    if (error is SlotLoadVerificationFailed) {
+      return ErrorPresentation(
+        message: _l10n.errorSlotVerify,
+        recovery: ErrorRecovery.retry,
+        detail: error.toString(),
+      );
+    }
+    if (error is CardDumpLengthMismatch) {
+      return ErrorPresentation(
+        message: _l10n.errorCardDumpLength(
+          tagTypeLabel(error.type, _l10n),
+          error.expected,
+          error.actual,
+        ),
+        recovery: ErrorRecovery.none,
         detail: error.toString(),
       );
     }

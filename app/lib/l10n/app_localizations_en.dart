@@ -125,6 +125,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'No known device is visible. Wake the device or plug it in, then try again.';
 
   @override
+  String get errorSlotVerify =>
+      'The device stored something different from what Spectra sent.';
+
+  @override
+  String errorCardDumpLength(String type, int expected, int actual) {
+    return 'This dump is $actual bytes, but a $type needs $expected.';
+  }
+
+  @override
   String get errorUnexpected => 'Something unexpected went wrong.';
 
   @override

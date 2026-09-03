@@ -298,6 +298,18 @@ abstract class AppLocalizations {
   /// **'No known device is visible. Wake the device or plug it in, then try again.'**
   String get errorNoKnownDeviceVisible;
 
+  /// Shown when the slot read back after a load does not match the card.
+  ///
+  /// In en, this message translates to:
+  /// **'The device stored something different from what Spectra sent.'**
+  String get errorSlotVerify;
+
+  /// Shown when a stored dump's length does not match the tag type it claims.
+  ///
+  /// In en, this message translates to:
+  /// **'This dump is {actual} bytes, but a {type} needs {expected}.'**
+  String errorCardDumpLength(String type, int expected, int actual);
+
   /// Fallback for an error that is not from the SDK.
   ///
   /// In en, this message translates to:

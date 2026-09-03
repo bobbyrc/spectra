@@ -1,6 +1,7 @@
 import 'package:chameleon/chameleon.dart';
 import 'package:chameleon_flutter/chameleon_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:spectra/core/errors/app_failures.dart';
 import 'package:spectra/core/errors/error_catalog.dart';
 import 'package:spectra/core/errors/error_presentation.dart';
 import 'package:spectra/l10n/app_localizations_en.dart';
@@ -116,5 +117,28 @@ void main() {
     for (final g in TransportGuidance.values) {
       expect(catalog.guidance(g), isNotEmpty, reason: g.name);
     }
+  });
+
+  test('a failed slot verification gets its own words', () {
+    final l10n = AppLocalizationsEn();
+    final p = catalog.describe(
+      const SlotLoadVerificationFailed('the emulated blocks'),
+    );
+    expect(p.message, l10n.errorSlotVerify);
+    expect(p.recovery, ErrorRecovery.retry);
+    expect(p.detail, contains('the emulated blocks'));
+  });
+
+  test('a wrong-length dump gets its own words naming both lengths', () {
+    final l10n = AppLocalizationsEn();
+    const error = CardDumpLengthMismatch(
+      type: TagType.mifare1k,
+      expected: 1024,
+      actual: 512,
+    );
+    final p = catalog.describe(error);
+    expect(p.message, l10n.errorCardDumpLength('MIFARE Classic 1K', 1024, 512));
+    expect(p.recovery, ErrorRecovery.none);
+    expect(p.detail, contains('CardDumpLengthMismatch'));
   });
 }
