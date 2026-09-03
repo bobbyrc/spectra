@@ -312,4 +312,76 @@ void main() {
     await tester.pump();
     expect(find.text('The device rejected that value.'), findsNothing);
   });
+
+  testWidgetsApp('every control is disabled while a change is in flight', (
+    tester,
+  ) async {
+    useDesktopSurface(tester);
+
+    final FakeDevice device = FakeDevice();
+    await tester.pumpWidget(testApp(transport: (_) => device));
+    await connectToEmulator(tester);
+    await openSlots(tester);
+
+    // Slot 2 is empty and inactive to begin with: give its HF side a type
+    // so "Clear" has something to clear, which leaves every control on the
+    // screen enabled before the change below starts.
+    keepAlive(tester, slotEditorProvider(1));
+    final Future<void> seeded = readProvider(
+      tester,
+      slotEditorProvider(1).notifier,
+    ).setTagType(TagType.ntag215);
+    await pumpFrames(tester, count: 20, step: const Duration(milliseconds: 50));
+    await seeded;
+
+    await openSlot(tester, 2);
+
+    Iterable<SpectraButton> buttons(String label) => tester
+        .widgetList<SpectraButton>(find.widgetWithText(SpectraButton, label));
+    Iterable<Switch> switches() =>
+        tester.widgetList<Switch>(find.byType(Switch));
+
+    expect(buttons('Make active'), isNotEmpty);
+    expect(buttons('Clear').first.onPressed, isNotNull);
+
+    // Slow the device down so the rename is observably in flight.
+    device.latency = const Duration(milliseconds: 200);
+    await tester.enterText(find.byType(SpectraTextField).first, 'Front door');
+    await tester.pump();
+    await tester.tap(find.text('Save name').first);
+    await pumpFrames(tester, count: 2, step: const Duration(milliseconds: 20));
+
+    expect(find.byType(SpectraProgressIndicator), findsOneWidget);
+    for (final Switch s in switches()) {
+      expect(s.onChanged, isNull, reason: 'both senses');
+    }
+    for (final String label in <String>[
+      'Save name',
+      'Change type',
+      'Clear',
+      'Make active',
+    ]) {
+      final Iterable<SpectraButton> found = buttons(label);
+      expect(found, isNotEmpty, reason: label);
+      for (final SpectraButton b in found) {
+        expect(b.onPressed, isNull, reason: label);
+      }
+    }
+
+    device.latency = Duration.zero;
+    await pumpFrames(tester, count: 40, step: const Duration(milliseconds: 50));
+
+    expect(find.byType(SpectraProgressIndicator), findsNothing);
+    for (final Switch s in switches()) {
+      expect(s.onChanged, isNotNull);
+    }
+    expect(buttons('Change type').first.onPressed, isNotNull);
+    expect(buttons('Clear').first.onPressed, isNotNull);
+    expect(buttons('Make active').first.onPressed, isNotNull);
+    // "Save name" comes back with the field: it is disabled again only
+    // because the name now matches the device.
+    await tester.enterText(find.byType(SpectraTextField).first, 'Back door');
+    await tester.pump();
+    expect(buttons('Save name').first.onPressed, isNotNull);
+  });
 }
