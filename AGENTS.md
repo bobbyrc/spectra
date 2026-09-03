@@ -153,6 +153,9 @@ the `dfuOverBleEnabled` flag until the user reports the checks passed.
 - Two DFU assumptions are H2 hardware items: nrfutil's byte-reversed image
   hash in the init packet, and the no-op Execute the resume path sends at the
   object boundary it picks up from.
+- The macOS integration job is a post-merge canary plus on-demand: it runs
+  on `main` pushes and `workflow_dispatch`, never on PRs, so run it on a
+  branch with `gh workflow run ci.yml --ref <branch>`.
 - LICENSE files in every package are still the template TODO — the user has
   to choose a license before release.
 - `usb_serial` 0.5.2 is overridden to a patched vendor copy at

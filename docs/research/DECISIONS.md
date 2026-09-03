@@ -427,11 +427,19 @@ dump formats and DFU. Rulings taken while executing
   Phases 5, 6 and 9 to fill in.
 - **The gate flow exists twice.** The widget test in `app/test/flows/`
   (`connect_flow_test.dart`) runs on every CI job on Ubuntu; the
-  `integration_test/` copy runs on a `macos-latest` job, `if:
-  github.event_name == 'push'`, not `continue-on-error`, because a desktop
-  integration test needs a display session the Ubuntu container has not
-  got and the macOS runner bills at 10x. The widget test is the enforced
-  gate; the integration test proves the real engine.
+  `integration_test/` copy runs on a `macos-latest` job, not
+  `continue-on-error`, because a desktop integration test needs a display
+  session the Ubuntu container has not got and the macOS runner bills at
+  10x. The widget test is the enforced gate; the integration test proves
+  the real engine.
+- **The macOS integration job is a post-merge canary plus on-demand**
+  (amends ruling 14, which said push-only). Work happens on a branch behind
+  a draft PR, and `push` only triggers on `main`, so a push-only job never
+  ran on the branch it was meant to cover — it was dead until merge. It now
+  runs on `main` pushes and on `workflow_dispatch`
+  (`if: github.event_name != 'pull_request'`), so it is a canary after merge
+  and `gh workflow run ci.yml --ref <branch>` before one, while PRs stay on
+  the Ubuntu jobs.
 - **Emulator mode defaults to on.** Spec 7.5 says the connect screen lists
   real devices plus the emulated one, and it is also how screenshots and
   manual QA happen. `emulatorModeProvider` exists so a settings toggle can
