@@ -201,3 +201,11 @@ final class UnknownDeviceError extends DeviceError {
   UnknownDeviceError(int code)
     : super(code, 'unknown status 0x${code.toRadixString(16)}');
 }
+
+/// A failure in the DFU stack: a malformed firmware package or init packet, or
+/// a bootloader that answered an [opcode] with a non-success [result].
+final class DfuError extends ChameleonException {
+  DfuError(super.message, {this.opcode, this.result});
+  final int? opcode;
+  final int? result;
+}
