@@ -37,9 +37,13 @@ Widget buildDfuTestApp({
   required FirmwarePackageSource source,
   Transport Function(DiscoveredDevice)? transport,
   DfuChannelOpener? openChannel,
+  List<DeviceScanner>? scanners,
 }) => ProviderScope(
   overrides: <Override>[
-    ...appOverrides(transport: transport ?? (_) => FakeDevice()),
+    ...appOverrides(
+      transport: transport ?? (_) => FakeDevice(),
+      scanners: scanners,
+    ),
     firmwarePackageSourceProvider.overrideWithValue(source),
     dfuScanTimeoutProvider.overrideWithValue(const Duration(seconds: 2)),
     if (openChannel != null)

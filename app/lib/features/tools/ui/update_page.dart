@@ -48,11 +48,21 @@ class _UpdatePageState extends ConsumerState<UpdatePage> {
     final FeatureFlags flags = ref.watch(featureFlagsProvider);
     final LoadedFirmwarePackage? package = state.package;
     final String? deviceName = ref.watch(activeSessionProvider)?.device.name;
-    final DiscoveredDevice? recover = recoverTarget(
-      ref.watch(discoveryProvider).value?.devices ?? const <DiscoveredDevice>[],
-      widget.recoverTransportId,
-    );
-    final String? targetName = recover?.name ?? deviceName;
+    // Only resolved while recovering: watching `discoveryProvider` runs a
+    // scan, which a normal connected flash has no business starting. A
+    // recovery id that is no longer listed is never the connected device
+    // either — falling back there would flash a stale `?recover=` link's
+    // healthy device instead of failing honestly.
+    final DiscoveredDevice? recover = widget.recoverTransportId == null
+        ? null
+        : recoverTarget(
+            ref.watch(discoveryProvider).value?.devices ??
+                const <DiscoveredDevice>[],
+            widget.recoverTransportId,
+          );
+    final String? targetName = widget.recoverTransportId != null
+        ? recover?.name
+        : deviceName;
     final bool busy = state.running || state.loading;
 
     return SubPageScaffold(
