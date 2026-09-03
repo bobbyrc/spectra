@@ -65,4 +65,23 @@ void main() {
     final BuildContext context = tester.element(find.byType(SpectraAppShell));
     expect(SpectraTheme.of(context).brightness, Brightness.dark);
   });
+
+  testWidgets('/ redirects to the first component page', (tester) async {
+    tester.view.physicalSize = const Size(900, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final router = buildGalleryRouter();
+    addTearDown(router.dispose);
+    await tester.pumpWidget(SpectraApp(routerConfig: router));
+    await _pumpFrames(tester);
+
+    router.go('/');
+    await _pumpFrames(tester);
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      galleryEntries.first.path,
+    );
+  });
 }
