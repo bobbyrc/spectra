@@ -56,8 +56,16 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      # The Phase 4 gate on a real engine, in emulator mode: no hardware.
-      - run: flutter test integration_test -d macos
+      # The phase gates on a real engine, in emulator mode: no hardware.
+      # One `flutter test` per file: on macOS a second app launch in the same
+      # invocation fails with "Error waiting for a debug connection" once the
+      # first file has run (release run 33820681831).
+      - run: |
+          set -euo pipefail
+          for f in integration_test/*_test.dart; do
+            echo "== $f"
+            flutter test "$f" -d macos --timeout 300s
+          done
         working-directory: app
 
   build:
