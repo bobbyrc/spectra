@@ -1,0 +1,9 @@
+# Copy to app/android/key.properties for a locally signed release build.
+# That file is git-ignored; never commit a keystore or a password.
+# CI supplies the same four values from the ANDROID_KEYSTORE_BASE64,
+# ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD
+# secrets instead.
+storeFile=/absolute/path/to/spectra-release.jks
+storePassword=
+keyAlias=spectra
+keyPassword=

@@ -40,6 +40,7 @@ packages/chameleon/lib/
   src/model/enums.dart                TagType, TagFamily, Sense, DeviceModel, DeviceMode, ...
   src/model/models.dart               freezed models (DeviceInfo, Slot, ...)
   src/commands/device.dart            1000-1040
+  src/commands/raw.dart               RawCommand escape hatch
   src/commands/hf_reader.dart         2000-2201
   src/commands/lf_reader.dart         3000-3032
   src/commands/hf_emulator.dart       4000-4044
@@ -49,6 +50,11 @@ packages/chameleon/lib/
   src/transport/scanner.dart          DeviceScanner, DiscoveredDevice
   src/transport/frame_log.dart        FrameLog ring buffer
   src/fake/fake_firmware.dart         FakeFirmware: Frame in, Frame out
+  src/fake/fake_firmware_config.dart  FakeFirmwareConfig version matrix
+  src/fake/fake_slot.dart             FakeSlot emulation state
+  src/fake/fake_device_handlers.dart  FakeFirmware handlers, 1000-1040
+  src/fake/fake_reader_handlers.dart  FakeFirmware handlers, 2000-3032
+  src/fake/fake_emulator_handlers.dart FakeFirmware handlers, 4000-6005
   src/fake/fake_card.dart             FakeCard for scripted reader results
   src/fake/fake_device.dart           FakeDevice: Transport around FakeFirmware
   src/fake/fake_scanner.dart          FakeScanner
@@ -58,6 +64,8 @@ packages/chameleon/lib/
   src/session/connection_state.dart   ConnectionState, DisconnectCause
   src/session/reader_lease.dart       ReaderLease
   src/session/device_session.dart     DeviceSession
+  src/session/session_handshake.dart  handshake + background load (part)
+  src/session/session_polling.dart    reader lease, busy, idle poll (part)
   src/session/facades/device.dart     DeviceFacade
   src/session/facades/slots.dart      SlotsFacade
   src/session/facades/settings.dart   SettingsFacade
@@ -65,14 +73,21 @@ packages/chameleon/lib/
   src/session/facades/reader.dart     ReaderFacade
   src/session/facades/firmware.dart   FirmwareFacade
   src/dump/dump_format.dart           DumpFormat, CardDump, DumpField, DumpFormats
+  src/dump/mifare_geometry.dart       MifareGeometry sector/block math
+  src/dump/mf1_dump_read_result.dart  Mf1DumpReadResult
   src/dump/mifare_classic.dart        MifareClassicDump
   src/dump/ultralight.dart            UltralightDump
   src/dump/em410x.dart                Em410xDump
   src/dfu/dfu_package.dart            DfuPackage, InitPacket
   src/dfu/protobuf_reader.dart        minimal protobuf wire reader
+  src/dfu/crc32.dart                  crc32()
   src/dfu/dfu_channel.dart            DfuChannel
-  src/dfu/secure_dfu.dart             SecureDfu state machine, DfuProgress, DfuError
-  src/dfu/fake_bootloader.dart        FakeBootloader, FakeDfuChannel
+  src/dfu/dfu_opcodes.dart            DfuOp constants
+  src/dfu/dfu_types.dart              DfuStage, DfuProgress
+  src/dfu/response_queue.dart         ResponseQueue<T>
+  src/dfu/secure_dfu.dart             SecureDfu state machine
+  src/dfu/fake_bootloader.dart        FakeBootloader
+  src/dfu/fake_dfu_channel.dart       FakeDfuChannel
   src/dfu/dfu_orchestrator.dart       DfuOrchestrator
 packages/chameleon/test/              one test file per source file, same names
 ```

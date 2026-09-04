@@ -28,5 +28,826 @@ Status: design approved in brainstorm; spec at docs/superpowers/specs/2026-09-02
 - BLE universal_ble; serial libserialport_plus (desktop) + usb_serial (Android); DFU nordic_dfu (mobile/macOS) + pure-Dart Secure DFU over universal_ble (Win/Linux).
 - Riverpod 3 + riverpod_generator; go_router; Drift; freezed 4 + json_serializable; material_ui + dynamic_color + google_fonts + flutter_animate; window_manager + macos_window_utils; alchemist + mocktail + integration_test.
 
+## Phase 0 decisions (2026-09-03)
+
+- **dep_lint allowlist is a deliberate superset of the spec 2 table.** The
+  `chameleon` package additionally allows `freezed_annotation` and `crypto`
+  (Phase 1's DFU implementation needs both, for models and the hash check);
+  `spectra_ui` additionally allows `intl` (ships alongside
+  `flutter_localizations`, which `material_ui` pulls in transitively); the
+  `spectra_ui_gallery` example additionally allows `go_router` (it is the
+  spike host validating go_router coexistence with `material_ui`, spec
+  section 6). Cost if any of these turns out to be wrong: one extra entry in
+  `tool/dep_lint.dart`'s allowlist to remove.
+- **Spike A verdict: keep `libserialport_plus` 1.0.4.** Its code-assets build
+  hook produces the native serial library on macOS, Windows and Linux with no
+  toolchain changes, and `SerialPortInfo` exposes USB VID/PID directly, which
+  is what device identification needs. `open()` behavior and whether the
+  `com.apple.security.device.serial` entitlement is actually required (versus
+  just recommended by the package) are deferred to hardware handoff H1, since
+  they need real hardware. Full writeup: `docs/research/spikes.md`.
+- **Spike B verdict: build `spectra_ui` on `material_ui` 1.1.1.** It is
+  flutter.dev's own extraction of in-SDK Material with matching class names,
+  is a drop-in replacement import, and both `go_router` (which now depends on
+  `material_ui` directly) and `alchemist` goldens work against it without a
+  bridge. The spec 5.6-era plan for a `ThemeData` bridge file is dropped —
+  see the import convention below. Full writeup: `docs/research/spikes.md`.
+- **Import convention for the design system.** `spectra_ui`, its gallery, and
+  app features import `package:material_ui/material_ui.dart` and never
+  `package:flutter/material.dart` — the two declare distinct, same-named
+  types (`ThemeData`, `Theme`, `MaterialApp`, ...) and importing both
+  unprefixed into one file is an `ambiguous_import` analyzer error. This is
+  enforced by lint in `app/lib/features` per the original spec; `spectra_ui`
+  and the gallery follow it by convention pending the same enforcement in a
+  later phase.
+- **Draft PR strategy for CI.** A draft PR (#1, `bobbyrc/chinook` -> `main`)
+  stays open through the phases so `pull_request`-triggered CI runs on every
+  push to the branch, without merging early or blocking on review. Close or
+  convert to ready when the branch is actually ready to merge.
+
+## Phase 2 decisions (2026-09-03)
+
+- **material_ui import convention.** `spectra_ui`, its gallery and
+  `app/lib/features` import `package:material_ui/material_ui.dart` and never
+  `package:flutter/material.dart`; the two declare the same names and an
+  unprefixed dual import is an `ambiguous_import` error. No in-SDK `ThemeData`
+  bridge is written (Spike B: go_router 18.0.1 already depends on material_ui,
+  alchemist 0.14.0 needs no wrapper). `spectraThemeData()` maps Spectra tokens
+  onto material_ui's own `ThemeData` instead.
+- **Goldens policy.** Alchemist CI goldens only (`test/goldens/ci/`), generated
+  with `melos run goldens:update` (or `flutter test --update-goldens` in the
+  package). Platform goldens are disabled unless `SPECTRA_PLATFORM_GOLDENS=true`
+  and their directories are git-ignored, so macOS-rendered images can never be
+  committed. Goldens run in the existing Ubuntu `check` job via
+  `melos run test:flutter`; no extra CI job.
+- **Goldens comparator tolerance (revised 2026-09-03, Task 17).** CI-mode
+  text obscuring does not make renders byte-identical across host platforms:
+  the first real Ubuntu `check` run of the full component set failed nine
+  golden tests with pixel diffs from 0.01% to 0.68%, from anti-aliasing on
+  borders, rounded corners and icons rather than any layout/colour/shape
+  regression. `flutter_test_config.dart` now sets
+  `CiGoldensConfig(diffThreshold: 0.01)` (1% of pixels) so that
+  macOS-authored goldens verify cleanly on the Ubuntu runner without masking
+  a real difference; the images committed under `test/*/goldens/ci/` did not
+  need regenerating.
+- **Font fallback.** One variable sans (Inter) and one mono (JetBrains Mono),
+  both bundled under `packages/spectra_ui/assets/google_fonts/` with
+  `GoogleFonts.config.allowRuntimeFetching = false`. Production is offline
+  capable; tests do not await the async font load, so golden text renders in
+  flutter_test's Ahem rather than Inter. That removes glyph rendering as a
+  source of cross-platform golden noise, but not all of it: see the goldens
+  decision below.
+- **Localization.** The kit owns an ARB catalog for its own strings
+  (`SpectraUiLocalizations`), generated with `flutter gen-l10n` into
+  `lib/l10n/` and committed; `tool/check_codegen.sh` fails when it goes stale.
+  A textual lint (`tool/src/string_rules.dart`, rule `no-literal-text`) fails
+  on string literals passed to `Text(` under
+  `packages/spectra_ui/lib/src/components/` and `app/lib/features/**/ui/`,
+  with `// l10n-exempt` for genuinely non-user-facing text. The named
+  arguments it scans are `label`, `labelText`, `title`, `subtitle`,
+  `hintText`, `helperText`, `errorText`, `semanticsLabel` and `tooltip`.
+
+### Final-review decisions (2026-09-03)
+
+- **`borderStrong` colour role.** `border` (neutral200 light / neutral700
+  dark) is a decorative separator at 1.3:1 and 1.5:1 on surface, well under
+  WCAG 1.4.11's 3:1 for a control boundary. A second role, `borderStrong`
+  (neutral500 light / neutral400 dark, 4.6:1 to 6.3:1 on surface,
+  surfaceRaised and background), now outlines anything interactive: the
+  secondary button and the text field. The secondary button's fill moved from
+  `surface` to `surfaceRaised` at the same time, so it reads as a control on
+  a card. `tokens_test.dart` computes and asserts both contrasts.
+- **`SpectraTappable`.** Every tappable component (button, card, list tile,
+  slot tile, section-header action, bottom-sheet close, disclosure header)
+  routes through one internal primitive built on `FocusableActionDetector`:
+  Tab focus, Enter/Space activation, an accent 2px focus ring animated over
+  `SpectraMotion.fast`, a hover tint, and `onTap` on the semantics node so
+  the node actually carries `SemanticsAction.tap`. The child's semantics are
+  excluded *inside* the detector rather than at the top, and the whole thing
+  is wrapped in `MergeSemantics`, so the single announced node keeps both the
+  tap action and the focusable flag.
+- **Theme completeness.** `spectraThemeData` now fills every `ColorScheme`
+  role from a token (outline, outlineVariant, secondaryContainer, the
+  surfaceContainer ladder, surfaceTint, scrim, onSurfaceVariant) and adds
+  `inputDecorationTheme`, `dialogTheme`, `bottomSheetTheme`, `appBarTheme`
+  and `dividerTheme`; `SpectraTypography.textTheme` fills all fifteen
+  `TextTheme` roles, not six, because `material_ui` reads `bodyLarge`,
+  `labelMedium` and `titleLarge` internally and an unset role falls back to
+  Roboto.
+- **Goldens on Linux (supersedes the 1% tolerance above).** The committed CI
+  goldens are generated on ubuntu-latest by
+  `.github/workflows/goldens.yml` (`workflow_dispatch`, uploads
+  `test/components/goldens/ci` as the `goldens-ci` artifact) and downloaded
+  into the repo, so the images and the comparing `check` job share a
+  platform (spec 6.3), and `diffThreshold` is removed entirely: alchemist's
+  default is 0.0, so any pixel difference now fails. `workflow_dispatch`
+  resolves a workflow on the default branch only, so the workflow also
+  triggers on a push that touches its own file — that is how it ran before
+  reaching main. The cost is that a plain `flutter test` on macOS
+  fails 14 of the 18 CI goldens on sub-1% anti-aliasing differences — only
+  the four `app_shell` scenarios match locally, not just button and hex
+  viewer as first recorded here; the CI run (Linux, exact comparison) is
+  authoritative and `packages/spectra_ui/README.md` says so.
+- **`no-material-in-features` message.** The rule stays — it prevents the
+  dual-import compile error — but its message no longer claims features may
+  not use Material widgets. It now says to import
+  `package:material_ui/material_ui.dart` (or `package:flutter/widgets.dart`)
+  instead of the SDK's Material library. A symbol allowlist for `material_ui`
+  is deferred.
+
+## Phase 1 decisions (2026-09-03)
+
+The pure-Dart `chameleon` SDK: codec, command catalog, models, session,
+dump formats and DFU. Rulings taken while executing
+`docs/superpowers/plans/2026-09-02-phase-1-chameleon-sdk.md`, one line each.
+
+- **`crypto` added to the spec section 2 dependency table** for `chameleon`:
+  the DFU init packet carries a SHA-256 of each image and every package is
+  verified before a byte is written.
+- **`Frame` copies the caller's bytes** in its constructor rather than
+  storing the list by reference: frames are values and are kept in the frame
+  log after the caller has moved on.
+- **`parseResponse` wraps a `RangeError` from a decoder in
+  `MalformedResponse`** (spec 3.2): a short or malformed payload is a typed
+  protocol error, never a raw Dart error escaping the SDK.
+- **Command 1034 (settings) decodes by its leading version byte**, falling
+  back to the payload-length branch only for an unrecognised version;
+  hardware-validate.
+- **One dispatcher per session, built at construction.** It survives a
+  transport that closes and opens again (the bootloader reboot); a terminal
+  close disposes it, and only `DeviceSession.close()` releases the state
+  streams — so `close()` is mandatory even for a disconnected session.
+- **The per-dispatch generation token is real** (spec 4.3): a response for an
+  abandoned generation is discarded rather than matched to the next command.
+- **The per-command timeout bounds the whole dispatch, the transport write
+  included**, and a completed command releases its cancel-token
+  registrations, so a long-lived token does not retain a closure per command.
+- **Legacy 0.1 detection reads the version tolerantly after a 1035 refusal.**
+  The other order can never reach `legacyMustUpdate`, because a legacy device
+  refuses capabilities first.
+- **The reader lease counts up before the awaited mode switch**, with the
+  in-flight switch memoised and rolled back on failure, so concurrent
+  acquires produce one CHANGE_DEVICE_MODE (spec 4.3's 0 -> 1 semantics).
+- **`enterBootloader` does not await the expected close** — the session stays
+  `updating` by design — and `device.setMode` throws while a lease holds the
+  mode.
+- **`FakeDevice` recognises an expected close from the command id of the
+  write that carried ENTER_BOOTLOADER**, not from a sticky flag.
+- **MIFARE Classic geometry lives in one helper** (`MifareGeometry`), shared
+  by the reader facade and the dump model; Ultralight page counts are one
+  table in `DumpFormats`.
+- **Large key dictionaries are chunked across CHECK_KEYS_OF_SECTORS (2012)
+  requests** when the capability is present; per-block authentication is the
+  fallback only when it is not.
+- **The DFU init-packet hash is accepted in one byte order only** — the
+  reversed order nrfutil writes — and the check runs on every path,
+  including recovery. Hardware-validate (H2).
+- **DFU resume truncates to the last object boundary** and executes a
+  complete-but-unexecuted object; a foreign prefix is discarded by
+  re-executing the init packet, which is what the Nordic client does.
+- **The orchestrator reports `DfuCompleted(device)` and leaves reconnection
+  to the app** (Phase 8); `DfuCompleted(null)` means "updated, but not seen
+  again yet" and must read that way in the UI.
+- **Spec 8.5 (about 300 lines, one public type per file) held, with three
+  recorded exceptions**: the command catalogs group one command id range per
+  file; a dump type and its `DumpFormat` share a file as a tightly coupled
+  pair; and a family of related seam implementations may share a file, which
+  is how the Phase 3 transports will be laid out. `FakeFirmware` and
+  `DeviceSession` were split instead — handlers by command range into
+  extension files, the session's handshake and polling into `part` files.
+- **The drain window is bounded separately from the command timeout**
+  (500 ms by default). Draining for a whole timeout meant one dropped
+  response stalled every later command for six seconds; a response arriving
+  after the window is simply no longer recognised as stale.
+- **The two handshake probes (1035, 1000) get one second and no retry.**
+  A device that answers neither is exactly the device that has to reach
+  `limited` quickly, so the probes do not pay the catalog's three-second
+  timeout twice over.
+- **A session is single-use.** Once the transport has been released, `open()`
+  throws `StateError('this session is spent...')` rather than failing with a
+  confusing `Disconnected: dispatcher disposed`; reconnecting is a new
+  `DeviceSession`.
+- **`pairingRequired`, `permissionDenied` and `adapterOff` are transport
+  states, mapped by the session** to `SessionDisconnected(unexpected)`
+  carrying `PairingRequired`, `PermissionDenied` or `AdapterOff`; `open()`
+  throws that error when one arrives mid-connect. Spec 4.1's state list was
+  amended in the same commit (Phase 3 Task 1, folded into Phase 1's fix
+  wave).
+- **`Transport.maxWriteLength` is informational.** The dispatcher never
+  chunks — every request fits in one 4105-byte frame — so a transport with a
+  smaller link MTU fragments internally and reports the largest frame it
+  accepts.
+- **A limited session refuses commands with `UnsupportedFirmware`** carrying
+  the reason it is limited; `SessionNotReady` is kept for the states that are
+  only a matter of timing.
+- **The fake advertises only what it answers.** `FakeFirmwareConfig`'s
+  default capability set is exactly `FakeFirmware`'s handler table, so a
+  session built on the fake cannot believe in a command that comes back
+  NOT_IMPLEMENTED. SEOS (4042-4044), ISO14443-4 (6000-6005), IoProx
+  emulation and the Ultralight version/signature/counter commands are
+  dropped rather than advertised; the version matrix runs on
+  GET_ALL_SLOT_NICKS (1038-1040), which 2.0 lacks.
+- **Commands stay internal.** `lib/chameleon.dart` exports the session, the
+  facades, models, errors, the transport seams, the dump formats, DFU and the
+  fakes, but no `Command` subclass, no `RawCommand`, no byte helpers and no
+  generated freezed implementation classes: a new device operation is a
+  facade method, not a command built in app code.
+
+## Phase 3 decisions (2026-09-03)
+
+- **`normalizeUuid` (spec 5, `packages/chameleon_flutter/lib/src/ble/ble_uuids.dart`)
+  expands only exact 4- or 8-hex-digit short forms** (16- and 32-bit
+  Bluetooth SIG aliases, e.g. `FE59` and `0000FE59`) to the full 128-bit
+  UUID, so it matches whatever CoreBluetooth/BlueZ/Windows/`universal_ble`
+  hand back regardless of form. Anything else — wrong digit count,
+  non-hex, empty — is lowercased and brace-stripped only, never expanded
+  and never rejected: it is a best-effort comparator for transports, not a
+  UUID validator, so there is no `ArgumentError` path to keep in sync with
+  every caller.
+- **`TransportGuidance` (same package, `lib/src/guidance.dart`) carries two
+  more values than spec 5's table**: `applePermissionSettings` (iOS/macOS
+  Bluetooth permission denied — direct the user to Settings/System
+  Settings, distinct from `applePairingPrompt`'s OS-driven prompt) and
+  `portBusyOther` (a serial port held by another process on a platform
+  with no more specific hint than that, so `linuxModemManager` and
+  `windowsPortAccessDenied` stay platform-specific). Every value is scoped
+  to the platform(s) that can actually produce it — no platform is ever
+  handed another platform's instructions.
+- **`usb_serial` 0.5.2 is vendored, patched, under `third_party/usb_serial/`,
+  overridden in the root workspace `pubspec.yaml`
+  (`dependency_overrides: usb_serial: {path: third_party/usb_serial}`).**
+  Upstream (github.com/altera2015/usbserial, last released 2024-07-12) is
+  unmaintained on two counts that Flutter 3.47.2 / Gradle 9.3.1 / AGP 9.1.0
+  exposed together:
+  1. its `android/build.gradle` calls `jcenter()`, a repository shorthand
+     Gradle 9 removed outright (not an AGP-version question — this fails
+     identically at every AGP major we tried, 8.11.1 through 9.1.0);
+  2. it never applies the Kotlin Gradle Plugin itself, which under
+     Flutter's AGP-9-compatibility shim (`android.builtInKotlin=false`,
+     already set in `app/android/gradle.properties` by the Flutter
+     template) makes Flutter try to apply `kotlin-android` to the
+     `:usb_serial` subproject on Flutter's own initiative, before that
+     subproject's own `apply plugin: 'com.android.library'` has taken
+     effect — Flutter's plugin-declaration check is a source-text regex,
+     not a build-graph query, so it can't see that AGP isn't applied yet.
+  Both `app/android/gradle.properties`'s existing AGP-9 opt-outs and
+  pinning AGP down to Flutter 3.47's minimum supported version (8.11.1, in
+  `app/android/settings.gradle.kts`) were tried first and ruled out: the
+  `jcenter()` failure is a Gradle-wrapper-version problem, not an
+  AGP-version problem, so it reproduced identically at 8.11.1. No GitHub
+  fork found (searched forks of `altera2015/usbserial` and rewrites)
+  fixes both; the closest, `zbm2/usbserial` (2025-11-04, BSD-3-Clause),
+  fixes only the `jcenter()` call. The vendored copy in
+  `third_party/usb_serial/` is the unmodified 0.5.2 release (BSD-3-Clause,
+  `third_party/usb_serial/LICENSE`) with `android/build.gradle` patched to
+  use `mavenCentral()` and to `apply plugin: 'kotlin-android'` explicitly,
+  right after `com.android.library`, pre-empting Flutter's own
+  late-and-unordered attempt. No Dart or native source was changed.
+  Re-check whether a maintained `usb_serial` release fixes this before
+  Phase 3 tags this the "expert path" release, and drop the override then.
+
+- **`TransportState` gained `TransportPermissionDenied` and
+  `TransportAdapterOff`.** Spec 5.1 requires the BLE transport to report
+  both, and the app routes on `TransportState`, so they belong in the SDK's
+  sealed family rather than in a side channel. Additive: nothing switches
+  exhaustively on `TransportState`.
+- **Every native package sits behind an adapter interface.** `BleAdapter`,
+  `SerialPortAdapter` and `SerialPortHandle` are declared in
+  `chameleon_flutter`; `universal_ble`, `libserialport_plus` and
+  `usb_serial` are each imported by exactly one file. This is what makes
+  chunking, retry, backoff, state mapping, error mapping and pairing
+  detection unit-testable with no device and no plugin channel. The cost is
+  one thin wrapper class per package; the alternative was leaving the whole
+  of spec 5.1 and 5.2 untested until hardware existed.
+- **Native error codes collapse at the adapter boundary.**
+  `universal_ble`'s 61 `UniversalBleErrorCode` values map to eight
+  `BleFailure` values, and `SerialPortException`'s platform-dependent
+  numeric codes to five `SerialFailure` values (with the message text as a
+  fallback, because libserialport sometimes reports a generic code with a
+  specific string). Transports map those to the SDK's `TransportError`
+  types plus a `TransportGuidance` value.
+- **User-facing guidance is a typed enum, not text.** `TransportGuidance`
+  says *which* instruction to show (Linux dialout group, ModemManager,
+  Windows pairing, macOS serial entitlement, ...); the wording lives in the
+  app's ARB files per spec 7.6, so `chameleon_flutter` ships no strings.
+- **The serial control-line default is `SerialControlLineMode.dtrOnly`,
+  provisionally.** `docs/research/chameleon-protocol.md` says "Assert DTR
+  after open. No flow control.", which the reference-app notes contradict.
+  The mode is a constructor parameter and both are exercised; H1 asks the
+  user which works, and the default changes if the answer says so. Until
+  then this is `hardware-validate`, not settled.
+- **Package versions pinned in Phase 3:** `universal_ble` 2.2.0,
+  `usb_serial` 0.5.2, `libserialport_plus` 1.0.4 (unchanged from Spike A).
+- **The serial DFU write-object frame is opcode `0x08` plus raw data, with
+  no length prefix.** Taken from nrfutil's `dfu_transport_serial.py`
+  (`DfuTransportSerial.send_data`/`__write_object` framing over the SLIP
+  transport), not from the Phase 3 plan's sketch, which had invented a
+  length-prefixed frame that does not match nrfutil's actual wire format.
+  `SecureDfu` does not yet send GetSerialMTU (`0x07`) to size writes, so
+  serial DFU uses a conservative fixed `maxDataWrite` until that query is
+  added in Phase 8.
+- **`dart_test.yaml`'s `skip:` on the `hardware` tag means `flutter test
+  --tags hardware` alone runs nothing.** The tag is configured `skip:
+  "no device attached"` so the default `flutter test` run is unambiguous
+  (no silently-skipped hardware tests mixed into a normal green run); the
+  hardware command has to add `--run-skipped` to actually execute those
+  tests, and every place that documents the command says so.
+- **The transport contract suite runs three times: once against
+  `FakeDevice`, once against `BleTransport` over a fake `BleAdapter`, and
+  once against `SerialTransport` over a fake `SerialPortAdapter` (ruling
+  F15).** Running the same behavioral contract through both real transport
+  classes over their fakes, not just through `FakeDevice` directly, is what
+  caught the `FakeDevice.open()`-after-`close()` reopen bug — a bug in the
+  fake's lifecycle, not in either transport, that a `FakeDevice`-only run
+  would have missed.
+
+## Phase 4 decisions (2026-09-03)
+
+- **Nine files carry more than one public type each, deviating from spec
+  8.5's "one public type per file":** `app/lib/core/lifecycle/wakelock.dart`
+  (3 types + 1 function + 1 provider), `app/lib/core/session/sessions.dart`
+  (2 + 2), `app/lib/core/discovery/discovery_provider.dart` (2),
+  `app/lib/features/connect/state/connect_row.dart` (2),
+  `app/lib/core/flags/feature_flags.dart` (2),
+  `app/lib/core/routing/app_sections.dart` (2),
+  `app/lib/core/errors/error_presentation.dart` (2),
+  `app/lib/data/memory/in_memory_repositories.dart` (2), and
+  `app/lib/data/repositories.dart` (4). Ruling: accepted, no split. Spec
+  8.5's rule already carries an exception for the command catalog; each of
+  these nine pairs a value type with the pure rule or provider that operates
+  on it, so splitting adds up to eighteen files with no gain in clarity. The
+  rule for future phases: a public type and its pure companion (the
+  function/provider that exists only to construct or derive it) may share a
+  file; anything else — two independent public types — still splits.
+- **`tool/check_codegen.sh` does not cover `app/drift_schemas/*.json` or
+  `app/test/generated_migrations/`.** Staleness there is instead caught by
+  `app/test/data/schema_test.dart`'s `SchemaVerifier`, which fails if the
+  exported schema JSON does not match the live table definitions. Two
+  staleness checks for the same artifact would be redundant; the schema
+  test is the stronger one because it actually runs the migration, not just
+  diffs a file.
+- **Sessions are keyed by identity, but registered after the handshake.**
+  Spec 7.1 wants a family keyed by `DeviceIdentity`; the identity is the
+  chip id and only exists once the handshake has run. `Sessions.connect`
+  therefore opens first and registers second, and a session that never
+  became ready — pre-2.0 firmware, a device in its bootloader — gets
+  `fallbackIdentity(device)`, derived from the transport and prefixed
+  `transport:` so it can never be confused with a chip id. One map, no
+  nullable key, no second code path for limited sessions. A new
+  `DeviceSession` is constructed per connect attempt; sessions are
+  single-use and spent after a terminal close, matching `FakeDevice.open()`
+  throwing `Disconnected` after `close()` (Phase 3).
+- **The connection state is a notifier; everything else derived is a stream
+  provider.** Routing needs a synchronous value (spec 7.2), and
+  `StateStream.values` only delivers its current value asynchronously. The
+  notifier is named `ConnectionStatus` because riverpod_generator would
+  otherwise generate a `_$ConnectionState` base colliding with the SDK
+  type.
+- **Drift schema version 1 contains all four tables**, including
+  `saved_cards` and `key_dictionaries`, which nothing reads until Phases 6
+  and 9. The alternative was a migration per phase for tables whose shape
+  is already known. The v1 schema is exported to `app/drift_schemas/` and
+  verified by `test/data/schema_test.dart` with `drift_dev`'s
+  `SchemaVerifier`.
+- **Tests use real Drift in memory, not a mock.** `SpectraDatabase.memory()`
+  runs the real queries with no file system, so the repositories are proved
+  rather than stubbed. Sqlite3 native is needed on CI — `libsqlite3-dev` is
+  installed in the `check` job.
+- **Repository providers live in `app/lib/data/repository_providers.dart`,
+  exported from `data/data.dart`.** Spec 8.3 ("Features import `core`,
+  `data` interfaces") and the plan's boundary statement both require
+  features to depend on the storage interface, not the Drift
+  implementation. `tool/dep_lint.dart`'s `drift-in-data-only` rule only
+  fires on `drift`/`drift_*` imports outside `lib/data/`, so this is not
+  lint-enforced — it is a review rule against `data/database/` leaking into
+  `features/`.
+- **`app/lib/features/dashboard`, `connect` and `tools` are complete;
+  `slots`, `cards` and `settings` are placeholders** carrying the recovery
+  target and the `dfuOverBleEnabled` notice (`tools`'s update screen) for
+  Phases 5, 6 and 9 to fill in.
+- **The gate flow exists twice.** The widget test in `app/test/flows/`
+  (`connect_flow_test.dart`) runs on every CI job on Ubuntu; the
+  `integration_test/` copy runs on a `macos-latest` job, not
+  `continue-on-error`, because a desktop integration test needs a display
+  session the Ubuntu container has not got and the macOS runner bills at
+  10x. The widget test is the enforced gate; the integration test proves
+  the real engine.
+- **The macOS integration job is a post-merge canary plus on-demand**
+  (amends ruling 14, which said push-only). Work happens on a branch behind
+  a draft PR, and `push` only triggers on `main`, so a push-only job never
+  ran on the branch it was meant to cover — it was dead until merge. It now
+  runs on `main` pushes and on `workflow_dispatch`
+  (`if: github.event_name != 'pull_request'`), so it is a canary after merge
+  and `gh workflow run ci.yml --ref <branch>` before one, while PRs stay on
+  the Ubuntu jobs.
+- **Emulator mode defaults to on.** Spec 7.5 says the connect screen lists
+  real devices plus the emulated one, and it is also how screenshots and
+  manual QA happen. `emulatorModeProvider` exists so a settings toggle can
+  hide it later.
+- **The wakelock polls.** The SDK exposes `readerLeaseCount` and `isBusy`
+  as getters with no change notification. A one-second poll behind a
+  `WakelockGateway` interface was cheaper than adding a stream to the SDK
+  that nothing else would use.
+- **`dfuOverBleEnabled` is stored in the `app_preferences` table**, read
+  through `PreferencesRepository`, and defaults to false with an all-off
+  synchronous view while preferences load. Phase 8 reads
+  `featureFlagsProvider`.
+- **A failed silent reconnect arms `Sessions.markLastDisconnected`.** The
+  lifecycle handler's one silent-reconnect attempt (spec 7.4) preselects
+  the device on the connect screen on failure exactly as an explicit
+  disconnect does — otherwise the user returns to an unpreselected list
+  after a reconnect that silently failed in the background.
+- **The `hostPlatformProvider` seam** exists so tests can force a host
+  platform (mobile vs. desktop) without depending on `Platform.isX`, which
+  is unavailable/unreliable under `flutter test`'s VM. `ManualPortField`
+  (desktop-only) and similar platform-conditional UI read this provider,
+  not `Platform` directly.
+- **The `testWidgetsApp` harness contract: settle in a `finally`.**
+  `app/test/support/app_harness.dart` pumps a bounded number of frames
+  rather than `pumpAndSettle` (the shell and progress indicators animate
+  continuously, so `pumpAndSettle` never returns), and every test that
+  leaves a live Drift stream or session mounted must call the harness's
+  settle helper inside a `finally` block — `flutter_test`'s pending-timer
+  check runs before `addTearDown` callbacks fire, so a teardown-only settle
+  is too late and the test fails on a spurious pending-timer assertion.
+- **riverpod 3.4.2 API facts that cost a round each the first time:**
+  `Override` is exported from `package:flutter_riverpod/misc.dart`, not the
+  main library; `AsyncValue` has no `valueOrNull` (removed in riverpod 3;
+  read `.value` or pattern-match); a notifier's `onDispose` callback cannot
+  read `state` (riverpod 3 forbids it — mirror anything `onDispose` needs
+  into a plain field first); and `container.read(provider.future)` on an
+  autoDispose stream/async provider can hang forever if nothing is holding
+  a live listener on that provider — call `container.listen(provider, ...)`
+  (or have the harness do it) before awaiting `.future`.
+- **The SDK's `DeviceSession`/`CommandDispatcher` no longer `await
+  StreamSubscription.cancel()`.** That future never completes under a
+  `fakeAsync`/virtual clock, which hung several teardown paths during
+  Phase 4's widget tests. `chameleon_flutter` (Phase 3) still has `await
+  …cancel()` sites in `merged_scan`, `state_stream` and the DFU channels;
+  they have not bitten yet because no Phase 4 widget test drives them hard
+  enough, but they are a fix-wave candidate before a later phase's widget
+  tests reach them.
+- **Package versions pinned in Phase 4:** `flutter_riverpod` 3.4.2,
+  `riverpod_annotation` 4.0.6, `riverpod_generator` 4.0.8, `go_router`
+  18.0.1, `drift` 2.34.4, `drift_flutter` 0.3.1, `drift_dev` 2.34.6,
+  `wakelock_plus` 1.8.0, `freezed` 4.0.1, `json_serializable` 6.14.1,
+  `build_runner` 2.16.1.
+- **The three Drift data models (`KnownDevice`, `SavedCard`,
+  `KeyDictionary`) are plain final classes, not `freezed`.** The plan's
+  Interfaces block only lists `freezed` as a dev dependency for later
+  tasks; three small value types with no union variants did not need
+  freezed's generated equality/copyWith machinery. `@DataClassName`
+  (`KnownDeviceRow`, `SavedCardRow`, `KeyDictionaryRow`) is declared on the
+  Drift tables themselves so the generated row types never collide with
+  these model names.
+
+## Phase 5 decisions (2026-09-03)
+
+- **Tag-type product names are not localized.** `MIFARE Classic 1K`,
+  `NTAG215` and `EM410x` are the names printed on the parts. They live in an
+  exhaustive `switch` in `app/lib/features/slots/state/slot_labels.dart`;
+  only the empty placeholder and the two sense names go through ARB. Spec
+  7.6's rule is about copy, and twenty-four brand names in `app_en.arb`
+  would be noise no translator would touch.
+- **The picker's list of selectable types is derived, not typed.**
+  `selectableTypes(Sense)` filters `TagType.values` by `TagFamily`, so it
+  cannot name a type the SDK does not have. `iso14443_4` and `seos` are
+  excluded because the SDK has no emulator support for them (the whole
+  `CommandRange.iso14443_4` range answers NOT_IMPLEMENTED in `FakeFirmware`
+  and is absent from `FakeFirmwareConfig.defaultCapabilities`).
+- **`ToolSubPageScaffold` was promoted to `core/routing/SubPageScaffold`.**
+  Its own doc comment asked for this check before a third sub-route reused
+  it; a feature may not import another feature's internals (spec 8.4), so
+  `core/` was the only place it could go.
+- **`slotNicknameMaxBytes` is declared in the app.** The SDK's `maxNickBytes`
+  is internal to `packages/chameleon/lib/src`, and its check throws an
+  `ArgumentError` rather than a `ChameleonException`, so the app validates
+  before sending. Source: SET_SLOT_TAG_NICK (1007) `slot(1) sense(1)
+  utf8<=32` in `docs/research/chameleon-protocol.md`.
+- **The picker returns a wire index, not a display number.** Documented on
+  `showSlotPicker`, because the one thing Phase 6 and 7 can get silently
+  wrong is an off-by-one between the 0..7 the facade takes and the 1..8 the
+  device prints.
+- **`setActive` does not hold the wakelock.** In
+  `packages/chameleon/lib/src/session/facades/slots.dart`, `setEnabled`,
+  `rename`, `setTagType`, `resetToDefault`, `deleteSense` and `refresh` are
+  wrapped in `_s.busy` (so `sessionNeedsWakelock`, which polls `isBusy`,
+  holds the wakelock across them); `setActive` sends `SetActiveSlot` and
+  updates the cache with no `busy` wrapper. Spec 7.4 asks for the wakelock
+  during *long* operations and a single `SET_ACTIVE_SLOT` is not one, so
+  this needed no code change — only correcting the phase's internal
+  documentation, which had claimed "every mutation is wrapped in `busy`."
+  The accurate phrasing, used everywhere from here on, is "every mutation
+  that writes and saves."
+- **Test rulings that cost a round each the first time.** (1) An autoDispose
+  provider read with no listener held is torn down before its method runs —
+  `app/test/support/app_harness.dart`'s `keepAlive` (`container.listen(p,
+  (_, _) {})` plus `addTearDown(sub.close)`) must be called, and a few
+  frames pumped, before `readProvider`/`.notifier` reads on `slotsProvider`
+  or `slotEditorProvider(i)`; and it must run *before* anything `await`s
+  that provider's `.future`. (2) `FakeDevice` answers on a real `Timer`, not
+  a virtual clock, so `await`ing a `FakeDevice`-backed mutation before
+  pumping deadlocks the test — the pattern is start the future, `await
+  tester.pump()`, then `await` the future (`final f = editor.rename(...);
+  await tester.pump(); await f;`).
+- **`SlotEditor` ships `@visibleForTesting void debugFail(Object error)`.**
+  `Notifier.state`'s setter is `@visibleForTesting @protected` in riverpod
+  3.4.2, so assigning it from a test is `invalid_use_of_protected_member`, a
+  warning that fails `melos run analyze` (warnings are errors). The error
+  surface test injects a failure through this method instead.
+- **A rapid second mutation drops, it does not queue.** `SlotEditor`'s guard
+  compares an in-flight generation token and discards a call that arrives
+  while another is still running, rather than buffering it — proven by a
+  test asserting exactly one frame reaches the wire by command id (not by
+  list length: `DeviceSession`'s idle poll can add unrelated frames during a
+  multi-second pump, so filtering is required, not enough to count).
+- **Widget-test finders inside a sheet or dialog are scoped to it.**
+  `find.text('Clear')` and a bare `SpectraSlotTile` finder are ambiguous the
+  moment the same screen renders both a grid and a picker sheet, or a tile
+  and a confirmation dialog. The pattern is
+  `find.descendant(of: find.byType(SpectraBottomSheet), matching:
+  find.byType(SpectraSlotTile))` (or `SpectraDialog`), never index
+  arithmetic over an unscoped `findsNWidgets`.
+- **`app_en.arb` is a single-writer resource for the duration of a phase.**
+  Eight of Phase 5's twelve tasks appended ARB keys and regenerated
+  `app_localizations*.dart`; only tasks that add no copy (verified against
+  the task's own file list, not assumed) may run concurrently with an
+  ARB-writing task. Same rule as Phase 4's ruling 18, carried forward.
+
+## Phase 6 decisions (2026-09-03)
+
+- **`SavedCard.tagType` stores `TagType.name`.** The column is a string
+  because the data layer stores columns, not enums;
+  `features/cards/state/card_codec.dart` is the single place that string
+  becomes a `TagType` again, so a rename in the SDK is one edit.
+- **Import is paste-JSON in v1.** A native file dialog means `file_selector`
+  or `file_picker` plus per-platform setup on five targets and an amendment
+  to spec section 2's dependency table. Pasting (plus a clipboard export)
+  works everywhere today and is fully testable. Phase 9's export work
+  revisits it.
+- **The reference app's JSON reader is deliberately permissive.**
+  `docs/research/reference-gui.md` records that the app exports cards as
+  JSON with folders and colours but not the field-level shape. The reader
+  accepts a bare object, a list, or an object with a `cards` list; tolerates
+  spaces and colons in hex; and matches tag names case-insensitively against
+  both the reference spellings and `TagType.name`. Only the format is
+  matched — the app is GPL-3.0 and none of its code is used. Verifying
+  against a real export is an H3 item.
+- **Spectra's own export is `schemaVersion: 1`**, with the dump as one hex
+  string per card so the file stays diffable.
+- **The default MIFARE key list is a constant, not a dictionary.** Phase 9
+  replaces `defaultMifareKeys()` with `DictionariesRepository`; the facade
+  already takes keys as a parameter, so it is a one-line change at the call
+  site. `state/default_keys.dart` cites its source: public MIFARE Classic
+  dictionaries (mfoc/libnfc/Proxmark3 community lists), not the GPL
+  reference app.
+- **The emulated device carries demo cards.** `transportFactoryProvider` now
+  returns `emulatorAwareTransport`, which scripts the fake's reader for
+  `TransportKind.fake` and leaves every real transport untouched. Without it
+  the Read screen could only ever say "no card found" in emulator mode,
+  which spec 7.5 forbids.
+- **Ultralight cards can be stored, viewed, edited and imported, but not
+  read off a card**, because `ReaderFacade` has no Ultralight read
+  operation. This is an SDK gap, recorded here so Phase 7 does not assume
+  otherwise.
+- **`CardReader`'s progress fraction is sectors; `cardsReadPartial`'s count
+  is blocks.** `ReaderFacade.mf1ReadDump`'s `onProgress(done, total)`
+  reports sectors (16 for a 1K); `readChunks`/`totalChunks` and the ARB
+  sentence are blocks (64). Both are correct for what they measure —
+  `ReadState.progress`'s doc comment says which, so a later reader does not
+  assume they agree.
+- **`mf1ReadDump`'s `readMask` is not surfaced to the UI.** The read screen
+  shows a card as complete or partial from the sector/block counts alone;
+  the bitmask of which specific sectors failed is tracked internally but not
+  rendered. Recorded here rather than left for a review to raise as new.
+- **Non-import failures in the importer surface through the shared
+  `ProblemView`, not `cardsImportNotJson`.** A repository failure during
+  `importJson` (a database error, for instance) is not a parse failure and
+  saying so would send the user to fix the wrong thing; `ProblemView`
+  already has the right words for a storage error and puts the raw line one
+  tap away.
+- **`CardEditor` carries a `busy` field instead of using
+  `copyWithPrevious`.** Riverpod 3.4.2 marks `AsyncNotifier`'s
+  `copyWithPrevious` `@internal`, so a feature notifier cannot call it
+  without a warning that fails `melos run analyze`. A plain `bool busy` on
+  the state, set around the mutating call, gets the same "keep showing the
+  last good value while a write is in flight" behavior without touching
+  internal API.
+- **Spec 8.5's one-public-type-per-file rule is knowingly relaxed for four
+  files:** `card_codec.dart` (7 functions), `card_import.dart` (5 types),
+  `saved_cards_provider.dart` (4 types) and `card_detail_page.dart` (after
+  the read/edit/import tasks landed on it in sequence). Each set is one
+  cohesive concern — splitting would add files without adding clarity.
+  Accepted and recorded here so a reviewer does not raise it as new.
+
+## Phase 7 (write and emulate)
+
+- **Five of the six LF families `EmulatorFacade._lfIdCommands` can set are
+  `unsupported` for load-to-slot, not just em410x.** The facade can write an
+  id for em410x, hidProx, viking, pac, jablotron and idteck alike, but
+  `slotLoadMethodFor` (`app/lib/features/cards/state/write_target.dart`)
+  returns `SlotLoadMethod.unsupported` for all but em410x. This is not a gap
+  in the emulator support — it is that the Read screen has no reader path
+  for the other five: `ReaderFacade` only ever produces an EM410x LF dump,
+  so a saved card can never actually carry a hidProx/viking/pac/jablotron/
+  idteck payload to load in the first place. Widening this is an SDK/reader
+  change (a new scan method per family), not a `write_target.dart` change,
+  and is out of v1 scope (Phase 7 ruling 11).
+- **`unreadSectors` checks key A alone, not the whole trailer.** A block of
+  sixteen zero bytes was the first predicate tried and it is wrong: a real
+  card never returns its keys, so `ReaderFacade.mf1ReadDump`'s own dump
+  always carries key A zeroed while key B and the access bits are the real
+  recovered values. Checking only key A's six bytes catches both that shape
+  and a never-authenticated sector's fully-zeroed trailer, and is shared by
+  `SlotLoader.load` and `CardWriter.write` as one function in
+  `write_target.dart` rather than duplicated (ruling 27).
+- **The T55xx old-key list includes the new key Spectra itself writes.**
+  `em410xWriteToT55xx`'s `newKey` becomes the card's password after a
+  successful write; `defaultT55xxOldKeyHex` lists it alongside the two
+  widely published T5577 defaults so a second write to a card Spectra
+  already touched does not lock itself out (ruling 28).
+- **Cancelling a write is a named terminal state, not a `ProblemView`
+  error.** `ErrorCatalog` has no words for "the user tapped Cancel" short of
+  its unexpected-error fallback, and a write that damages a card deserves
+  better than that. `CardWriteState` carries its own cancelled state and
+  ARB sentence ("stopped; amount unknown") instead, and the written/
+  attempted counts are discarded on cancel rather than reported as if they
+  were final — a write stopped mid-block leaves the true count genuinely
+  unknowable (ruling 3).
+- **`ProblemView` hides its action for `ErrorRecovery.none` in one shared
+  place.** Before this phase it rendered a generic "Try again" button for
+  every error, including ones the catalog marks as having no recovery
+  action — a dead tap. Fixed once in `core/errors/problem_view.dart` rather
+  than per sheet (ruling 29).
+- **Both write sheets block dismissal while busy.** `PopScope(canPop:
+  !state.busy)` on the load-to-slot and write-to-card sheets: a user cannot
+  swipe or tap away from a write in progress, only let it finish or press
+  Cancel. Intended friction — losing track of an in-flight card write is
+  worse than a sheet the user cannot immediately back out of (ruling 30).
+- **A block write the device refuses outright bails the whole dump.**
+  `mf1WriteDump`'s per-block loop rethrows on `NotImplemented` (no
+  MF1_WRITE_ONE_BLOCK at all, as on a Lite) or `InvalidCommand` (the
+  command missing from this device's advertised capabilities) rather than
+  reporting a per-block failure and continuing — every remaining block
+  would fail identically, so this stops spending round trips proving that
+  again 62 more times. A card that simply refuses one block for its own
+  reasons (wrong key, access bits) is unaffected: that is a normal partial
+  write.
+- **`FakeDevice`'s EM410X_WRITE_TO_T55XX handler is a guess, documented as
+  one.** It ignores `oldKeys` outright and answers `LF_TAG_NO_FOUND` for a
+  field holding a non-EM410x card — both are plausible firmware behaviour,
+  neither is verified against a real T55xx blank. Marked
+  `hardware-validate` in the SDK doc comment and carried to checklist H3
+  rather than treated as ground truth (ruling 21).
+
+## Phase 8 (firmware update)
+
+- **Firmware packages are local-zip only in v1; the release feed moves to
+  Phase 10.** Spec 7.7 step 6 lists "release feed check, download or local
+  zip" as one step. Phase 8 ships only the local path: the user pastes or
+  types the path of an nrfutil `.zip` (`ultra-dfu-app.zip`,
+  `lite-dfu-app.zip`, `*-dfu-full.zip`), and the update screen names the
+  official releases URL as plain text so they know where to get one — no
+  in-app fetch. Three reasons:
+  1. The app has no HTTP dependency and no network/telemetry policy yet;
+     spec 2's dependency table does not list one, and adding one is a
+     release-phase decision (signing, update channels).
+  2. Spec 5.6's recovery guarantee is about completing an update from a
+     desktop over USB with a package already in hand — a feed cannot be a
+     prerequisite for that.
+  3. Hardware handoff H2 is run against a real release zip the user
+     downloads by hand anyway, so the local path is exercised regardless.
+
+  The release feed and in-app download are Phase 10 (release) work,
+  alongside signing and update channels (ruling 10-2; this also corrects
+  the Phase 8 row of the roadmap, which had listed a release feed as a
+  Phase 8 deliverable).
+- **`GetSerialMTU` negotiation closes the Phase 3 gap.** Phase 3 parked
+  serial DFU at a conservative fixed `maxDataWrite` because `SecureDfu` had
+  no MTU query. Phase 8 adds `DfuOp.getSerialMtu` (opcode `0x07`) and
+  `DfuSerialMtu` (`packages/chameleon/lib/src/dfu/serial_mtu.dart`):
+  `SlipSerialDfuChannel.open()` sends the bare opcode, reads a
+  little-endian uint16 MTU back, and sizes its chunk as `(mtu - 1) // 2 - 1`
+  — halved because SLIP escaping can double a payload, so a worst-case
+  frame still fits the bootloader's buffer. Layout and arithmetic are taken
+  from nrfutil's `dfu_transport_serial.py` (`DfuTransportSerial.open` /
+  `__get_mtu`). A bootloader that does not implement the opcode (the BLE
+  one) answers "opcode not supported", which `DfuSerialMtu.parse` treats as
+  a normal, non-error outcome, not a failure. The real bootloader's
+  reported MTU and resulting chunk size are unverified — checklist H2.
+- **A flash in flight outranks connection state for routing.**
+  `dfuActivityProvider` (`app/lib/core/dfu/dfu_runtime.dart`) is a bare
+  `bool` set for the duration of a run; `redirectFor` in
+  `app/lib/core/routing/redirect.dart` takes an `updating` parameter that,
+  when true, pins navigation to `AppRoutes.update` before the connection-
+  state switch ever runs. This is deliberate: the recovery path (spec 5.6)
+  has no session at all — nothing is connected, the device sits in its
+  bootloader — so the ordinary "no session -> connect screen" redirect
+  would otherwise throw the user off the one screen that can finish the
+  flash. `RouterRefresh` listens to `dfuActivityProvider` the same way it
+  listens to connection state, so a flash starting or finishing triggers a
+  re-evaluation immediately.
+
+## Phase 9 (dictionaries and settings)
+
+- **No `file_selector`.** Spec 7.3's import/export is paste-in and copy-out
+  for dictionaries, same as it already is for cards (Phase 6). Adding a
+  native file dialog would mean a new dependency, per-platform setup on
+  five targets and a spec section 2 amendment. Revisit in Phase 10 if the
+  release checklist wants real file round-trips.
+- **The built-in key list is synthesized, not seeded.**
+  `dictionariesProvider` puts it in front of the stored rows on every read
+  rather than writing it into the database once, so "read-only" is
+  structural (there is no row to mutate or delete) and its display name
+  goes through ARB like everything else.
+- **`hex.dart` moved to `core/format/`.** The Phase 6 ruling 17 pattern
+  (promote a helper both `cards` and a new feature need, rather than let
+  the new feature depend on `cards`'s internals) applied a second time: the
+  dictionary codec and cards both parse and format hex, so the one copy now
+  lives in `core/format/hex.dart` and `features/cards` imports it instead
+  of owning it.
+- **`dfuOverBleEnabled` gets a developer switch in Settings.** Spec 5.6 has
+  the user flip the flag on after reporting H2 passed; before Phase 9,
+  `FeatureFlagsController.setDfuOverBleEnabled` had no caller anywhere in
+  the app. The switch lives under a "Developer" section on the app-settings
+  screen, off by default, unchanged by Phase 9.
+- **Spec 8.5 relaxed for two files.** `dictionary_codec.dart` (parsing three
+  on-disk shapes plus the built-in list in one place beats splitting a
+  format reader across files) and `dictionary_detail_page.dart` (rename,
+  key add/remove, import and export together on one screen) — the Phase 6
+  ruling 17 precedent for when one file legitimately outgrows the general
+  size guidance.
+- **The dictionary format assumptions are unverified against a real
+  reference-app export.** As with Phase 6's card importer, the field names
+  the `.dic`/JSON reader accepts are taken from documented shapes, not a
+  file exported by the real GUI. The reader is deliberately permissive
+  rather than strict, and the gap is tracked as a hardware-checklist H3
+  item below rather than assumed correct.
+- **The write path now reads the selected dictionary.** Phase 7's final
+  review (carried-over finding M5) had left
+  `write_card_controller.dart:245` calling `defaultMifareKeys()` directly
+  while the read path already went through
+  `candidateMifareKeysProvider` — half of spec 8.1's "one seam for
+  candidate keys" applied. Phase 9 closed it: both reads and writes now
+  read the same provider, which resolves to the selected dictionary's keys
+  or the built-in list if none is selected.
+- **A whole-phase review found four defects, fixed in one wave.** Success
+  snackbars were shown even when a settings save failed; a dictionary
+  import's parse error poisoned the list screen's provider state instead of
+  staying local to the import sheet; the BLE pairing key field wrote to the
+  device on every keystroke instead of committing on submit (the same
+  per-keystroke-write hazard as Phase 5's slot nickname field, this time
+  hitting a real device write rather than a local validator); and a field
+  was not re-seeded after a settings reset. All four are fixed on the same
+  commits that landed the phase.
+
+## Phase 10 decisions (2026-09-03)
+
+- **Signing degrades in the script, not in the workflow.** GitHub's `secrets`
+  context is awkward to test in a step `if:`, and gating there would mean a
+  fork's release run produces a *different* file list from the maintainer's.
+  Each packaging script reads the secret from its environment and picks
+  signed or ad-hoc itself, printing which. The artifact always exists.
+- **`release.yml` calls `ci.yml` rather than restating it.** A second copy of
+  the `check` job would drift. `workflow_call` was added to `ci.yml` and
+  nothing else changed; under it the `integration` job's
+  `if: github.event_name != 'pull_request'` sees the caller's event, so the
+  release inherits the macOS emulator-mode integration run for free.
+- **Apple builds get the version core.** `CFBundleShortVersionString` must be
+  three dotted numbers, so `ReleaseVersion.appleBuildName` strips the
+  pre-release. Everything else builds `1.0.0-rc.1`.
+- **No `.deb`.** Spec 10 asks for an AppImage; the extra tarball covers the
+  "give me the files" case, and a `.deb` would need a maintained dependency
+  list nobody is going to keep current.
+- **The `.ipa` is unsigned.** Spec 10 defers the mobile stores; without a
+  team id every committed `ExportOptions.plist` would be a placeholder.
+- **The LICENSE TODO warns, never fails.** Choosing a licence is the user's
+  call (AGENTS.md); a release can be rehearsed and an RC cut before it is
+  made, and `docs/RELEASING.md` blocks a public v1.0.0 on it.
+- **A release candidate gets no changelog entry.** `v1.0.0-rc.1` is checked
+  against the `1.0.0` entry, so an RC cannot be cut for a release that has
+  not been written up.
+- **GitHub runner images drift.** The CI `ubuntu-latest` runner's Inno
+  Setup and `libfuse2` availability shifted under the workflow between
+  Task 5 and Task 9 landing; `release.yml` now pins both explicitly
+  (`choco install innosetup` when `ISCC` is absent, `apt-get install
+  libfuse2` before running `appimagetool`) rather than assuming the image
+  still carries them.
+- **A platform-bound end-to-end test must check its own platform first.**
+  The macOS `.dmg` packaging test called `hdiutil` unconditionally and
+  failed with exit 127 on the Linux CI runner; fixed by skipping it unless
+  `Platform.isMacOS`, matching the pattern the Windows and Linux packaging
+  tests already used.
+
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).
+
+### Ruling 10-7: integration twins are a canary, not the release gate
+
+`release.yml` calls `ci.yml` with `integration: false`. The macOS integration
+job stays on `main` pushes and manual dispatch. Two release runs hung in that
+job because a leftover app instance from the previous file made macOS activate
+it instead of launching a new one; `ci.yml` now runs one `flutter test` per
+file and kills stray `spectra` processes, but the cards twin still hangs on
+the real engine and is a morning item. Cost if wrong: an integration-only
+regression reaches an RC; the widget flows remain the enforced gates.

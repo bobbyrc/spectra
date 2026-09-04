@@ -1,0 +1,75 @@
+name: spectra_workspace
+description: Workspace root for Spectra. Not published.
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - packages/chameleon
+  - packages/chameleon_flutter
+  - packages/chameleon_flutter/example
+  - packages/spectra_ui
+  - packages/spectra_ui/example
+  - app
+
+dev_dependencies:
+  lints: ^6.0.0
+  melos: ^8.0.0
+  test: ^1.25.0
+
+# usb_serial 0.5.2's android/build.gradle is incompatible with our Gradle
+# 9.3.1 wrapper (jcenter() was removed) and, separately, with Flutter's
+# AGP-9-compatibility Kotlin-plugin injection (it never applies
+# kotlin-android itself). No maintained fork fixes both. See
+# docs/research/DECISIONS.md, Phase 3, and third_party/usb_serial/android/
+# build.gradle for the patch.
+dependency_overrides:
+  usb_serial:
+    path: third_party/usb_serial
+
+melos:
+  scripts:
+    analyze:
+      run: dart analyze --fatal-infos packages app tool test
+      description: Analyze every package.
+    format:
+      run: dart format --set-exit-if-changed packages app tool test
+      description: Fail if any file is not formatted.
+    test:dart:
+      run: melos exec --fail-fast -- dart test
+      packageFilters:
+        flutter: false
+        dirExists: test
+    test:flutter:
+      run: melos exec --fail-fast -- flutter test
+      packageFilters:
+        flutter: true
+        dirExists: test
+    goldens:update:
+      run: melos exec --scope=spectra_ui -- flutter test --update-goldens
+      description: >-
+        Regenerate spectra_ui's goldens locally. Only for eyeballing: the
+        committed CI goldens must come from Linux, see goldens:update-ci.
+    goldens:update-ci:
+      run: >-
+        echo 'CI goldens are generated on Linux; run, with BRANCH set:' &&
+        echo '  gh workflow run goldens.yml --ref "$BRANCH"' &&
+        echo '  gh run list --workflow goldens.yml --branch "$BRANCH" --limit 1' &&
+        echo '  gh run download <run-id> -n goldens-ci -D /tmp/goldens-ci' &&
+        echo '  cp /tmp/goldens-ci/*.png packages/spectra_ui/test/components/goldens/ci/'
+      description: Print how to refresh the committed CI goldens from Linux.
+    lint:deps:
+      run: dart run tool/dep_lint.dart
+    test:root:
+      run: dart test
+      description: Run the workspace root's own tests (tool/ dep lint tests).
+    check:codegen:
+      run: bash tool/check_codegen.sh
+    check:release:
+      run: dart run tool/check_release.dart --tag "${RELEASE_TAG:-v1.0.0-rc.1}"
+      description: >-
+        Release preflight: the tag must agree with app/pubspec.yaml and
+        CHANGELOG.md. A LICENSE TODO warns but never fails.
+    check:all:
+      run: melos run format && melos run analyze && melos run lint:deps && melos run test:root && melos run check:codegen && melos run test:dart && melos run test:flutter

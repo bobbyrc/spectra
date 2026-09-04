@@ -1,0 +1,16 @@
+.dart_tool/
+build/
+*.iml
+.idea/
+.vscode/
+coverage/
+.flutter-plugins-dependencies
+**/ios/Pods/
+**/macos/Pods/
+pubspec.lock
+!/pubspec.lock
+
+# Release signing material (Phase 10). Never commit a keystore.
+app/android/key.properties
+*.jks
+*.keystore

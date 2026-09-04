@@ -1,0 +1,65 @@
+group 'dev.bessems.usbserial'
+version '1.0'
+
+// Patched for Spectra (see docs/research/DECISIONS.md, Phase 3): upstream
+// (github.com/altera2015/usbserial, last released 2024-07-12) still uses
+// `jcenter()`, a repository shorthand Gradle removed outright, and never
+// applies the Kotlin Gradle plugin itself. That second gap made Flutter's
+// AGP-9-compatibility shim try to apply `kotlin-android` to this project
+// on its own, before this project's own `com.android.library` application
+// had taken effect, at which point AGP is not there yet. Fixed here by
+// swapping to mavenCentral() and applying `kotlin-android` explicitly,
+// right after `com.android.library`, in the order Flutter never needed to
+// second-guess.
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.11.1'
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://jitpack.io" }
+    }
+
+    gradle.projectsEvaluated {
+        tasks.withType(JavaCompile) {
+            options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+        }
+    }
+
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    compileSdkVersion 36
+
+    namespace 'dev.bessems.usbserial'
+
+    defaultConfig {
+        minSdkVersion 21
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    lintOptions {
+        disable 'InvalidPackage'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+}
+
+dependencies {
+    implementation 'com.github.felHR85:UsbSerial:6.1.0'
+}
+

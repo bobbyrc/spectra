@@ -60,9 +60,9 @@ forbidden import.
 
 | Package | May depend on | Must not depend on |
 |---|---|---|
-| chameleon | Dart SDK, meta, collection, freezed, archive (zip reading) | flutter, any plugin |
+| chameleon | Dart SDK, meta, collection, freezed, archive (zip reading), crypto (DFU init-packet hash) | flutter, any plugin |
 | chameleon_flutter | chameleon, flutter, universal_ble, libserialport_plus, usb_serial | spectra_ui, app |
-| spectra_ui | flutter, material_ui, google_fonts, flutter_animate, flutter_localizations | chameleon, chameleon_flutter |
+| spectra_ui | flutter, material_ui, google_fonts, flutter_animate, flutter_localizations, intl | chameleon, chameleon_flutter |
 | app | all three packages, riverpod, go_router, drift, flutter_localizations, wakelock_plus | nothing further restricted |
 
 Consequences:
@@ -164,13 +164,21 @@ abstract class Transport {
   Future<void> close();
   Stream<Uint8List> get incoming;
   Future<void> write(Uint8List bytes);
-  Stream<TransportState> get state; // opening, open, closed(cause), pairingRequired
+  int get maxWriteLength;
+  // opening, open, closed(cause), pairingRequired, permissionDenied, adapterOff
+  Stream<TransportState> get state;
 }
 ```
 
 Transports move bytes only and know nothing about frames. `closed(cause)`
 carries whether the close was requested, expected (bootloader reboot) or
-unexpected (cable pulled, link lost).
+unexpected (cable pulled, link lost). `permissionDenied` and `adapterOff`
+join `pairingRequired` as states that are not closes but still mean the link
+will carry nothing, so the app can show the permission or "turn Bluetooth on"
+step (spec 5.1) rather than a connection error; the session maps all three to
+`SessionDisconnected(unexpected)` carrying the matching typed error.
+`maxWriteLength` is informational — the dispatcher never chunks, because
+every request fits in one frame.
 
 ### 4.2 Discovery and identity
 
@@ -377,11 +385,13 @@ behavior. Those are covered by a hardware checklist that is a release gate
 Built on the `material_ui` 1.0 package. The in-SDK Material library is slated
 for deprecation, so starting on it would mean a migration within the year.
 `spectra_ui` wraps `material_ui` components and exposes its own `SpectraTheme`
-inherited widget. Any dependency that needs an in-SDK `ThemeData` (go_router
-page transitions, alchemist) gets it from one bridge file that derives it from
-the tokens. The enforced rule is a lint against `package:flutter/material.dart`
-imports under `app/lib/features`. An early spike confirms material_ui
-coexists with go_router and alchemist before the kit is built out.
+inherited widget. No bridge to an in-SDK `ThemeData` is written: Spike B
+(`docs/research/spikes.md`) found go_router already depends on `material_ui`
+and alchemist needs no `ThemeData` from us, and `material_ui` ships
+`MaterialUiCompatibilityBridge` should some later dependency need one. The
+enforced rule is a lint against `package:flutter/material.dart` imports under
+`app/lib/features`. Spike B confirmed material_ui 1.1.1 coexists with go_router
+and alchemist before the kit is built out.
 
 ### 6.1 Tokens
 

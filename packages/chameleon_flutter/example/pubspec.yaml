@@ -1,0 +1,25 @@
+name: serial_probe
+description: "Exercises the Spectra transports, scanners and a DeviceSession."
+publish_to: none
+resolution: workspace
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  chameleon: ^0.1.0
+  chameleon_flutter: ^0.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

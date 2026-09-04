@@ -1,0 +1,62 @@
+{
+  "@@locale": "en",
+  "disclosureShow": "Show details",
+  "@disclosureShow": {"description": "Expands a disclosure to its expert detail."},
+  "disclosureHide": "Hide details",
+  "@disclosureHide": {"description": "Collapses a disclosure back to its summary."},
+  "hexViewerOffsetHeader": "Offset",
+  "@hexViewerOffsetHeader": {"description": "Column header above the byte offsets."},
+  "hexViewerAsciiHeader": "ASCII",
+  "@hexViewerAsciiHeader": {"description": "Column header above the ASCII gutter."},
+  "hexViewerEmpty": "No data",
+  "@hexViewerEmpty": {"description": "Shown when a hex viewer is given zero bytes."},
+  "hexViewerSummary": "{count} bytes",
+  "@hexViewerSummary": {
+    "description": "Semantics summary announced for the whole hex viewer.",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "slotTileEmpty": "Empty",
+  "@slotTileEmpty": {"description": "A slot with no tag configured."},
+  "slotTileDisabled": "Disabled",
+  "@slotTileDisabled": {"description": "A slot that exists but is switched off."},
+  "slotTileActive": "Active",
+  "@slotTileActive": {"description": "The slot the device is currently emulating."},
+  "slotLabel": "Slot {number}",
+  "@slotLabel": {
+    "description": "Names a slot by its one-based number.",
+    "placeholders": {"number": {"type": "int"}}
+  },
+  "statusConnected": "Connected",
+  "@statusConnected": {"description": "Connection status chip label."},
+  "statusConnecting": "Connecting",
+  "@statusConnecting": {"description": "Connection status chip label."},
+  "statusDisconnected": "Disconnected",
+  "@statusDisconnected": {"description": "Connection status chip label."},
+  "statusLimited": "Limited",
+  "@statusLimited": {"description": "Connected but only firmware update is possible."},
+  "statusUpdating": "Updating",
+  "@statusUpdating": {"description": "A firmware update is in progress."},
+  "batteryLevel": "{percent}%",
+  "@batteryLevel": {
+    "description": "Battery charge as a percentage.",
+    "placeholders": {"percent": {"type": "int"}}
+  },
+  "batteryCharging": "{percent}% charging",
+  "@batteryCharging": {
+    "description": "Battery charge while on external power.",
+    "placeholders": {"percent": {"type": "int"}}
+  },
+  "stepProgress": "Step {current} of {total}",
+  "@stepProgress": {
+    "description": "Position within a multi-step operation.",
+    "placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}
+  },
+  "cancel": "Cancel",
+  "@cancel": {"description": "Cancels a dialog, sheet or long operation."},
+  "confirm": "OK",
+  "@confirm": {"description": "Confirms a dialog."},
+  "close": "Close",
+  "@close": {"description": "Closes a bottom sheet."},
+  "requiredField": "Required",
+  "@requiredField": {"description": "Default error text on an empty required input."}
+}

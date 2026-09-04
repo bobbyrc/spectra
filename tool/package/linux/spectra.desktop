@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Spectra
+GenericName=Chameleon Ultra companion
+Comment=Manage and interact with a Chameleon Ultra
+Exec=spectra
+Icon=dev.spectra.spectra
+Terminal=false
+Categories=Utility;Development;
+Keywords=chameleon;nfc;rfid;
