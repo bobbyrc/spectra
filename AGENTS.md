@@ -305,6 +305,19 @@ the `dfuOverBleEnabled` flag until the user reports the checks passed.
   (`hdiutil` does not exist off macOS). Fixed by skipping that test unless
   `Platform.isMacOS`, same as every other platform-bound packaging test.
 
+- Ruling 10-7: the macOS integration twins are the post-merge canary they
+  were designed as, not the release gate. `release.yml` calls `ci.yml` with
+  `integration: false`. Reason: on a macOS runner a second app launch after a
+  finished integration file activates the still-running instance and the
+  tool waits forever for a debug connection (release runs 33820681831 and
+  33821959493); `ci.yml` now runs one `flutter test` per file and kills stray
+  `spectra` processes between files, but `app/integration_test/
+  cards_flow_test.dart` also hangs on the real engine locally with no stale
+  instance present (an hour, no output). Morning item: run
+  `cd app && flutter test integration_test/cards_flow_test.dart -d macos`
+  and look at where it stalls — it reads a card through the emulator, so a
+  hang there could reach users on a real device.
+
 ## Decisions made overnight (2026-09-03, Phase 8)
 
 - Ruling 8-1: `archive` and `crypto` are added to `chameleon_flutter`'s

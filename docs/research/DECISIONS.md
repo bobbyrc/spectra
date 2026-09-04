@@ -841,3 +841,13 @@ dump formats and DFU. Rulings taken while executing
 
 ## Session note
 Fable 5.1 cyber safeguard has false-positive flagged this project twice (RFID vocabulary). Feedback sent (receipt f08bcc8c-cbd4-4a35-a145-5614eb553f92).
+
+### Ruling 10-7: integration twins are a canary, not the release gate
+
+`release.yml` calls `ci.yml` with `integration: false`. The macOS integration
+job stays on `main` pushes and manual dispatch. Two release runs hung in that
+job because a leftover app instance from the previous file made macOS activate
+it instead of launching a new one; `ci.yml` now runs one `flutter test` per
+file and kills stray `spectra` processes, but the cards twin still hangs on
+the real engine and is a morning item. Cost if wrong: an integration-only
+regression reaches an RC; the widget flows remain the enforced gates.

@@ -7,8 +7,14 @@ on:
     branches: [main]
   workflow_dispatch:
   # release.yml calls this workflow so a release never packages a tree that
-  # would fail CI, and so the release inherits the macOS integration job.
+  # would fail CI. The macOS integration twins are a post-merge canary, not
+  # the release gate (ruling 10-7): the caller opts out of them.
   workflow_call:
+    inputs:
+      integration:
+        description: Run the macOS integration job.
+        type: boolean
+        default: true
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -45,7 +51,7 @@ jobs:
 
   integration:
     needs: check
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && inputs.integration != false
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -57,15 +63,19 @@ jobs:
           cache: true
       - run: flutter pub get
       # The phase gates on a real engine, in emulator mode: no hardware.
-      # One `flutter test` per file: on macOS a second app launch in the same
-      # invocation fails with "Error waiting for a debug connection" once the
-      # first file has run (release run 33820681831).
+      # One `flutter test` per file, and any app process left behind by the
+      # previous file is killed first: macOS activates an already-running
+      # instance of the same bundle instead of launching a new one, so the
+      # tool then waits forever for a debug connection (release runs
+      # 33820681831 and 33821959493).
       - run: |
           set -euo pipefail
           for f in integration_test/*_test.dart; do
             echo "== $f"
+            pkill -x spectra || true
             flutter test "$f" -d macos --timeout 300s
           done
+          pkill -x spectra || true
         working-directory: app
 
   build:
