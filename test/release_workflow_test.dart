@@ -41,7 +41,7 @@ void main() {
         expect(ci, contains('  $job'), reason: 'lost the $job job');
       }
       expect(ci, contains("if: github.event_name != 'pull_request'"));
-      expect(ci, contains('flutter test integration_test -d macos'));
+      expect(ci, contains(r'flutter test "$f" -d macos'));
     });
   });
 
